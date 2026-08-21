@@ -1,6 +1,7 @@
 package MotorHousing {
-    import ISQ::*;
-    import SI::*;
+    private import ScalarValues::*;
+    private import ISQ::*;
+    private import SI::*;
 
     part def Housing {
         attribute length : LengthValue;

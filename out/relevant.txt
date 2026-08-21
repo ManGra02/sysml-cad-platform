@@ -1,0 +1,272 @@
+### FeatureReferenceExpression 
+{
+ "@type": "FeatureReferenceExpression",
+ "@id": "1445b3c8-7749-41c4-9b78-074039a5d19b",
+ "isUnique": true,
+ "ownedRelationship": [
+  {
+   "@id": "132967b5-0c58-45f8-847f-3f530d6d1922"
+  },
+  {
+   "@id": "1425d797-b203-44af-89de-4de5e879fe9c"
+  }
+ ],
+ "owner": {
+  "@id": "a5cacc27-faa8-4f0b-bfe7-b8540761e47f"
+ },
+ "owningRelationship": {
+  "@id": "76d46c8d-b735-4efc-9d19-548e343f9f5e"
+ }
+}
+
+### FeatureReferenceExpression 
+{
+ "@type": "FeatureReferenceExpression",
+ "@id": "1963898e-998d-407f-94de-53290ca96862",
+ "isUnique": true,
+ "ownedRelationship": [
+  {
+   "@id": "c32ac763-5c96-41de-891a-9c4b575aa58e"
+  },
+  {
+   "@id": "809ab784-0ad8-4e60-aa09-108ec1a17093"
+  }
+ ],
+ "owner": {
+  "@id": "a39cbfd1-1284-4cc2-b8f8-fc89a5c1c762"
+ },
+ "owningRelationship": {
+  "@id": "9259126f-d17c-4c24-b9bb-5fd3ba53dc72"
+ }
+}
+
+### LiteralRational 
+{
+ "@type": "LiteralRational",
+ "@id": "22b40af9-755c-46d6-afc6-52c20c503339",
+ "isUnique": true,
+ "owner": {
+  "@id": "fab1f0a5-6708-4863-8e83-f187fc63b445"
+ },
+ "owningRelationship": {
+  "@id": "87d3610c-10b7-4409-ad78-f5f8857f13f1"
+ },
+ "value": 0.9
+}
+
+### FeatureReferenceExpression 
+{
+ "@type": "FeatureReferenceExpression",
+ "@id": "2bc14d09-f0db-4730-adc9-12e2ff111450",
+ "isUnique": true,
+ "ownedRelationship": [
+  {
+   "@id": "80f92c7e-e7ed-434d-aa46-eebe8951c63b"
+  },
+  {
+   "@id": "7f38de14-56e3-47a1-8e9c-44de22fe4b4e"
+  }
+ ],
+ "owner": {
+  "@id": "c942c3d4-29bd-4588-aa0d-9fbfa5ce5447"
+ },
+ "owningRelationship": {
+  "@id": "fb82b54f-416b-488a-8e7a-7a6032cffb24"
+ }
+}
+
+### LiteralInteger 
+{
+ "@type": "LiteralInteger",
+ "@id": "45f0f5f2-3745-4dd0-960c-984e65353470",
+ "isUnique": true,
+ "owner": {
+  "@id": "426aaf60-22c6-4505-8312-2bb8049dd706"
+ },
+ "owningRelationship": {
+  "@id": "a2652343-5fb3-4119-ae0c-382340fbcb58"
+ },
+ "value": 120
+}
+
+### ConstraintUsage 
+{
+ "@type": "ConstraintUsage",
+ "@id": "5bd5e900-5aec-4b88-9074-3eddb0350073",
+ "isComposite": true,
+ "isUnique": true,
+ "isVariable": true,
+ "ownedRelationship": [
+  {
+   "@id": "93ab4c9d-0ad8-4420-a57a-9d56d71b1ac2"
+  }
+ ],
+ "owner": {
+  "@id": "1d9b4431-b3b9-4de3-b988-4755a57f244e"
+ },
+ "owningRelationship": {
+  "@id": "112e8097-e12e-427c-804f-cf281204b0d4"
+ }
+}
+
+### ConstraintUsage 
+{
+ "@type": "ConstraintUsage",
+ "@id": "894a8385-2199-443e-aa1e-3073f823f92b",
+ "isComposite": true,
+ "isUnique": true,
+ "isVariable": true,
+ "ownedRelationship": [
+  {
+   "@id": "7277fb94-85f5-467f-a61b-3e116b8c745d"
+  }
+ ],
+ "owner": {
+  "@id": "72f3b6a1-22aa-4238-bb67-2b8e137a29f2"
+ },
+ "owningRelationship": {
+  "@id": "2e0dcb2e-d6de-4823-b494-462baa76dcc1"
+ }
+}
+
+### FeatureReferenceExpression 
+{
+ "@type": "FeatureReferenceExpression",
+ "@id": "96f6b75d-213d-4837-83fa-9071bdd7de13",
+ "isUnique": true,
+ "ownedRelationship": [
+  {
+   "@id": "8c0ffc48-2b0a-4ac3-a264-3dfb60cbcf8d"
+  },
+  {
+   "@id": "f75b8e6a-d8b0-4515-80b4-2cd73c2b478a"
+  }
+ ],
+ "owner": {
+  "@id": "cdc0effa-c04c-46d1-a195-54db6b8caf18"
+ },
+ "owningRelationship": {
+  "@id": "eb900594-3fae-491c-acf1-c56d61709484"
+ }
+}
+
+### AttributeUsage millimetre
+{
+ "@type": "AttributeUsage",
+ "@id": "aaf29d7c-d673-54c8-8c37-4e9ceadd112d",
+ "declaredName": "millimetre",
+ "declaredShortName": "mm",
+ "isLibraryElement": true,
+ "isUnique": true
+}
+
+### AttributeUsage maxLength
+{
+ "@type": "AttributeUsage",
+ "@id": "c0d91cad-a7a7-4de7-b0ae-24525ce60209",
+ "declaredName": "maxLength",
+ "isUnique": true,
+ "isVariable": true,
+ "ownedRelationship": [
+  {
+   "@id": "a08ebf62-359e-4e8f-bfa4-1d9444f010e8"
+  },
+  {
+   "@id": "92381cb5-4033-47ee-b362-051c9f213b51"
+  },
+  {
+   "@id": "8eb18c46-d193-492d-9417-322052c3c243"
+  }
+ ],
+ "owner": {
+  "@id": "72f3b6a1-22aa-4238-bb67-2b8e137a29f2"
+ },
+ "owningRelationship": {
+  "@id": "16b2a63d-e711-46ff-a5e8-71a42bfc7521"
+ }
+}
+
+### FeatureReferenceExpression 
+{
+ "@type": "FeatureReferenceExpression",
+ "@id": "cde45887-075c-4cd6-99cc-c6fd71c94de4",
+ "isUnique": true,
+ "ownedRelationship": [
+  {
+   "@id": "4e15e50e-f916-4764-9417-81b7ce1e489b"
+  },
+  {
+   "@id": "9a18d144-d4b4-4897-b907-372f239e67ac"
+  }
+ ],
+ "owner": {
+  "@id": "7f5e2fc7-6197-4232-a622-9d2ccc92e4d8"
+ },
+ "owningRelationship": {
+  "@id": "cf5f4bba-fc1d-4211-b42c-9fbf62df7482"
+ }
+}
+
+### FeatureReferenceExpression 
+{
+ "@type": "FeatureReferenceExpression",
+ "@id": "ce8a886d-5bce-4ec0-a2f7-3e070b6bf9f2",
+ "isUnique": true,
+ "ownedRelationship": [
+  {
+   "@id": "64072aa8-ee7d-4395-8e7b-04733714eb81"
+  },
+  {
+   "@id": "9af601bc-2a41-4cee-9e26-b114cb7abe44"
+  }
+ ],
+ "owner": {
+  "@id": "9ae522c4-6f96-48a0-8b69-8bd42bf27eaa"
+ },
+ "owningRelationship": {
+  "@id": "847610ef-eee1-4ffd-8c5d-fd97d6e5639a"
+ }
+}
+
+### FeatureReferenceExpression 
+{
+ "@type": "FeatureReferenceExpression",
+ "@id": "f55bf4f2-9d53-43dc-afb9-d43d96d8adb7",
+ "isUnique": true,
+ "ownedRelationship": [
+  {
+   "@id": "961a1903-9eb6-4022-b8ea-166409b3ff25"
+  },
+  {
+   "@id": "1f685ca1-6382-4c50-bb64-a7821708c6ae"
+  }
+ ],
+ "owner": {
+  "@id": "3032fc6a-c394-4d7a-a947-00c541b448a1"
+ },
+ "owningRelationship": {
+  "@id": "af1720ae-5926-4b89-9b7f-bdb1091bdedc"
+ }
+}
+
+### FeatureReferenceExpression 
+{
+ "@type": "FeatureReferenceExpression",
+ "@id": "f5c91342-6c63-4453-ae02-093e50f42cc6",
+ "isUnique": true,
+ "ownedRelationship": [
+  {
+   "@id": "6df566f4-863c-4950-805d-5f4a5c6715d1"
+  },
+  {
+   "@id": "127ef1a3-1666-4ecb-852c-9042aa8d10b1"
+  }
+ ],
+ "owner": {
+  "@id": "97a0cae4-22d4-45ac-b6ef-5f6b444c241d"
+ },
+ "owningRelationship": {
+  "@id": "a1a40979-b2f1-471b-8664-1d92efc723b0"
+ }
+}
+

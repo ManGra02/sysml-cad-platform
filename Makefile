@@ -6,7 +6,7 @@ export PYTHONPATH := src:cad
 # Im Devcontainer setzt das Compose-Overlay SYSML_API_URL auf http://sysml-api:9000
 API_URL := $(or $(SYSML_API_URL),http://localhost:9000)
 
-.PHONY: venv vendor up api down logs api-docs cad verify test clean
+.PHONY: venv vendor up api jupyter down logs api-docs cad verify test clean
 
 # NUR fuer die Arbeit ohne Devcontainer. Im Devcontainer liegt das venv
 # bereits im Image unter /opt/venv -- dieses Ziel dort NICHT aufrufen.
@@ -24,6 +24,10 @@ up: vendor
 
 api: vendor
 	$(COMPOSE) up -d --build sysml-api
+
+jupyter:
+	$(COMPOSE) up -d --build jupyter
+	@echo "JupyterLab: http://localhost:8888/?token=sysmlcad"
 
 down:
 	$(COMPOSE) down

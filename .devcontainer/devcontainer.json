@@ -23,7 +23,8 @@
         "ms-python.python",
         "charliermarsh.ruff",
         "redhat.vscode-yaml",
-        "bernhard-42.ocp-cad-viewer"
+        "bernhard-42.ocp-cad-viewer",
+        "Anthropic.claude-code"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/opt/venv/bin/python",

@@ -34,8 +34,23 @@ services:
       - ivy2:/root/.ivy2
       - sbt:/root/.sbt
       - coursier:/root/.cache/coursier
-    stdin_open: true
-    tty: true
+
+  jupyter:
+    build:
+      context: ..
+      dockerfile: docker/jupyter.Dockerfile
+    container_name: sysml2-jupyter
+    depends_on:
+      - sysml-api
+    ports:
+      - "8888:8888"
+    environment:
+      # Ziel des %publish-Magics. Servicename, nicht localhost.
+      ISYSML_API_BASE_PATH: "http://sysml-api:9000"
+      JUPYTER_TOKEN: "sysmlcad"
+    volumes:
+      - ../models:/work/models
+      - ../notebooks:/work/notebooks
 
 volumes:
   pgdata:
