@@ -1,0 +1,40 @@
+{
+  "name": "sysml-cad-poc",
+  "dockerComposeFile": [
+    "../docker/docker-compose.yml",
+    "docker-compose.dev.yml"
+  ],
+  "service": "dev",
+  "workspaceFolder": "/workspaces/sysml-cad-poc",
+  "remoteUser": "vscode",
+
+  "remoteEnv": {
+    "PATH": "/opt/venv/bin:${containerEnv:PATH}"
+  },
+
+  "runServices": ["dev", "postgres"],
+  "shutdownAction": "stopCompose",
+
+  "forwardPorts": [9000, 5432],
+  "portsAttributes": {
+    "9000": { "label": "SysML v2 API (Swagger unter /docs/)" },
+    "5432": { "label": "PostgreSQL" }
+  },
+
+  "postCreateCommand": "/opt/venv/bin/python -c \"import build123d, pint; print('build123d', build123d.__version__, '| pint', pint.__version__)\"",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "redhat.vscode-yaml",
+        "bernhard-42.ocp-cad-viewer"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/venv/bin/python",
+        "python.testing.pytestEnabled": true
+      }
+    }
+  }
+}

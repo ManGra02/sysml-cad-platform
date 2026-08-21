@@ -1,0 +1,44 @@
+name: sysml-cad-poc
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: sysml2-postgres
+    environment:
+      POSTGRES_DB: sysml2
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sysml2"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  sysml-api:
+    build:
+      context: ..
+      dockerfile: docker/api-services.Dockerfile
+    container_name: sysml2-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "9000:9000"
+    environment:
+      DB_URL: "jdbc:postgresql://postgres:5432/sysml2"
+      DB_USER: "postgres"
+      DB_PASSWORD: "mysecretpassword"
+    volumes:
+      - ivy2:/root/.ivy2
+      - sbt:/root/.sbt
+      - coursier:/root/.cache/coursier
+
+volumes:
+  pgdata:
+  ivy2:
+  sbt:
+  coursier:

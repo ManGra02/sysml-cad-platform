@@ -1,0 +1,25 @@
+{
+  "_comment": "Handgeschriebener Stand-in fuer die API-Antwort aus Phase 1.",
+  "requirements": [
+    {
+      "requirement_id": "REQ001",
+      "element_id": "fixture-req-001",
+      "subject": "MotorHousing::motorHousing",
+      "property": "length",
+      "operator": "<=",
+      "value": 120.0,
+      "unit": "mm",
+      "text": "Die maximale Laenge des Motorgehaeuses darf 120 mm nicht ueberschreiten."
+    },
+    {
+      "requirement_id": "REQ002",
+      "element_id": "fixture-req-002",
+      "subject": "MotorHousing::motorHousing",
+      "property": "mass",
+      "operator": "<=",
+      "value": 0.9,
+      "unit": "kg",
+      "text": "Die Masse des Motorgehaeuses darf 0,9 kg nicht ueberschreiten."
+    }
+  ]
+}
