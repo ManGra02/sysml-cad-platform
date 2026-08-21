@@ -2,22 +2,24 @@
 # Basis: sbt + Temurin JDK 11 (das Pilot-Projekt verlangt ausdruecklich JDK 11).
 FROM sbtscala/scala-sbt:eclipse-temurin-jammy-11.0.22_7_1.9.9_2.13.13
 
+ARG DB_HOST=postgres
+
 WORKDIR /app
 COPY vendor/SysML-v2-API-Services/ /app/
 
-# Abhaengigkeiten und Scala-Compilat vorwaermen, damit der erste Start
-# nicht zehn Minuten am Netz haengt.
-RUN sbt -batch clean compile
+# Die JDBC-URL steht FEST in conf/META-INF/persistence.xml und laesst sich
+# nicht per System-Property ueberschreiben -- Hibernate liest sie von dort.
+# Deshalb wird sie beim Build auf den Compose-Servicenamen umgeschrieben.
+# JDBC-URL steht fest in persistence.xml; zusaetzlich hbm2ddl auf "update",
+# damit das Schema Neustarts ueberlebt statt bei jedem Stop geloescht zu werden.
+RUN sed -i "s|//localhost:5432|//${DB_HOST}:5432|g" conf/META-INF/persistence.xml \
+ && sed -i 's|"hibernate.hbm2ddl.auto" value="create-drop"|"hibernate.hbm2ddl.auto" value="update"|' conf/META-INF/persistence.xml \
+ && grep -n "jdbc.url\|hbm2ddl" conf/META-INF/persistence.xml
+
+# Produktionsmodus statt "sbt run": erzeugt ein eigenstaendiges Startskript,
+# das kein interaktives Terminal braucht.
+RUN sbt -batch clean stage
 
 EXPOSE 9000
 
-# ACHTUNG: Die Property-Namen unten muessen gegen conf/application.conf
-# des geklonten Repos geprueft werden -- das ist die eine Stelle,
-# die zwischen Releases wandert. Siehe README, Abschnitt "Bekannte Stolpersteine".
-CMD sbt -batch \
-      -Ddb.default.url="${DB_URL}" \
-      -Ddb.default.username="${DB_USER}" \
-      -Ddb.default.password="${DB_PASSWORD}" \
-      -Dhttp.address=0.0.0.0 \
-      -Dhttp.port=9000 \
-      run
+CMD ["/bin/sh", "-c", "exec /app/target/universal/stage/bin/sysml-v2-api-services -Dhttp.address=0.0.0.0 -Dhttp.port=9000 -Dplay.filters.hosts.allowed.0='.' -Dplay.http.secret.key=$(head -c 48 /dev/urandom | base64 | tr -d '\\n')"]

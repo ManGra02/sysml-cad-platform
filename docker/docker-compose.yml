@@ -22,20 +22,20 @@ services:
     build:
       context: ..
       dockerfile: docker/api-services.Dockerfile
+      args:
+        DB_HOST: "postgres"
     container_name: sysml2-api
     depends_on:
       postgres:
         condition: service_healthy
     ports:
       - "9000:9000"
-    environment:
-      DB_URL: "jdbc:postgresql://postgres:5432/sysml2"
-      DB_USER: "postgres"
-      DB_PASSWORD: "mysecretpassword"
     volumes:
       - ivy2:/root/.ivy2
       - sbt:/root/.sbt
       - coursier:/root/.cache/coursier
+    stdin_open: true
+    tty: true
 
 volumes:
   pgdata:

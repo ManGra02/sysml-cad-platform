@@ -15,12 +15,6 @@
   "runServices": ["dev", "postgres"],
   "shutdownAction": "stopCompose",
 
-  "forwardPorts": [9000, 5432],
-  "portsAttributes": {
-    "9000": { "label": "SysML v2 API (Swagger unter /docs/)" },
-    "5432": { "label": "PostgreSQL" }
-  },
-
   "postCreateCommand": "/opt/venv/bin/python -c \"import build123d, pint; print('build123d', build123d.__version__, '| pint', pint.__version__)\"",
 
   "customizations": {
