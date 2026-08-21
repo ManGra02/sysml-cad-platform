@@ -2,7 +2,7 @@
   "_comment": "Handgeschriebener Stand-in fuer die API-Antwort aus Phase 1.",
   "requirements": [
     {
-      "requirement_id": "REQ001",
+      "requirement_id": "MaxLength",
       "element_id": "fixture-req-001",
       "subject": "MotorHousing::motorHousing",
       "property": "length",
@@ -12,7 +12,7 @@
       "text": "Die maximale Laenge des Motorgehaeuses darf 120 mm nicht ueberschreiten."
     },
     {
-      "requirement_id": "REQ002",
+      "requirement_id": "MaxMass",
       "element_id": "fixture-req-002",
       "subject": "MotorHousing::motorHousing",
       "property": "mass",

@@ -37,9 +37,23 @@ class SysMLClient:
         return commits[0]["@id"]
 
     def elements(self, project_id: str, commit_id: str) -> list[dict]:
+        """Nur die ERSTE Seite (Standard: 100 Elemente)."""
         r = self._c.get(f"/projects/{project_id}/commits/{commit_id}/elements")
         r.raise_for_status()
         return r.json()
+
+    def all_elements(self, project_id: str, commit_id: str, page_size: int = 200) -> list[dict]:
+        """Alle Seiten. Die API verlinkt die naechste im Link-Header --
+        wer das ignoriert, arbeitet still auf einem Teilmodell."""
+        url = f"/projects/{project_id}/commits/{commit_id}/elements?page[size]={page_size}"
+        out: list[dict] = []
+        while url:
+            r = self._c.get(url)
+            r.raise_for_status()
+            out.extend(r.json())
+            nxt = r.links.get("next")
+            url = nxt["url"] if nxt else None
+        return out
 
     def close(self) -> None:
         self._c.close()

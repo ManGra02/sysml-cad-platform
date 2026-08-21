@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import yaml
@@ -20,8 +21,8 @@ def load_mapping(path: Path = MAPPING) -> dict[str, dict]:
     return {m["requirement_id"]: m for m in data["mappings"]}
 
 
-def run(project_id: str | None = None) -> list[Verdict]:
-    requirements = load(project_id)
+def run(source: str | None = None) -> list[Verdict]:
+    requirements = load(source)
     mapping = load_mapping()
     verdicts: list[Verdict] = []
 
@@ -30,6 +31,10 @@ def run(project_id: str | None = None) -> list[Verdict]:
         if m is None:
             print(f"[warn] kein Mapping fuer {req.requirement_id} -- uebersprungen")
             continue
+        # Die gemessene Groesse steht im Mapping, nicht in der Anforderung
+        # (bewusste Vereinfachung, siehe Modulkopf von extract.py).
+        if not req.prop:
+            req = replace(req, prop=m.get("property", m["method"]))
         part, _ = load_part(m["cad_module"])
         measured = measure(part, m["method"], m.get("args"))
         verdicts.append(
@@ -66,8 +71,9 @@ def report(verdicts: list[Verdict]) -> int:
 
 
 def main() -> int:
-    project_id = sys.argv[1] if len(sys.argv) > 1 else None
-    return report(run(project_id))
+    source = sys.argv[1] if len(sys.argv) > 1 else None
+    print(f"Quelle: {'SysML-v2-API' if source == 'api' else 'Fixture'}")
+    return report(run(source))
 
 
 if __name__ == "__main__":

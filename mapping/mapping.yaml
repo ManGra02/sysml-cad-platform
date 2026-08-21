@@ -2,8 +2,9 @@
 # durch KI-Vorschlaege plus deterministische Gates -- das Schema bleibt gleich.
 version: 1
 mappings:
-  - requirement_id: REQ001
+  - requirement_id: MaxLength
     cad_module: motor_housing
+    property: length          # Anzeigename; siehe Modulkopf von extract.py
     method: bbox_size
     args:
       axis: X
@@ -11,8 +12,9 @@ mappings:
     author: hardcoded
     note: "Laenge = Huellbox entlang X, siehe LENGTH_AXIS im CAD-Skript"
 
-  - requirement_id: REQ002
+  - requirement_id: MaxMass
     cad_module: motor_housing
+    property: mass
     method: mass
     args:
       density_g_per_cm3: 2.70

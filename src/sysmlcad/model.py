@@ -36,7 +36,7 @@ class Requirement:
             requirement_id=d["requirement_id"],
             element_id=d.get("element_id", ""),
             subject=d["subject"],
-            prop=d["property"],
+            prop=d.get("property", ""),
             operator=d["operator"],
             limit=ureg.Quantity(d["value"], d["unit"]),
             text=d.get("text", ""),
