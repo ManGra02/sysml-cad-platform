@@ -1,146 +1,146 @@
 # Roadmap
 
-Leitprinzip: erst der dünne, durchgehende Faden, dann Breite. Jede Phase baut
-auf einer verifizierten Vorgängerphase auf.
+*German original: [ROADMAP_de.md](ROADMAP_de.md).*
 
-| Phase | Inhalt | Status |
+Guiding principle: get the thin end-to-end thread working first, then add
+breadth. Every phase builds on a verified predecessor.
+
+| Phase | Content | Status |
 |---|---|---|
-| 0 | Infrastruktur, Referenzbeispiel, Namenskonventionen | **fertig** |
-| 1 | Requirement-Extraktion über die API | **fertig** |
-| 2 | Messkern auf dem B-Rep | **fertig** |
-| 3 | Verifikations-Engine, Report, CI | **fertig** |
-| 4 | Mapping-Store, deterministische Gates, KI-Hypothesen | offen |
-| 5 | Rückschreiben, Merge-Assistent | offen |
-| 6 | SMT auf dem Constraint-Netz | offen |
+| 0 | Infrastructure, reference example, naming conventions | **done** |
+| 1 | Requirement extraction via the API | **done** |
+| 2 | Measurement core on the B-Rep | **done** |
+| 3 | Verification engine, report, CI | **done** |
+| 4 | Mapping store, deterministic gates, AI hypotheses | open |
+| 5 | Write-back, merge assistant | open |
+| 6 | SMT over the constraint network | open |
 
 ---
 
-## Phase 4 — Mapping (nächster Schritt)
+## Phase 4 — Mapping (next step)
 
-**Die Reihenfolge ist nicht verhandelbar: Gates vor KI.** Ohne Gates gibt es
-keinen Maßstab, an dem sich Vorschläge messen lassen.
+**The order is not negotiable: gates before AI.** Without gates there is no
+yardstick to measure proposals against.
 
-### 4.1 Mapping-Store
+### 4.1 Mapping store
 
-SQLite statt `mapping/mapping.yaml`. Schema mindestens:
+SQLite, replacing `mapping/mapping.yaml`. Minimum schema:
 
 - `mapping`: `requirement_id`, `cad_module`, `method`, `args`, `property`,
   `status`, `author`, `created_at`
-- `audit`: append-only, jede Statusänderung mit Zeitstempel, Urheber und Grund
+- `audit`: append-only; every status change with timestamp, author, and reason
 
-`status ∈ {proposed, confirmed, rejected}`. Nichts wird überschrieben oder
-gelöscht — die Historie ist Teil der Nachvollziehbarkeit.
+`status ∈ {proposed, confirmed, rejected}`. Nothing is overwritten or deleted —
+the history is part of the traceability story.
 
-### 4.2 Deterministische Gates
+### 4.2 Deterministic gates
 
-**Der zentrale konzeptionelle Punkt:** Mapping-Gültigkeit und
-Anforderungserfüllung sind zwei verschiedene Fragen. Der ursprüngliche
-Projektplan hat sie vermischt und wollte ein Mapping nur dann persistieren,
-wenn die Anforderung erfüllt ist. Das ist falsch:
+**The central conceptual point:** mapping validity and requirement satisfaction
+are two different questions. The original project plan conflated them and wanted
+to persist a mapping only if the requirement was satisfied. That is wrong:
 
-- Ein korrekt gemapptes, aber zu langes Bauteil ist ein **Verstoß**, kein
-  Fehlmapping — und genau der Fall, den das System melden soll.
-- Ein falsches Mapping, das die Regel zufällig erfüllt, würde persistiert.
+- A correctly mapped part that is too long is a **violation**, not a bad mapping —
+  and it is exactly the case the system is supposed to report.
+- A wrong mapping that happens to satisfy the rule would be persisted.
 
-Gates prüfen deshalb ausschließlich die *Zuordnung*:
+Gates therefore check the *assignment* and nothing else:
 
-1. **Dimensionskompatibilität** — Länge↔Länge, Masse↔Masse (via pint)
-2. **Existenz** — ist die Größe am CAD-Objekt überhaupt messbar?
-3. **Eindeutigkeit** — keine 1:n-Kollisionen
-4. **Plausibilität** — Größenordnung, z.B. Faktor 0,1–10 zur Anforderung
-5. **Bestätigung** — beim ersten Mal durch einen Menschen
+1. **Dimensional compatibility** — length↔length, mass↔mass (via pint)
+2. **Existence** — is the quantity measurable on the CAD object at all?
+3. **Uniqueness** — no 1:n collisions
+4. **Plausibility** — order of magnitude, e.g. a factor of 0.1–10 relative to the
+   requirement
+5. **Confirmation** — by a human, the first time round
 
-Ergebnis: *Mapping gültig / ungültig*. Davon getrennt liefert die bestehende
-Verifikations-Engine *pass / fail*.
+Result: *mapping valid / invalid*. Separately from that, the existing
+verification engine yields *pass / fail*.
 
-### 4.3 KI-Hypothesen
+### 4.3 AI hypotheses
 
-`rapidfuzz` (String-Distanz) plus `sentence-transformers` (Embeddings) über
-Namen und Metadaten von SysML-Elementen und CAD-Modulen. Optional ein LLM mit
-strukturiertem JSON-Output.
+`rapidfuzz` (string distance) plus `sentence-transformers` (embeddings) over the
+names and metadata of SysML elements and CAD modules. Optionally an LLM with
+structured JSON output.
 
-**Messbar machen:** Trefferquote gegen ein handgemapptes Gold-Set. Ohne diese
-Zahl ist unbekannt, ob der KI-Teil überhaupt Zeit spart.
+**Make it measurable:** hit rate against a hand-mapped gold set. Without that
+number, there is no way to tell whether the AI part saves any time at all.
 
-### 4.4 Vorher: Extraktor unter Last
+### 4.4 First: put the extractor under load
 
-Bevor Phase 4 beginnt, das Apollo-11-Modell von Airbus
-(`airbus/apollo-11-sysml-v2`) publizieren und `explore.py` darüber laufen
-lassen. Es ist ein bewusst nicht-triviales SysML-v2-Modell nach dem
-CoSMA-Rahmen. Erwartung: Die Annahme „ein Vergleich pro Anforderung" fällt als
-Erste. Billige, harte Evidenz dafür, welche der Vereinfachungen aus
-`extract.py` zuerst nachzuziehen sind.
-
----
-
-## Phase 5 — Rückrichtung und Konflikte
-
-### 5.1 Schreiben, aber nur Metadaten
-
-Geänderte Grenzwerte aus SysML landen als Attribut oder Kommentar im
-CAD-Skript. **Keine automatische Geometrieänderung.** Das schafft
-Rückverfolgbarkeit und signalisiert Änderungsbedarf, ohne dass ein Algorithmus
-still ein Bauteil umbaut.
-
-### 5.2 Authority-Regel statt Merge-Algorithmus
-
-Der ursprüngliche Projektplan schlug Operational Transformation (OT) vor. Das
-ist Over-Engineering: OT löst zeichenweise Nebenläufigkeit in
-Echtzeit-Editoren; Modellsynchronisation ist zustandsbasiertes 3-Wege-Diff bei
-niedriger Frequenz.
-
-Was 90 % der Konflikte strukturell verhindert, ist eine **explizite
-Zuständigkeit pro Parameter**: SysML besitzt Grenzwerte (`maxLength`), CAD
-besitzt Ist-Werte (`actualLength`). Dann kollidieren beide Seiten nicht mehr —
-es gibt nur noch Verletzungen.
-
-### 5.3 Merge-Assistent
-
-CLI-Diff über den Mapping-Store, drei Optionen pro Konflikt (SysML übernehmen /
-CAD übernehmen / manuell). Mensch entscheidet, System protokolliert.
-
-**Vor dem Entwurf lesen:** `Open-MBEE/sysmlv2_dls`, Paket `geometry_api`. Dort
-existiert eine CAD-agnostische Baugruppen-Repräsentation mit Translation,
-Rotation und Ownership plus ein Onshape-Connector, der aus SysML heraus
-schreibt. Entgegengesetzte Designentscheidung zu unserer (dort trägt SysML die
-Geometriestruktur), aber die fertige Antwort auf die Transformationsmathematik,
-falls wir von Einzelteilen auf Baugruppen gehen.
+Before phase 4 starts, publish the Airbus Apollo 11 model
+(`airbus/apollo-11-sysml-v2`) and run `explore.py` over it. It is a deliberately
+non-trivial SysML v2 model following the CoSMA framework. Expectation: the
+"one comparison per requirement" assumption will be the first to break. Cheap,
+hard evidence for which of the simplifications in `extract.py` need fixing first.
 
 ---
 
-## Phase 6 — Formale Verifikation
+## Phase 5 — Reverse direction and conflicts
 
-**Abgrenzung, die im ursprünglichen Projektplan fehlte:** Z3 kann über
-B-Rep-Geometrie nichts beweisen. SMT gehört auf das *Constraint-Netz*, nicht auf
-das CAD-Modell.
+### 5.1 Write back, but metadata only
 
-Sinnvolle Ziele:
+Changed limits from SysML land in the CAD script as an attribute or a comment.
+**No automatic geometry changes.** This creates traceability and signals that a
+change is needed, without an algorithm silently rebuilding a part.
 
-- Widerspruchsfreiheit des Anforderungssatzes
-- Massen- und Kostenbudgets über Baugruppenhierarchien
-- Gegenbeispiele im Parameterraum
+### 5.2 An authority rule instead of a merge algorithm
 
-Werkzeug: `z3-solver`. Gefundene Gegenbeispiele werden automatisch zu neuen
-Testfällen in der Verifikations-Engine aus Phase 3.
+The original project plan proposed Operational Transformation (OT). That is
+over-engineering: OT solves character-level concurrency in real-time editors,
+whereas model synchronisation is a state-based three-way diff at low frequency.
+
+What structurally prevents 90% of conflicts is **explicit ownership per
+parameter**: SysML owns limits (`maxLength`), CAD owns actual values
+(`actualLength`). Then the two sides no longer collide — all that remains are
+violations.
+
+### 5.3 Merge assistant
+
+A CLI diff over the mapping store, with three options per conflict (take SysML /
+take CAD / resolve manually). The human decides, the system logs.
+
+**Read before designing this:** `Open-MBEE/sysmlv2_dls`, package `geometry_api`.
+It contains a CAD-agnostic assembly representation with translation, rotation,
+and ownership, plus an Onshape connector that writes out of SysML. It takes the
+opposite design decision to ours (there, SysML carries the geometry structure),
+but it is a finished answer to the transformation maths, should we move from
+single parts to assemblies.
 
 ---
 
-## Offene Architekturfragen
+## Phase 6 — Formal verification
 
-**Welches CAD-System produktiv?** Wenn CATIA oder Creo gesetzt sind, wird der
-Messkern eine Adapter-Schicht über deren API statt über OCC. Die Architektur
-bleibt identisch, aber der PoC sollte dann früh gegen einen Ausschnitt echter
-Modelldaten laufen — dort sitzen die eigentlichen Reibungspunkte.
+**A boundary the original project plan was missing:** Z3 cannot prove anything
+about B-Rep geometry. SMT belongs on the *constraint network*, not on the CAD
+model.
 
-**Baugruppen statt Einzelteile.** Der Messkern kennt bisher ein Bauteil pro
-Modul. Baugruppen brauchen Aggregation (Summe der Massen) und
-Positionierung — siehe 5.3.
+Sensible targets:
 
-**Model-Management.** Falls Versionierung, Branching und Zugriffsrechte über
-den PoC hinaus gebraucht werden, ist Open-MBEE (MMS) der etablierte Kandidat.
-Für den aktuellen Stand bringt es gegenüber der Pilot-Implementierung nichts.
+- Consistency of the requirement set
+- Mass and cost budgets across assembly hierarchies
+- Counterexamples in the parameter space
 
-**Beitrag an den HNI-Fork.** `hibernate.hbm2ddl.auto` ist die einzige
-verbliebene Lücke im Env-Konzept des Forks; wir patchen es beim Klonen. Ein PR,
-der `SYSML_HBM2DDL` analog zu `SYSML_JDBC_*` ergänzt, wäre klein, sauber
-abgegrenzt und ein natürlicher Gesprächsanlass mit den Betreuenden.
+Tool: `z3-solver`. Counterexamples it finds become new test cases in the
+verification engine from phase 3 automatically.
+
+---
+
+## Open architectural questions
+
+**Which CAD system in production?** If CATIA or Creo is a given, the measurement
+core becomes an adapter layer over their API instead of over OCC. The
+architecture stays the same, but the PoC should then run against a slice of real
+model data early — that is where the actual friction lives.
+
+**Assemblies instead of single parts.** So far the measurement core knows one
+part per module. Assemblies need aggregation (sum of masses) and positioning —
+see 5.3.
+
+**Model management.** If versioning, branching, and access control are needed
+beyond the PoC, Open-MBEE (MMS) is the established candidate. At the current
+stage it adds nothing over the pilot implementation.
+
+**Contributing to the HNI fork.** `hibernate.hbm2ddl.auto` is the last remaining
+gap in the fork's environment-variable concept; we patch it at clone time. A PR
+adding `SYSML_HBM2DDL` alongside the existing `SYSML_JDBC_*` variables would be
+small, cleanly scoped, and a natural reason to start a conversation with the
+maintainers.

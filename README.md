@@ -1,66 +1,69 @@
 # SysML v2 → CAD: Proof of Concept
 
-Ein durchgehender Faden von einer SysML-v2-Anforderung bis zu einer roten
-CI-Pipeline. Bewusst schmal: ein Bauteil, zwei Anforderungen, hartcodiertes Mapping.
+One continuous thread from a SysML v2 requirement to a red CI pipeline.
+Deliberately narrow: one part, two requirements, a hardcoded mapping.
 
-**Status:** Phase 1 abgeschlossen. Ende-zu-Ende verifiziert.
+**Status:** Phase 1 complete, verified end to end.
 
-## Schnellstart
+*German original: [README_de.md](README_de.md).*
 
-Alles läuft in Containern. Erst den Devcontainer öffnen:
+## Quick start
 
-```bash
-code .        # dann "Reopen in Container"
-```
-
-Dann **im Devcontainer**:
+Everything runs in containers. Open the devcontainer first:
 
 ```bash
-make cad      # CAD-Skript ausführen, STEP nach out/
-make verify   # Verifikation gegen fixtures/requirements.json
-make test     # pytest, JUnit-XML nach out/
+code .        # then "Reopen in Container"
 ```
 
-Diese drei brauchen weder den SysML-Server noch Jupyter. `make venv` wird im
-Devcontainer **nicht** aufgerufen — das venv liegt bereits im Image unter
-`/opt/venv`.
-
-Für den vollen Stack **auf dem Host** (der Devcontainer hat keinen Docker-Zugriff):
+Then, **inside the devcontainer**:
 
 ```bash
-cp .env.example .env      # PLAY_SECRET erzeugen, siehe unten
-make api                  # SysML-v2-API-Server, erster Build ~6 min
-make jupyter              # JupyterLab auf http://localhost:8888/?token=sysmlcad
+make cad      # run the CAD script, write STEP to out/
+make verify   # verify against fixtures/requirements.json
+make test     # pytest, JUnit XML to out/
 ```
 
-Bereit ist der Server, wenn im Log `Listening for HTTP` steht:
+None of these three need the SysML server or Jupyter. Do **not** run `make venv`
+in the devcontainer — the virtualenv already ships in the image at `/opt/venv`.
+
+For the full stack, run this **on the host** (the devcontainer has no Docker access):
+
+```bash
+cp .env.example .env      # then generate PLAY_SECRET, see below
+make api                  # SysML v2 API server; first build takes ~6 min
+make jupyter              # JupyterLab at http://localhost:8888/?token=sysmlcad
+```
+
+The server is ready once `Listening for HTTP` appears in the log:
 
 ```bash
 docker logs -f sysml2-api
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:9000/projects   # 200
 ```
 
-## Modell veröffentlichen
+## Publishing the model
 
-Im JupyterLab `notebooks/01_publish_motor_housing.ipynb` öffnen, Kernel **SysML**
-(nicht Python). Modellzelle ausführen, dann `%publish MotorHousing`. Die erste
-Ausgabezeile muss `http://sysml-api:9000` zeigen — steht dort
-`sysml2.intercax.com`, ginge das Modell an den öffentlichen Community-Server.
+In JupyterLab, open `notebooks/01_publish_motor_housing.ipynb` and select the
+**SysML** kernel (not Python). Run the model cell, then `%publish MotorHousing`.
+The first output line must read `http://sysml-api:9000`. If it says
+`sysml2.intercax.com`, the model would go to the public community server instead.
 
-Danach im Devcontainer gegen den echten Server verifizieren:
+Then verify against the real server from inside the devcontainer:
 
 ```bash
 python -m sysmlcad.verify api
-python -m sysmlcad.explore              # Element-Dump nach out/elements.json
-python -m sysmlcad.explore MaxLength    # Baum einer Anforderung
+python -m sysmlcad.explore              # element dump to out/elements.json
+python -m sysmlcad.explore MaxLength    # tree of a single requirement
 ```
 
-## Der Fehlerfall
+## The failure case
 
 ```bash
 sed -i 's/^LENGTH_MM = 118.0/LENGTH_MM = 123.0/' cad/motor_housing.py
 python -m sysmlcad.verify api ; echo "Exit: $?"
 ```
+
+The CLI still prints German (`verletzt` = violated), verbatim:
 
 ```
 MaxLength verletzt: length = 123 mm <= 120 mm ist falsch
@@ -68,85 +71,87 @@ MaxLength verletzt: length = 123 mm <= 120 mm ist falsch
 Exit: 1
 ```
 
-Exit 1 → die Pipeline wird rot. Das ist der PoC-Meilenstein.
+Exit 1 turns the pipeline red. That is the milestone this PoC exists to demonstrate.
 
-## Architektur
+## Architecture
 
-Vier Container, ein Compose-Projekt, ein Netzwerk:
+Four containers, one Compose project, one network:
 
-| Container | Rolle | Port |
+| Container | Role | Port |
 |---|---|---|
-| `dev` | Devcontainer, Python 3.14, venv unter `/opt/venv` | — |
-| `sysml2-postgres` | PostgreSQL 16, DB `sysml2` | 5432 |
-| `sysml2-api` | SysML-v2-API-Services (Fork hni-ase), Play/Hibernate | 9000 |
-| `sysml2-jupyter` | SysML-v2-Kernel, `%publish` | 8888 |
+| `dev` | Devcontainer, Python 3.14, virtualenv at `/opt/venv` | — |
+| `sysml2-postgres` | PostgreSQL 16, database `sysml2` | 5432 |
+| `sysml2-api` | SysML v2 API Services (hni-ase fork), Play/Hibernate | 9000 |
+| `sysml2-jupyter` | SysML v2 kernel, `%publish` | 8888 |
 
-**Die Regel, die man vergisst:** Zwischen Containern gilt der *Servicename*
-(`sysml-api:9000`, `postgres:5432`), nicht `localhost`. `src/sysmlcad/config.py`
-liest `SYSML_API_URL`; das Compose-Overlay setzt sie passend. Die `ports:`-Einträge
-sind nur für deinen Browser vom Host aus.
+**The rule everyone forgets:** container-to-container traffic uses the *service
+name* (`sysml-api:9000`, `postgres:5432`), never `localhost`.
+`src/sysmlcad/config.py` reads `SYSML_API_URL`; the Compose overlay sets it
+accordingly. The `ports:` entries exist only so your browser can reach the
+services from the host.
 
-## Ordnerstruktur
+## Layout
 
 ```
 .devcontainer/
-├── devcontainer.json         referenziert beide Compose-Dateien
-├── docker-compose.dev.yml    Overlay: fügt den dev-Service hinzu
-└── Dockerfile                Python 3.14 (trixie) + OpenGL/X11 für OCP
+├── devcontainer.json         references both Compose files
+├── docker-compose.dev.yml    overlay: adds the dev service
+└── Dockerfile                Python 3.14 (trixie) + OpenGL/X11 for OCP
 docker/
 ├── docker-compose.yml        postgres, sysml-api, jupyter
-└── jupyter.Dockerfile        conda, SysML-Kernel, Standardbibliothek
-vendor/                       hni-ase/SysML-v2-API-Services (Klon, nicht im Git)
-models/motor_housing.sysml    Systemmodell, textuell
+└── jupyter.Dockerfile        conda, SysML kernel, standard library
+vendor/                       hni-ase/SysML-v2-API-Services (clone, not in git)
+models/motor_housing.sysml    the system model, textual
 notebooks/                    01_publish_motor_housing.ipynb
-cad/motor_housing.py          Bauteil als build123d-Skript
-fixtures/requirements.json    Stand-in + Regressionstest
-mapping/mapping.yaml          Anforderung ↔ Messmethode
+cad/motor_housing.py          the part as a build123d script
+fixtures/requirements.json    stand-in + regression test
+mapping/mapping.yaml          requirement ↔ measurement method
 src/sysmlcad/
-├── config.py                 SYSML_API_URL aus der Umgebung
-├── units.py                  genau eine pint-Registry
+├── config.py                 SYSML_API_URL from the environment
+├── units.py                  exactly one pint registry
 ├── model.py                  Requirement, Verdict
-├── sysml_client.py           REST-Client, all_elements() paginiert
-├── extract.py                API oder Fixture → Requirement-Liste
-├── measure.py                CAD-Property → einheitenbehaftete Größe
-├── verify.py                 Auswertung, Report, Exit-Code
-└── explore.py                Debug-Werkzeug für Payloads
+├── sysml_client.py           REST client, all_elements() paginates
+├── extract.py                API or fixture → list of Requirements
+├── measure.py                CAD property → quantity with a unit
+├── verify.py                 evaluation, report, exit code
+└── explore.py                debugging tool for API payloads
 tests/                        test_extract.py, test_requirements.py
-.github/workflows/verify.yml  CI, läuft gegen die Fixture
-.env                          PLAY_SECRET (nicht im Git)
-CLAUDE.md                     Projektkontext für Claude Code
+.github/workflows/verify.yml  CI, runs against the fixture
+.env                          PLAY_SECRET (not in git)
+CLAUDE.md                     project context for Claude Code
 ```
 
 ## .env
 
-Play verweigert im Produktionsmodus den Start ohne ausreichend langen
-Secret-Key. Einmalig erzeugen:
+In production mode, Play refuses to start without a sufficiently long secret
+key. Generate one once:
 
 ```bash
 echo "PLAY_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n')" > .env
 grep -q '^\.env$' .gitignore || echo ".env" >> .gitignore
 ```
 
-Wichtig: Compose sucht die `.env` im Verzeichnis der ersten `-f`-Datei, also
-`docker/`. Deshalb übergibt das Makefile `--env-file .env` explizit.
+Important: Compose looks for `.env` in the directory of the *first* `-f` file,
+which is `docker/`. That is why the Makefile passes `--env-file .env` explicitly.
 
-## Bekannte Stolpersteine
+## Known pitfalls
 
-Die vollständige Liste mit Begründungen steht in **CLAUDE.md**, Abschnitt
-„Gelöste Stolpersteine". Die drei häufigsten:
+The full list, with reasoning, is in **[CLAUDE.md](CLAUDE.md)** under "Solved
+pitfalls". The three most common ones:
 
-**`localhost` vs. Servicename.** Der mit Abstand häufigste Fehler. Im
-Devcontainer `sysml-api:9000`, auf dem Host `localhost:9000`.
+**`localhost` vs. service name.** By far the most frequent mistake. Inside the
+devcontainer it is `sysml-api:9000`; on the host it is `localhost:9000`.
 
-**SysML-v2-Syntax (Release 0.60.1).** Imports brauchen Sichtbarkeit
-(`private import ISQ::*;`), und `satisfy` verlangt eine Requirement-*Usage*,
-keine Definition.
+**SysML v2 syntax (release 0.60.1).** Imports require an explicit visibility
+(`private import ISQ::*;`), and `satisfy` needs a requirement *usage*, not a
+definition.
 
-**`export_step` ist eine Modulfunktion.** In build123d 0.11 gilt
-`export_step(part, pfad)`, nicht `part.export_step(pfad)`. Ältere Beispiele im
-Netz zeigen die alte Form.
+**`export_step` is a module function.** In build123d 0.11 the call is
+`export_step(part, path)`, not `part.export_step(path)`. Older examples on the
+web still show the method form.
 
-## Nächste Schritte
+## Next steps
 
-Phase 4, in dieser Reihenfolge: Mapping-Store (SQLite mit Audit-Log) →
-deterministische Gates → erst dann KI-Hypothesen. Details in CLAUDE.md.
+Phase 4, in this order: mapping store (SQLite with an audit log) →
+deterministic gates → only then AI-generated hypotheses. Details in
+[ROADMAP.md](ROADMAP.md).
