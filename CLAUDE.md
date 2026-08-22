@@ -75,19 +75,13 @@ out/               STEP, JUnit-XML, Dumps (gitignored)
 ## Gelöste Stolpersteine — NICHT rückgängig machen
 
 **SysML-v2-API-Services**
-- Kein offizielles Image. Selbst gebaut auf `sbtscala/scala-sbt` mit JDK 11.
-- JDBC-URL ist in `conf/META-INF/persistence.xml` **fest verdrahtet** auf
-  `localhost:5432`, nicht per System-Property überschreibbar. Dockerfile
-  patcht sie per `sed` auf `postgres:5432`.
-- `hbm2ddl.auto` per `sed` von `create-drop` auf `update` — sonst wird das
-  Schema bei jedem Stop gelöscht.
-- `sbt run` (Dev-Modus) stirbt an EOF auf stdin, auch mit `stdin_open`/`tty`.
-  Lösung: `sbt stage`, CMD startet `/app/target/universal/stage/bin/sysml-v2-api-services`
-  (Glob matcht sonst auch die `.bat`).
-- Play `AllowedHostsFilter` blockt `Host: sysml-api:9000` mit 400.
-  Flag: `-Dplay.filters.hosts.allowed.0='.'`
-- Erster Start dauert Minuten (Schema, ~8200 Tabellen). Bereit, wenn
-  `Listening for HTTP` im Log steht und `curl localhost:9000/projects` 200 liefert.
+- Fork `hni-ase/SysML-v2-API-Services` (HNI Paderborn) statt Upstream.
+  Bringt eigenes Dockerfile (sbt stage, .bat-sicherer Symlink, Layer-Caching)
+  und JDBC-Konfiguration per SYSML_JDBC_URL/_USER/_PASSWORD mit.
+- `hbm2ddl.auto` ist dort NICHT per Env setzbar und steht auf create-drop.
+  Das Makefile-Ziel `vendor` patcht es nach dem Klonen auf `update`.
+- Der AllowedHostsFilter fehlt im CMD des Forks; Compose überschreibt das
+  CMD und ergänzt `-Dplay.filters.hosts.allowed.0=.`
 
 **Devcontainer**
 - Basis `mcr.microsoft.com/devcontainers/python:3.14-trixie`.

@@ -15,9 +15,14 @@ venv:
 
 vendor:
 	test -d vendor/SysML-v2-API-Services || \
-	  git clone https://github.com/Systems-Modeling/SysML-v2-API-Services.git vendor/SysML-v2-API-Services
+	  git clone https://github.com/hni-ase/SysML-v2-API-Services.git vendor/SysML-v2-API-Services
+	@# hbm2ddl ist im Fork NICHT per Env konfigurierbar und steht auf create-drop.
+	@# Ohne diesen Patch wird das Schema bei jedem sauberen Stop geloescht.
+	@sed -i 's|"hibernate.hbm2ddl.auto" value="create-drop"|"hibernate.hbm2ddl.auto" value="update"|' \
+	  vendor/SysML-v2-API-Services/conf/META-INF/persistence.xml
+	@grep -n hbm2ddl vendor/SysML-v2-API-Services/conf/META-INF/persistence.xml
 
-COMPOSE := docker compose -f docker/docker-compose.yml -f .devcontainer/docker-compose.dev.yml
+COMPOSE := docker compose --env-file .env -f docker/docker-compose.yml -f .devcontainer/docker-compose.dev.yml
 
 up: vendor
 	$(COMPOSE) up -d --build
