@@ -7,6 +7,7 @@ KI-gestützte Mapping-Vorschläge, bidirektionale Sync, SMT-Verifikation.
 
 **Status: Phase 1 abgeschlossen und verifiziert.** Ende-zu-Ende läuft:
 SysML-v2-API → Extraktor → build123d-Messung → Urteil → Exit-Code.
+Der Serverteil läuft auf dem Fork `hni-ase/SysML-v2-API-Services`.
 
 ## Architektur
 
@@ -44,6 +45,8 @@ make api        # sysml-api bauen/starten
 make jupyter    # Jupyter-Container, http://localhost:8888/?token=sysmlcad
 make logs
 make down
+make up         # ACHTUNG: startet ALLES inkl. dev und jupyter -- im
+                # Devcontainer-Workflow nicht noetig, `make api` genuegt
 ```
 `make venv` NIE im Devcontainer — venv liegt bereits im Image unter `/opt/venv`.
 
@@ -51,8 +54,12 @@ make down
 
 ```
 .devcontainer/     devcontainer.json, docker-compose.dev.yml, Dockerfile
-docker/            docker-compose.yml, api-services.Dockerfile, jupyter.Dockerfile
-vendor/            SysML-v2-API-Services (git clone, nicht im Repo)
+docker/            docker-compose.yml, jupyter.Dockerfile
+                   (kein eigenes api-services.Dockerfile mehr -- Fork bringt eines mit)
+vendor/            hni-ase/SysML-v2-API-Services (git clone, nicht im Repo)
+.env               PLAY_SECRET (nicht im Repo, siehe unten)
+.github/workflows/ verify.yml -- CI laeuft gegen die FIXTURE, nicht gegen die API
+                   (bewusst: CI soll ohne laufenden Server gruen werden koennen)
 models/            motor_housing.sysml
 notebooks/         01_publish_motor_housing.ipynb
 cad/               motor_housing.py  (build123d)
@@ -75,13 +82,19 @@ out/               STEP, JUnit-XML, Dumps (gitignored)
 ## Gelöste Stolpersteine — NICHT rückgängig machen
 
 **SysML-v2-API-Services**
-- Fork `hni-ase/SysML-v2-API-Services` (HNI Paderborn) statt Upstream.
-  Bringt eigenes Dockerfile (sbt stage, .bat-sicherer Symlink, Layer-Caching)
-  und JDBC-Konfiguration per SYSML_JDBC_URL/_USER/_PASSWORD mit.
-- `hbm2ddl.auto` ist dort NICHT per Env setzbar und steht auf create-drop.
-  Das Makefile-Ziel `vendor` patcht es nach dem Klonen auf `update`.
-- Der AllowedHostsFilter fehlt im CMD des Forks; Compose überschreibt das
-  CMD und ergänzt `-Dplay.filters.hosts.allowed.0=.`
+- Kein offizielles Image. Selbst gebaut auf `sbtscala/scala-sbt` mit JDK 11.
+- JDBC-URL ist in `conf/META-INF/persistence.xml` **fest verdrahtet** auf
+  `localhost:5432`, nicht per System-Property überschreibbar. Dockerfile
+  patcht sie per `sed` auf `postgres:5432`.
+- `hbm2ddl.auto` per `sed` von `create-drop` auf `update` — sonst wird das
+  Schema bei jedem Stop gelöscht.
+- `sbt run` (Dev-Modus) stirbt an EOF auf stdin, auch mit `stdin_open`/`tty`.
+  Lösung: `sbt stage`, CMD startet `/app/target/universal/stage/bin/sysml-v2-api-services`
+  (Glob matcht sonst auch die `.bat`).
+- Play `AllowedHostsFilter` blockt `Host: sysml-api:9000` mit 400.
+  Flag: `-Dplay.filters.hosts.allowed.0='.'`
+- Erster Start dauert Minuten (Schema, ~8200 Tabellen). Bereit, wenn
+  `Listening for HTTP` im Log steht und `curl localhost:9000/projects` 200 liefert.
 
 **Devcontainer**
 - Basis `mcr.microsoft.com/devcontainers/python:3.14-trixie`.
@@ -96,6 +109,10 @@ out/               STEP, JUnit-XML, Dumps (gitignored)
   und `sysml2-api` konnte nicht binden.
 - Python 3.14: `ezdxf` hat keine cp314-Wheels, läuft pure-python. Betrifft nur
   DXF, nicht STEP. `lib3mf`-DeprecationWarnings sind erwartet und harmlos.
+- **build123d 0.11:** `export_step(part, pfad)` ist eine MODULFUNKTION, keine
+  Methode am Part. Ältere Beispiele im Netz zeigen `part.export_step(...)`.
+- Messungen: `part.volume` (mm³), `part.bounding_box().size.X`,
+  `part.center(CenterOf.MASS)`, `len(part.faces())`.
 
 **Jupyter / SysML-Kernel**
 - conda-forge `jupyter-sysml-kernel=0.60.1`, `openjdk>=21`.
@@ -125,6 +142,16 @@ out/               STEP, JUnit-XML, Dumps (gitignored)
   Link-Header. `SysMLClient.all_elements()` blättert; `elements()` nicht.
 - `explore.py` hat ein `depth > 8`-Limit im `walk()` — schneidet den Pfad zur
   Einheit ab. Beim Debuggen ggf. erhöhen.
+
+**Testdesign**
+- `tests/test_requirements.py` ruft `run()` auf MODULEBENE (`VERDICTS = run()`),
+  also schon beim Einsammeln der Tests. Bewusst gegen die Fixture — würde man
+  hier auf `"api"` umstellen, bräuchte jeder pytest-Lauf einen laufenden Server.
+- `tests/test_extract.py` baut den Elementgraphen synthetisch nach, aus einem
+  echten `%publish`-Dump. Läuft ohne Netz.
+- `make clean` nutzt `**/__pycache__`; unter `sh` expandiert das nicht.
+  Zum Aufräumen stattdessen:
+  `find . -name __pycache__ -type d -exec rm -rf {} +`
 
 ## Bewusste Vereinfachungen (dokumentiert im Kopf von extract.py)
 
@@ -166,21 +193,14 @@ $ python -m sysmlcad.verify api
 MaxLength verletzt: length = 123 mm <= 120 mm ist falsch  → Exit 1
 ```
 
-## Nächste Schritte (Roadmap-Phase 4)
+## Roadmap
 
-Reihenfolge ist wichtig: Gates vor KI, sonst fehlt der Maßstab.
+Phasen, Begründungen und offene Architekturfragen stehen in **ROADMAP.md**.
+Kurz: Phasen 0–3 sind fertig, Phase 4 (Mapping-Store, deterministische Gates,
+KI-Hypothesen) ist der nächste Schritt.
 
-1. **Mapping-Store**: SQLite statt YAML, append-only Audit-Tabelle,
-   Status `proposed | confirmed | rejected` mit Zeitstempel und Urheber.
-2. **Deterministische Gates** (getrennt von der Anforderungsprüfung!):
-   - Dimensionskompatibilität (Länge↔Länge via pint)
-   - Existenz einer messbaren Größe am CAD-Objekt
-   - Eindeutigkeit (keine 1:n-Kollisionen)
-   - Plausibilität (Größenordnung, z.B. Faktor 0.1–10 zur Anforderung)
-   **Wichtig:** Mapping-Gültigkeit ≠ Anforderungserfüllung. Ein korrekt
-   gemapptes, aber zu langes Bauteil ist ein *Verstoß*, kein Fehlmapping.
-3. **KI-Hypothesen**: `rapidfuzz` + `sentence-transformers` über Namen/Metadaten.
-   Trefferquote gegen ein handgemapptes Gold-Set messen.
-
-Später: Phase 5 (Rückschreiben als Metadaten, Merge-Assistent),
-Phase 6 (z3 auf dem Constraint-Netz, nicht auf der Geometrie).
+**Der wichtigste Punkt daraus, weil er leicht falsch gemacht wird:**
+Mapping-Gültigkeit und Anforderungserfüllung sind zwei getrennte Fragen. Gates
+prüfen die Zuordnung (Dimension, Existenz, Eindeutigkeit, Plausibilität), die
+Verifikations-Engine prüft die Erfüllung. Ein korrekt gemapptes, aber zu langes
+Bauteil ist ein Verstoß, kein Fehlmapping.
