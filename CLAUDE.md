@@ -58,10 +58,9 @@ image at `/opt/venv`.
 
 ```
 .devcontainer/     devcontainer.json, docker-compose.dev.yml, Dockerfile
-docker/            docker-compose.yml, jupyter.Dockerfile
+docker/            docker-compose.yml, jupyter.Dockerfile, .env
                    (no api-services.Dockerfile any more -- the fork ships one)
 vendor/            hni-ase/SysML-v2-API-Services (git clone, not in the repo)
-.env               PLAY_SECRET (not in the repo, see below)
 .github/workflows/ verify.yml -- CI runs against the FIXTURE, not the API
                    (deliberate: CI must be able to go green without a server)
 models/            motor_housing.sysml
@@ -113,6 +112,13 @@ out/               STEP, JUnit XML, dumps (gitignored)
   `.bashrc`, `.zshrc`, and in `remoteEnv` in devcontainer.json.
 - `forwardPorts` was **removed** — otherwise VS Code occupies host port 9000 and
   `sysml2-api` cannot bind.
+- The Compose env file lives at `docker/.env`, **not** in the project root.
+  Compose resolves it against the directory of the FIRST `-f` file, and the Dev
+  Containers extension builds its own compose command with no way to pass
+  `--env-file`. Anywhere else, opening the devcontainer dies at
+  `docker compose config` with `required variable PLAY_SECRET is missing a value`
+  — even though `runServices` is only `dev` + `postgres`, because `config`
+  interpolates the whole merged file, `sysml-api` included.
 - Python 3.14: `ezdxf` has no cp314 wheels and runs pure-Python. That affects DXF
   only, not STEP. `lib3mf` DeprecationWarnings are expected and harmless.
 - **build123d 0.11:** `export_step(part, path)` is a MODULE FUNCTION, not a method

@@ -8,10 +8,12 @@ export PYTHONPATH := src:cad
 # Im Devcontainer setzt das Compose-Overlay SYSML_API_URL auf http://sysml-api:9000
 API_URL := $(or $(SYSML_API_URL),http://localhost:9000)
 
-# --env-file ist PFLICHT: Compose sucht die .env sonst im Verzeichnis der ersten
-# -f-Datei (docker/), nicht im Projektwurzelverzeichnis. Ohne das Flag scheitert
-# die Interpolation von PLAY_SECRET.
-COMPOSE := docker compose --env-file .env \
+# Compose sucht die env-Datei im Verzeichnis der ERSTEN -f-Datei (docker/), nicht
+# im Projektwurzelverzeichnis. Deshalb liegt sie unter docker/.env: die VS-Code-
+# Dev-Containers-Extension baut ihr eigenes compose-Kommando und kann --env-file
+# nicht mitgeben, findet das Secret also nur an diesem Standardort.
+# Das Flag hier ist redundant, haelt das Makefile aber bei geaenderter -f-Reihenfolge.
+COMPOSE := docker compose --env-file docker/.env \
              -f docker/docker-compose.yml \
              -f .devcontainer/docker-compose.dev.yml
 
@@ -49,9 +51,9 @@ venv:
 
 # Play verweigert im Produktionsmodus den Start ohne ausreichend langen Secret-Key.
 secret:
-	@test -f .env && echo ".env existiert bereits -- nichts geaendert" || \
-	  ( echo "PLAY_SECRET=$$(head -c 48 /dev/urandom | base64 | tr -d '\n')" > .env \
-	    && echo ".env angelegt" )
+	@test -f docker/.env && echo "docker/.env existiert bereits -- nichts geaendert" || \
+	  ( echo "PLAY_SECRET=$$(head -c 48 /dev/urandom | base64 | tr -d '\n')" > docker/.env \
+	    && echo "docker/.env angelegt" )
 	@grep -q '^\.env$$' .gitignore || echo ".env" >> .gitignore
 
 vendor:

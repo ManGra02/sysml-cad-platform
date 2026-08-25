@@ -30,7 +30,7 @@ Devcontainer **nicht** aufgerufen — das venv liegt bereits im Image unter
 Für den vollen Stack **auf dem Host** (der Devcontainer hat keinen Docker-Zugriff):
 
 ```bash
-cp .env.example .env      # PLAY_SECRET erzeugen, siehe unten
+make secret               # erzeugt PLAY_SECRET in docker/.env, siehe unten
 make api                  # SysML-v2-API-Server, erster Build ~6 min
 make jupyter              # JupyterLab auf http://localhost:8888/?token=sysmlcad
 ```
@@ -97,7 +97,8 @@ sind nur für deinen Browser vom Host aus.
 └── Dockerfile                Python 3.14 (trixie) + OpenGL/X11 für OCP
 docker/
 ├── docker-compose.yml        postgres, sysml-api, jupyter
-└── jupyter.Dockerfile        conda, SysML-Kernel, Standardbibliothek
+├── jupyter.Dockerfile        conda, SysML-Kernel, Standardbibliothek
+└── .env                      PLAY_SECRET (nicht im Git), siehe unten
 vendor/                       hni-ase/SysML-v2-API-Services (Klon, nicht im Git)
 models/motor_housing.sysml    Systemmodell, textuell
 notebooks/                    01_publish_motor_housing.ipynb
@@ -115,22 +116,32 @@ src/sysmlcad/
 └── explore.py                Debug-Werkzeug für Payloads
 tests/                        test_extract.py, test_requirements.py
 .github/workflows/verify.yml  CI, läuft gegen die Fixture
-.env                          PLAY_SECRET (nicht im Git)
 CLAUDE.md                     Projektkontext für Claude Code
 ```
 
-## .env
+## docker/.env
 
 Play verweigert im Produktionsmodus den Start ohne ausreichend langen
-Secret-Key. Einmalig erzeugen:
+Secret-Key. Einmalig mit `make secret` erzeugen, oder von Hand:
 
 ```bash
-echo "PLAY_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n')" > .env
+echo "PLAY_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n')" > docker/.env
 grep -q '^\.env$' .gitignore || echo ".env" >> .gitignore
 ```
 
-Wichtig: Compose sucht die `.env` im Verzeichnis der ersten `-f`-Datei, also
-`docker/`. Deshalb übergibt das Makefile `--env-file .env` explizit.
+**Der Ort ist entscheidend.** Compose sucht die env-Datei im Verzeichnis der
+*ersten* `-f`-Datei, also `docker/` — nicht im Projektwurzelverzeichnis. Das
+Makefile könnte das mit `--env-file` umgehen, die VS-Code-Dev-Containers-
+Extension aber baut ihr eigenes `docker compose`-Kommando und kann das Flag
+nicht mitgeben. Liegt die Datei woanders, scheitert das Öffnen des
+Devcontainers bei `docker compose config` mit:
+
+```
+required variable PLAY_SECRET is missing a value
+```
+
+Und zwar auch dann, wenn der Devcontainer nur `dev` und `postgres` startet:
+`compose config` interpoliert die gesamte gemergte Datei, `sysml-api` inklusive.
 
 ## Bekannte Stolpersteine
 

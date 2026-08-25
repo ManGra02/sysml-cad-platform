@@ -56,10 +56,9 @@ make up         # ACHTUNG: startet ALLES inkl. dev und jupyter -- im
 
 ```
 .devcontainer/     devcontainer.json, docker-compose.dev.yml, Dockerfile
-docker/            docker-compose.yml, jupyter.Dockerfile
+docker/            docker-compose.yml, jupyter.Dockerfile, .env
                    (kein eigenes api-services.Dockerfile mehr -- Fork bringt eines mit)
 vendor/            hni-ase/SysML-v2-API-Services (git clone, nicht im Repo)
-.env               PLAY_SECRET (nicht im Repo, siehe unten)
 .github/workflows/ verify.yml -- CI laeuft gegen die FIXTURE, nicht gegen die API
                    (bewusst: CI soll ohne laufenden Server gruen werden koennen)
 models/            motor_housing.sysml
@@ -109,6 +108,13 @@ out/               STEP, JUnit-XML, Dumps (gitignored)
   `.zshrc` und `remoteEnv` der devcontainer.json.
 - `forwardPorts` wurde **entfernt** — VS Code belegte sonst Host-Port 9000
   und `sysml2-api` konnte nicht binden.
+- Die Compose-env-Datei liegt unter `docker/.env`, **nicht** im Projektwurzel-
+  verzeichnis. Compose sucht sie im Verzeichnis der ERSTEN `-f`-Datei, und die
+  Dev-Containers-Extension baut ihr eigenes compose-Kommando ohne Moeglichkeit,
+  `--env-file` mitzugeben. Liegt sie woanders, stirbt das Oeffnen des
+  Devcontainers bei `docker compose config` mit `required variable PLAY_SECRET
+  is missing a value` — auch wenn `runServices` nur `dev` + `postgres` enthaelt,
+  denn `config` interpoliert die gesamte gemergte Datei inklusive `sysml-api`.
 - Python 3.14: `ezdxf` hat keine cp314-Wheels, läuft pure-python. Betrifft nur
   DXF, nicht STEP. `lib3mf`-DeprecationWarnings sind erwartet und harmlos.
 - **build123d 0.11:** `export_step(part, pfad)` ist eine MODULFUNKTION, keine

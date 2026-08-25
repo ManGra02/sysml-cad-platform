@@ -39,7 +39,7 @@ services:
       - -Dhttp.address=0.0.0.0
       - -Dhttp.port=9000
       - -Dplay.filters.hosts.allowed.0=.
-      - -Dplay.http.secret.key=${PLAY_SECRET:?bitte in .env setzen}
+      - -Dplay.http.secret.key=${PLAY_SECRET:?bitte in docker/.env setzen -- 'make secret'}
     volumes:
       - ivy2:/root/.ivy2
       - sbt:/root/.sbt

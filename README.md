@@ -29,7 +29,7 @@ in the devcontainer — the virtualenv already ships in the image at `/opt/venv`
 For the full stack, run this **on the host** (the devcontainer has no Docker access):
 
 ```bash
-cp .env.example .env      # then generate PLAY_SECRET, see below
+make secret               # generates PLAY_SECRET in docker/.env, see below
 make api                  # SysML v2 API server; first build takes ~6 min
 make jupyter              # JupyterLab at http://localhost:8888/?token=sysmlcad
 ```
@@ -99,7 +99,8 @@ services from the host.
 └── Dockerfile                Python 3.14 (trixie) + OpenGL/X11 for OCP
 docker/
 ├── docker-compose.yml        postgres, sysml-api, jupyter
-└── jupyter.Dockerfile        conda, SysML kernel, standard library
+├── jupyter.Dockerfile        conda, SysML kernel, standard library
+└── .env                      PLAY_SECRET (not in git), see below
 vendor/                       hni-ase/SysML-v2-API-Services (clone, not in git)
 models/motor_housing.sysml    the system model, textual
 notebooks/                    01_publish_motor_housing.ipynb
@@ -117,22 +118,32 @@ src/sysmlcad/
 └── explore.py                debugging tool for API payloads
 tests/                        test_extract.py, test_requirements.py
 .github/workflows/verify.yml  CI, runs against the fixture
-.env                          PLAY_SECRET (not in git)
 CLAUDE.md                     project context for Claude Code
 ```
 
-## .env
+## docker/.env
 
 In production mode, Play refuses to start without a sufficiently long secret
-key. Generate one once:
+key. Generate one once with `make secret`, or by hand:
 
 ```bash
-echo "PLAY_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n')" > .env
+echo "PLAY_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n')" > docker/.env
 grep -q '^\.env$' .gitignore || echo ".env" >> .gitignore
 ```
 
-Important: Compose looks for `.env` in the directory of the *first* `-f` file,
-which is `docker/`. That is why the Makefile passes `--env-file .env` explicitly.
+**The location matters.** Compose looks for the env file in the directory of the
+*first* `-f` file, which is `docker/` — not in the project root. The Makefile
+could work around that with `--env-file`, but the VS Code Dev Containers
+extension builds its own `docker compose` command and has no way to pass that
+flag. With the file anywhere else, opening the devcontainer fails at
+`docker compose config` with:
+
+```
+required variable PLAY_SECRET is missing a value
+```
+
+That happens even though the devcontainer only starts `dev` and `postgres`:
+`compose config` interpolates the whole merged file, `sysml-api` included.
 
 ## Known pitfalls
 
