@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sysmlcad"
+version = "0.2.0"
+description = "Verify SysML v2 requirements against CAD geometry"
+requires-python = ">=3.12"
+dependencies = [
+    "build123d==0.11.1",
+    "pint==0.25.3",
+    "httpx==0.28.1",
+    "PyYAML==6.0.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.4"]
+
+[project.scripts]
+sysmlcad-verify = "sysmlcad.verify:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+# `cad` is on the path as well as `src`: the CAD scripts are addressed by
+# module name from the mapping, so they must be importable.
+pythonpath = ["src", "cad"]
+testpaths = ["tests"]
+addopts = "-v --junitxml=out/verification.xml"

@@ -1,105 +1,213 @@
 # Roadmap
 
-*Deutsche Fassung. Englisch: [ROADMAP.md](ROADMAP.md).*
+*Englische Fassung: [ROADMAP.md](ROADMAP.md).*
 
-Leitprinzip: erst der dünne, durchgehende Faden, dann Breite. Jede Phase baut
-auf einer verifizierten Vorgängerphase auf.
+Leitprinzip: erst der dünne, durchgehende Faden, dann Breite. Jede Stufe baut
+auf einer verifizierten Vorgängerstufe auf.
 
-| Phase | Inhalt | Status |
+Das Zielsystem beschreiben `goal_spec.txt` (SRS v0.1, „Bi-Directional
+Synchronization") und die HNI/IEM-Use-Case-Folien. Diese Roadmap weicht an
+einigen Stellen bewusst davon ab; wo sie das tut, steht die Begründung dabei.
+
+| Stufe | Inhalt | Status |
 |---|---|---|
-| 0 | Infrastruktur, Referenzbeispiel, Namenskonventionen | **fertig** |
-| 1 | Requirement-Extraktion über die API | **fertig** |
-| 2 | Messkern auf dem B-Rep | **fertig** |
-| 3 | Verifikations-Engine, Report, CI | **fertig** |
-| 4 | Mapping-Store, deterministische Gates, KI-Hypothesen | offen |
-| 5 | Rückschreiben, Merge-Assistent | offen |
-| 6 | SMT auf dem Constraint-Netz | offen |
+| 0–3 | Infrastruktur, Extraktion, Messkern, Verifikations-Engine, CI | **fertig** |
+| A | Mapping auf Bauteile umhängen; CAD-Adapter-Schnitt; drei Urteile; Provenienz | **fertig** |
+| B | Change-Impact-Analyse | offen |
+| C | Evidenz-Log und Reports | offen |
+| D | MCP-Server | offen |
+| E | Gates und menschliche Bestätigung | offen |
+| F | FreeCAD-Adapter | offen |
+| G | Schreibpfade, über Zuständigkeit geregelt | offen |
+| H | KI-Mapping-Vorschläge | offen |
+
+Reihenfolgen, die nicht verhandelbar sind: **Gates vor Schreiben**, **Gates vor
+KI**, **Adapter-Schnitt vor FreeCAD**.
 
 ---
 
-## Phase 4 — Mapping (nächster Schritt)
+## Drei Prinzipien, die über alle Stufen gelten
 
-**Die Reihenfolge ist nicht verhandelbar: Gates vor KI.** Ohne Gates gibt es
-keinen Maßstab, an dem sich Vorschläge messen lassen.
+**1. KI schlägt vor, sie bewertet nie.** Die Folien lesen sich so, als führe
+die KI die Verifikation durch („AI can read both systems and then do the
+Automated Target/Actual Verification"). Das darf sie nicht. Eine KI-Komponente
+schlägt Mappings vor und spricht natürliche Sprache; sobald ein Mapping
+bestätigt ist, ist es eine gewöhnliche deterministische Regel, und ihre
+Herkunft beeinflusst kein Ergebnis mehr. Genau das verlangen SRS FREQ-5 und
+NFREQ-1 — und Folie 9 räumt es mit ihrer eigenen Formulierung „concrete adapter
+per attribute … deterministic for auditability" bereits ein.
 
-### 4.1 Mapping-Store
+**2. Mapping-Gültigkeit und Anforderungserfüllung sind zwei Fragen.** Fehlt im
+SRS, und ist das, was hier am leichtesten falsch gemacht wird. Gates prüfen die
+*Zuordnung* (Dimension, Existenz, Eindeutigkeit, Plausibilität), die
+Verifikations-Engine prüft die *Erfüllung*. Ein korrekt gemapptes, aber zu
+langes Bauteil ist ein Verstoß, kein Fehlmapping — und genau der Fall, den das
+System melden soll. Der ursprüngliche Plan wollte ein Mapping nur dann
+persistieren, wenn die Anforderung erfüllt ist. Das würde echte Verstöße
+verstecken und falsche Mappings persistieren, die zufällig durchgehen.
 
-SQLite statt `mapping/mapping.yaml`. Schema mindestens:
+**3. „Nicht geprüft" ist nicht „bestanden".** Lücken — kein bestätigtes
+Mapping, oder eine Größe, die die CAD-Seite nicht liefern kann — werden durch
+den Lauf getragen und gemeldet, nie durch einen Wert ersetzt (SRS FREQ-2) und
+nie stillschweigend als Abdeckung gezählt.
 
-- `mapping`: `requirement_id`, `cad_module`, `method`, `args`, `property`,
-  `status`, `author`, `created_at`
-- `audit`: append-only, jede Statusänderung mit Zeitstempel, Urheber und Grund
+---
 
-`status ∈ {proposed, confirmed, rejected}`. Nichts wird überschrieben oder
-gelöscht — die Historie ist Teil der Nachvollziehbarkeit.
+## Stufe A — Umhängen und Schnitt ✅
 
-### 4.2 Deterministische Gates
+Keine neuen sichtbaren Funktionen; der Umbau, der alles Folgende erst trägt.
 
-**Der zentrale konzeptionelle Punkt:** Mapping-Gültigkeit und
-Anforderungserfüllung sind zwei verschiedene Fragen. Der ursprüngliche
-Projektplan hat sie vermischt und wollte ein Mapping nur dann persistieren,
-wenn die Anforderung erfüllt ist. Das ist falsch:
+**A.1 Das Mapping hängt an Bauteilen, nicht an Anforderungen.** Bisher bildete
+`mapping.yaml` `requirement_id → cad_module + method` ab. Beide Quelldokumente
+verlangen etwas anderes: Die Tabelle auf Folie 9 lautet `partdef → Component`,
+`Attribute → Parameter`, und FREQ-3 definiert einen Eintrag als „the identifier
+of the system model element and the name of its attribute, the CAD object and
+its parameter".
 
-- Ein korrekt gemapptes, aber zu langes Bauteil ist ein **Verstoß**, kein
-  Fehlmapping — und genau der Fall, den das System melden soll.
-- Ein falsches Mapping, das die Regel zufällig erfüllt, würde persistiert.
+Die dafür nötige Verknüpfung stand längst im Modell und wurde weggeworfen.
+`satisfy maxLengthCheck by motorHousing;` serialisiert als:
 
-Gates prüfen deshalb ausschließlich die *Zuordnung*:
+```
+SatisfyRequirementUsage
+ ├─ ReferenceSubsetting.general → RequirementUsage → FeatureTyping.general → RequirementDefinition
+ └─ SubjectMembership.memberElement → ReferenceUsage → FeatureValue
+                                    → FeatureReferenceExpression
+                                    → Membership.memberElement → PartUsage
+```
 
-1. **Dimensionskompatibilität** — Länge↔Länge, Masse↔Masse (via pint)
+`extract.resolve_satisfies()` läuft diesen Pfad jetzt ab. Der Extraktor meldete
+früher den Subjekt-*Parameter* der Definition (`housing`); er meldet nun das
+Bauteil, das das Modell tatsächlich als eingeschränkt bezeichnet
+(`motorHousing`), samt Element-ID und dem Pfad, der die Beziehung belegt.
+Folgen: deutlich weniger Mapping-Einträge, eine neue Anforderung an ein bereits
+gemapptes Bauteil braucht gar keinen neuen Eintrag, und die
+Change-Impact-Analyse hat den Pfad, den sie belegen können muss.
+
+**A.2 Das Mapping bleibt YAML. Das Evidenz-Log wird es nicht.** Die Roadmap
+sagte bisher, SQLite ersetze `mapping.yaml`. FREQ-3 widerspricht und hat recht:
+Das Mapping muss „human-readable and … placed under version control" sein. Es
+ist Entwurfsabsicht und gehört ins Review. Das append-only-*Evidenz*-Log ist
+das, was eine Datenbank braucht. Zwei Speicher, zwei Aufgaben.
+
+**A.3 Ein CAD-Adapter-Schnitt.** `sysmlcad/adapters/` definiert `CadAdapter`;
+nichts oberhalb importiert einen Geometriekern. `Build123dAdapter` ist die
+Referenzimplementierung und bleibt das Offline-Backend für die CI. Die Namen
+der Messmethoden (`bbox_size`, `volume`, `mass`, `face_count`) sind
+adapterunabhängiges Vokabular; ein Adapter wirft `Unsupported` für das, was er
+nicht kann, statt einen ersetzten Wert zu liefern.
+
+**A.4 Drei Urteile und Provenienz.** `compliant` / `within_tolerance` /
+`violated` nach FREQ-7, mit der Abweichung, und die Toleranz steht am
+Mapping-Eintrag. `RunContext` hält die SysML-Commit-ID, die CAD-`state_id`, den
+Mapping-Digest und einen Zeitstempel fest — FREQ-1 verlangt, dass Ergebnisse
+einem exakten Modellzustand zuzuordnen sind, und die Commit-ID wurde bisher
+geholt und weggeworfen.
+
+**A.5 Ein `direction`-Feld existiert, aber nichts schreibt.** `sysml_owns` /
+`cad_owns` / `both`, damit das Freischalten der Schreibpfade in Stufe G eine
+Verhaltensänderung ist und keine Schemamigration.
+
+**Aus Stufe A noch offen** (beides braucht einen laufenden API-Server):
+- Das Referenzmodell auf eine zweiteilige Baugruppe erweitern, mit einem
+  Schnittstellenmaß und einem Massenbudget über die Baugruppe. Ein einzelnes
+  Bauteil kann bauteilbasiertes Mapping nicht wirklich ausreizen.
+- `airbus/apollo-11-sysml-v2` publizieren und `explore.py` darüber laufen
+  lassen. Erwartung: Die Annahme „ein Vergleich pro Anforderung" fällt als
+  Erste. Billige, harte Evidenz dafür, welche Vereinfachung im Extraktor als
+  Nächstes fällig ist.
+
+---
+
+## Stufe B — Change-Impact-Analyse
+
+Im SRS mit User-Priorität 5/5 (FREQ-8), eine eigene Fähigkeitsgruppe auf den
+Folien, ein eigenes Szenario (SCN-3) — und in dieser Roadmap bisher gar nicht
+vorhanden. Sie braucht keinen CAD-Schreibzugriff: Es ist Graphtraversierung
+über Daten, die wir ohnehin holen, plus das Mapping. Die API des Forks
+unterstützt das direkt:
+
+- `GET /projects/:p/commits/:c/elements/:id/relationships?direction=…`
+- `GET /projects/:p/commits/:c/changes`
+
+`impact.py`: Zu einer Änderung auf einer der beiden Seiten den
+Mapping-Einträgen und den SysML-Traceability-Links folgen und die betroffenen
+Anforderungen und Verifikationsfälle zurückgeben — **jeweils mit dem Pfad, der
+sie ergeben hat**. Ergebnisse aus einer unvollständigen Linkstruktur werden als
+solche markiert: Die Analyse kann nur so vollständig sein wie das Modell, das
+sie durchläuft.
+
+Demo: das Beispiel aus dem SRS selbst. Ein Gehäuse von Aluminium auf Kunststoff
+umzustellen sieht lokal aus, berührt aber Massenbudget, thermischen Pfad und
+Materialzertifizierung.
+
+## Stufe C — Evidenz-Log und Reports
+
+Append-only-SQLite: `run` (ein `RunContext`) plus `result` (eine Zeile je
+ausgewerteter Constraint). Nichts wird überschrieben, nichts gelöscht — die
+Historie ist die Nachvollziehbarkeit. `report.py` erzeugt HTML (für Menschen)
+und JSON (für Maschinen), beide mit der Aussage, welcher Entwurfszustand gegen
+welchen Anforderungszustand geprüft wurde. JUnit-XML bleibt für die CI.
+
+## Stufe D — MCP-Server
+
+Ein dünner FastMCP-Wrapper über die Stufen A–C: `list_requirements`, `verify`,
+`analyze_impact`, `generate_report`, `explain_mapping`. Keine eigene Logik. Das
+ist die Integrationsgeschichte der Folien 8–9 und der Punkt, an dem ein
+Assistent gefragt werden kann „was bricht, wenn dieses Gehäuse aus Kunststoff
+wird?" — und eine deterministische Antwort bekommt.
+
+## Stufe E — Gates und menschliche Bestätigung
+
+1. **Dimensionskompatibilität** — Länge↔Länge, Masse↔Masse, via pint
 2. **Existenz** — ist die Größe am CAD-Objekt überhaupt messbar?
 3. **Eindeutigkeit** — keine 1:n-Kollisionen
-4. **Plausibilität** — Größenordnung, z.B. Faktor 0,1–10 zur Anforderung
-5. **Bestätigung** — beim ersten Mal durch einen Menschen
+4. **Plausibilität** — Größenordnung, z. B. Faktor 0,1–10
+5. **Bestätigung** — beim ersten Mal durch einen Menschen, protokolliert mit
+   Urheber und Zeitstempel (FREQ-5)
 
-Ergebnis: *Mapping gültig / ungültig*. Davon getrennt liefert die bestehende
-Verifikations-Engine *pass / fail*.
+Ergebnis: *Mapping gültig / ungültig*, getrennt von *pass / fail*. Vor jedem
+Schreibpfad und vor jedem KI-Vorschlag erforderlich.
 
-### 4.3 KI-Hypothesen
+## Stufe F — FreeCAD-Adapter
 
-`rapidfuzz` (String-Distanz) plus `sentence-transformers` (Embeddings) über
-Namen und Metadaten von SysML-Elementen und CAD-Modulen. Optional ein LLM mit
-strukturiertem JSON-Output.
+Der zweite `CadAdapter`: Dokumentmodell, benannte Parameter und Spreadsheet,
+Baugruppenbaum, zugewiesene Materialien. FREQ-2 beschreibt ein lebendes
+CAD-Dokument, und das ist build123d strukturell nicht — kein Dokument, keine
+Baugruppenzwangsbedingungen, keine Materialeigenschaft. FreeCAD basiert auf
+OCCT (passend zu SRS §4.2), ist frei und headless skriptbar.
 
-**Messbar machen:** Trefferquote gegen ein handgemapptes Gold-Set. Ohne diese
-Zahl ist unbekannt, ob der KI-Teil überhaupt Zeit spart.
+Schaltet drei der vier operativen Fälle der Folien frei: Budgetverfolgung
+(Masse über eine Baugruppe summiert), Schnittstellenkontrolle (vereinbartes Maß
+gegen konstruierte Geometrie), Stoffkonformität (Material- und Massendaten).
 
-### 4.4 Vorher: Extraktor unter Last
+`Build123dAdapter` bleibt, damit die CI nie FreeCAD braucht.
 
-Bevor Phase 4 beginnt, das Apollo-11-Modell von Airbus
-(`airbus/apollo-11-sysml-v2`) publizieren und `explore.py` darüber laufen
-lassen. Es ist ein bewusst nicht-triviales SysML-v2-Modell nach dem
-CoSMA-Rahmen. Erwartung: Die Annahme „ein Vergleich pro Anforderung" fällt als
-Erste. Billige, harte Evidenz dafür, welche der Vereinfachungen aus
-`extract.py` zuerst nachzuziehen sind.
+## Stufe G — Schreibpfade, über Zuständigkeit geregelt
 
----
+Die Zuständigkeitsregel statt eines Merge-Algorithmus. Der ursprüngliche Plan
+schlug Operational Transformation vor; das ist Over-Engineering — OT löst
+zeichenweise Nebenläufigkeit in Echtzeit-Editoren, Modellsynchronisation ist
+zustandsbasiertes 3-Wege-Diff bei niedriger Frequenz. Was die meisten Konflikte
+strukturell verhindert, ist explizite Zuständigkeit pro Parameter — und genau
+das ist FREQ-3s `direction`-Feld bereits.
 
-## Phase 5 — Rückrichtung und Konflikte
+- Geschrieben wird nur dort, wo der Mapping-Eintrag die Befugnis erteilt: SysML
+  besitzt Grenzwerte, CAD besitzt Ist-Werte. Dann kollidieren die beiden Seiten
+  nicht mehr; es bleiben nur Verletzungen.
+- **Aufwärts:** Ist-Werte und Urteile nach SysML via
+  `POST /projects/:id/commits`.
+- **Abwärts:** Grenzwerte ins CAD als Parameter oder Annotationen. **Keine
+  automatischen Geometrieänderungen** — das schafft Rückverfolgbarkeit und
+  signalisiert Änderungsbedarf, ohne dass ein Algorithmus still ein Bauteil
+  umbaut.
+- Jeder Lauf bietet eine Vorschau der Wertänderungen, die er vornehmen würde
+  (SRS §4.1, Synchronisationsansicht). Jeder Schreibvorgang landet im
+  Evidenz-Log.
 
-### 5.1 Schreiben, aber nur Metadaten
-
-Geänderte Grenzwerte aus SysML landen als Attribut oder Kommentar im
-CAD-Skript. **Keine automatische Geometrieänderung.** Das schafft
-Rückverfolgbarkeit und signalisiert Änderungsbedarf, ohne dass ein Algorithmus
-still ein Bauteil umbaut.
-
-### 5.2 Authority-Regel statt Merge-Algorithmus
-
-Der ursprüngliche Projektplan schlug Operational Transformation (OT) vor. Das
-ist Over-Engineering: OT löst zeichenweise Nebenläufigkeit in
-Echtzeit-Editoren; Modellsynchronisation ist zustandsbasiertes 3-Wege-Diff bei
-niedriger Frequenz.
-
-Was 90 % der Konflikte strukturell verhindert, ist eine **explizite
-Zuständigkeit pro Parameter**: SysML besitzt Grenzwerte (`maxLength`), CAD
-besitzt Ist-Werte (`actualLength`). Dann kollidieren beide Seiten nicht mehr —
-es gibt nur noch Verletzungen.
-
-### 5.3 Merge-Assistent
-
-CLI-Diff über den Mapping-Store, drei Optionen pro Konflikt (SysML übernehmen /
-CAD übernehmen / manuell). Mensch entscheidet, System protokolliert.
+**FREQ-6 (strukturelle Instanziierung)** — ein CAD-Skelett aus der
+SysML-Bauteilstruktur erzeugen — wird zurückgestellt, bis das hier stabil ist.
+Es ist der teuerste Posten im SRS und bringt am wenigsten, solange Baugruppen
+nicht funktionieren.
 
 **Vor dem Entwurf lesen:** `Open-MBEE/sysmlv2_dls`, Paket `geometry_api`. Dort
 existiert eine CAD-agnostische Baugruppen-Repräsentation mit Translation,
@@ -108,35 +216,46 @@ schreibt. Entgegengesetzte Designentscheidung zu unserer (dort trägt SysML die
 Geometriestruktur), aber die fertige Antwort auf die Transformationsmathematik,
 falls wir von Einzelteilen auf Baugruppen gehen.
 
+## Stufe H — KI-Mapping-Vorschläge
+
+`rapidfuzz` (String-Distanz) plus `sentence-transformers` (Embeddings) über
+Namen und Metadaten; optional ein LLM mit strukturiertem JSON-Output.
+Kandidaten laufen mit `status: proposed`, einem Konfidenzwert und einer
+Begründung ein und werden nie automatisch angewendet (FREQ-4, FREQ-5).
+
+**Messbar machen:** Trefferquote gegen ein handgemapptes Gold-Set. Ohne diese
+Zahl gibt es keinen Beleg, dass der KI-Teil überhaupt Zeit spart.
+
 ---
 
-## Phase 6 — Formale Verifikation
+## Bewusst zurückgestellt
 
-**Abgrenzung, die im ursprünglichen Projektplan fehlte:** Z3 kann über
-B-Rep-Geometrie nichts beweisen. SMT gehört auf das *Constraint-Netz*, nicht auf
-das CAD-Modell.
+**SMT auf dem Constraint-Netz.** Eine Abgrenzung, die im ursprünglichen Plan
+fehlte: Z3 kann über B-Rep-Geometrie nichts beweisen. SMT gehört auf das
+*Constraint-Netz*, nicht auf das CAD-Modell. Sinnvolle Ziele sind
+Widerspruchsfreiheit des Anforderungssatzes, Massen- und Kostenbudgets über
+Baugruppenhierarchien und Gegenbeispiele im Parameterraum — die dann
+automatisch zu neuen Testfällen in der Verifikations-Engine werden. Werkzeug:
+`z3-solver`.
 
-Sinnvolle Ziele:
-
-- Widerspruchsfreiheit des Anforderungssatzes
-- Massen- und Kostenbudgets über Baugruppenhierarchien
-- Gegenbeispiele im Parameterraum
-
-Werkzeug: `z3-solver`. Gefundene Gegenbeispiele werden automatisch zu neuen
-Testfällen in der Verifikations-Engine aus Phase 3.
+**Web-Frontend, OAuth2, Multi-Projekt-Dashboard.** Steht im SRS (§4.1, §4.3),
+aber nicht in den nächsten Stufen. Der Kern wird als Bibliothek gebaut, damit
+die spätere Oberfläche ein zweiter Konsument neben CLI und MCP ist und kein
+Neuschrieb.
 
 ---
 
 ## Offene Architekturfragen
 
-**Welches CAD-System produktiv?** Wenn CATIA oder Creo gesetzt sind, wird der
-Messkern eine Adapter-Schicht über deren API statt über OCC. Die Architektur
-bleibt identisch, aber der PoC sollte dann früh gegen einen Ausschnitt echter
-Modelldaten laufen — dort sitzen die eigentlichen Reibungspunkte.
+**Welches CAD-System produktiv?** Sind CATIA oder Creo gesetzt, trägt der
+Adapter-Schnitt das bereits — der Messkern wird eine Adapterschicht über deren
+API statt über OCC, und oberhalb von `CadAdapter` ändert sich nichts. Der PoC
+sollte dann früh gegen einen Ausschnitt echter Modelldaten laufen; dort sitzen
+die eigentlichen Reibungspunkte.
 
-**Baugruppen statt Einzelteile.** Der Messkern kennt bisher ein Bauteil pro
-Modul. Baugruppen brauchen Aggregation (Summe der Massen) und
-Positionierung — siehe 5.3.
+**Baugruppen statt Einzelteile.** Der Messkern kennt ein Bauteil pro Objekt.
+Baugruppen brauchen Aggregation (Summe der Massen) und Positionierung — siehe
+Stufe F und den `geometry_api`-Hinweis oben.
 
 **Model-Management.** Falls Versionierung, Branching und Zugriffsrechte über
 den PoC hinaus gebraucht werden, ist Open-MBEE (MMS) der etablierte Kandidat.

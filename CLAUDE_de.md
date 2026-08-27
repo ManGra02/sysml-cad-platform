@@ -7,9 +7,14 @@ Anforderungen aus SysML v2 automatisch gegen CAD-Geometrie prüfen. CI wird rot,
 wenn das CAD-Modell eine Systemanforderung verletzt. Später: Mapping-Store,
 KI-gestützte Mapping-Vorschläge, bidirektionale Sync, SMT-Verifikation.
 
-**Status: Phase 1 abgeschlossen und verifiziert.** Ende-zu-Ende läuft:
-SysML-v2-API → Extraktor → build123d-Messung → Urteil → Exit-Code.
-Der Serverteil läuft auf dem Fork `hni-ase/SysML-v2-API-Services`.
+**Status: Stufe A abgeschlossen und verifiziert.** Ende-zu-Ende läuft:
+SysML-v2-API → Extraktor → CAD-Adapter → Urteil → Exit-Code. Der Serverteil
+läuft auf dem Fork `hni-ase/SysML-v2-API-Services`.
+
+Stufe A hat das Mapping auf *Bauteile* umgehängt (aufgelöst über den
+`satisfy`-Link des Modells), einen `CadAdapter`-Schnitt unter die CAD-Seite
+gelegt, die Urteile dreiwertig gemacht und jeden Lauf dazu gebracht, die
+Modellzustände festzuhalten, aus denen er stammt.
 
 ## Architektur
 
@@ -56,7 +61,8 @@ make up         # ACHTUNG: startet ALLES inkl. dev und jupyter -- im
 
 ```
 .devcontainer/     devcontainer.json, docker-compose.dev.yml, Dockerfile
-docker/            docker-compose.yml, jupyter.Dockerfile, .env
+docker/            docker-compose.yml, jupyter.Dockerfile, .env (gitignored),
+                   .env.example
                    (kein eigenes api-services.Dockerfile mehr -- Fork bringt eines mit)
 vendor/            hni-ase/SysML-v2-API-Services (git clone, nicht im Repo)
 .github/workflows/ verify.yml -- CI laeuft gegen die FIXTURE, nicht gegen die API
@@ -65,20 +71,38 @@ models/            motor_housing.sysml
 notebooks/         01_publish_motor_housing.ipynb
 cad/               motor_housing.py  (build123d)
 fixtures/          requirements.json  (Stand-in + Regressionstest)
-mapping/           mapping.yaml       (Anforderung ↔ Messmethode)
-src/sysmlcad/      config, units, model, sysml_client, extract, measure, verify, explore
-tests/             test_extract.py, test_requirements.py
+mapping/           mapping.yaml       (Schema v2: Bauteile ↔ CAD-Objekte,
+                                       Attribute ↔ Messmethoden)
+src/sysmlcad/      config, units, model, sysml_client, extract, mapping,
+                   verify, explore
+src/sysmlcad/adapters/   __init__.py (CadAdapter-Protokoll),
+                         build123d_adapter.py
+tests/             test_extract.py, test_requirements.py, test_verify.py
+pyproject.toml     Paketmetadaten + pytest-Konfiguration (pytest.ini ist weg)
 out/               STEP, JUnit-XML, Dumps (gitignored)
 ```
 
 ## Datenfluss
 
-1. `extract.load("api")` → `SysMLClient.all_elements()` (paginiert) →
-   `elements_to_requirements()` → `Requirement(id, operator, limit: pint.Quantity)`
-2. `mapping.yaml` liefert pro `requirement_id`: `cad_module`, `method`, `args`, `property`
-3. `measure.load_part()` importiert das CAD-Modul, ruft `build()`, misst
-4. `Requirement.check()` vergleicht dimensionsgeprüft → `Verdict`
-5. `verify.report()` → Tabelle, Exit 0/1
+1. `extract.load_with_context("api")` → `SysMLClient.all_elements()`
+   (paginiert) → `elements_to_requirements()`, das zuerst `resolve_satisfies()`
+   ausführt, um zu erfahren, um welche PartUsage es jeder Anforderung geht →
+   `Requirement(id, subject, operator, limit: pint.Quantity)` plus Projekt- und
+   Commit-ID
+2. `mapping.load_mapping()` → `parts:` (SysML-Bauteil ↔ Adapter + CAD-Objekt)
+   und `attributes:` (SysML-Attribut ↔ Messmethode, Einheit, Richtung,
+   Toleranz, Status)
+3. `verify.AdapterPool` instanziiert den im Bauteil-Eintrag genannten Adapter;
+   `adapter.measure(obj, method, args)` liefert eine pint-Größe
+4. `Requirement.evaluate()` vergleicht dimensionsgeprüft →
+   `(status, deviation)` → `Verdict`
+5. `verify.run()` → `Run(context, verdicts, gaps)`; `report()` → Tabelle,
+   Exit 0/1
+
+Eine nicht auswertbare Anforderung wird zur **Lücke**, nicht zu einem
+Bestanden: kein bestätigtes Mapping, oder ein `Unsupported` vom Adapter. Lücken
+werden gemeldet und lassen den Lauf nicht scheitern. FREQ-2: die Lücke melden,
+nie einen Wert einsetzen.
 
 ## Gelöste Stolpersteine — NICHT rückgängig machen
 
@@ -120,7 +144,14 @@ out/               STEP, JUnit-XML, Dumps (gitignored)
 - **build123d 0.11:** `export_step(part, pfad)` ist eine MODULFUNKTION, keine
   Methode am Part. Ältere Beispiele im Netz zeigen `part.export_step(...)`.
 - Messungen: `part.volume` (mm³), `part.bounding_box().size.X`,
-  `part.center(CenterOf.MASS)`, `len(part.faces())`.
+  `part.center(CenterOf.MASS)`, `len(part.faces())`. Die liegen jetzt in
+  `adapters/build123d_adapter.py`; `measure.py` gibt es nicht mehr.
+- Der Adapter liest `MATERIAL` und `DENSITY_G_PER_CM3` aus dem CAD-Modul, die
+  Dichte ist damit nicht mehr in `mapping.yaml` dupliziert. Ein `args`-Override
+  bleibt, für Ersatzteil-Studien („was, wenn das Kunststoff wäre?").
+- `Build123dAdapter.state_id()` hasht den Quelltext der geladenen CAD-Module.
+  Bei Code-CAD *ist* das Skript der Entwurfszustand, der Digest ist also exakt
+  und keine Näherung.
 
 **Jupyter / SysML-Kernel**
 - conda-forge `jupyter-sysml-kernel=0.60.1`, `openjdk>=21`.
@@ -152,7 +183,11 @@ out/               STEP, JUnit-XML, Dumps (gitignored)
   Einheit ab. Beim Debuggen ggf. erhöhen.
 
 **Testdesign**
-- `tests/test_requirements.py` ruft `run()` auf MODULEBENE (`VERDICTS = run()`),
+- `tests/test_verify.py` fixiert die Auswertungssemantik (drei Urteile,
+  Toleranz, Einheitenumrechnung, Dimensionsfehler) ohne Geometrie und ohne
+  Server. Ein falsches Urteil ist der eine Fehler, den dieses System nicht
+  verkraftet.
+- `tests/test_requirements.py` ruft `run()` auf MODULEBENE (`RESULT = run()`),
   also schon beim Einsammeln der Tests. Bewusst gegen die Fixture — würde man
   hier auf `"api"` umstellen, bräuchte jeder pytest-Lauf einen laufenden Server.
 - `tests/test_extract.py` baut den Elementgraphen synthetisch nach, aus einem
@@ -164,9 +199,11 @@ out/               STEP, JUnit-XML, Dumps (gitignored)
 ## Bewusste Vereinfachungen (dokumentiert im Kopf von extract.py)
 
 1. **Die gemessene Größe kommt aus `mapping.yaml`, nicht aus dem Constraint-
-   Ausdruck.** `housing.length <= maxLength` wird nicht geparst.
+   Ausdruck.** `housing.length <= maxLength` wird nicht geparst; die Schlüssel
+   `attribute:` und `requirement:` im Mapping tragen diese Verknüpfung.
    Kosten: Ändert jemand die Constraint auf ein anderes Attribut, bleibt es
-   unbemerkt. → Phase 4.
+   unbemerkt. Das zu schließen heißt, die `FeatureChainExpression` aufzulösen —
+   der nächste Schritt im Extraktor.
 2. Nur ein Vergleich pro Anforderung; zusammengesetzte Constraints werden auf
    den ersten reduziert (mit Warnung).
 3. Ausdrücke werden nicht ausgewertet, nur Bestandteile gelesen
@@ -174,9 +211,15 @@ out/               STEP, JUnit-XML, Dumps (gitignored)
 4. Extraktion sucht in der von der `RequirementDefinition` erreichbaren Teilmenge
    nach: erstem Vergleichsoperator, erstem Literal, erstem Bibliothekselement mit
    `declaredShortName`. `_UPWARD_FIELDS` verhindert das Abdriften in Nachbar-
-   anforderungen — abgesichert durch `test_mehrere_anforderungen_bleiben_getrennt`.
+   anforderungen — abgesichert durch `test_requirements_stay_separate`.
 5. `requirement_id` = `declaredShortName` oder `declaredName` der Definition.
    `mapping.yaml` und Fixture nutzen dieselben Schlüssel (`MaxLength`, `MaxMass`).
+   `models/motor_housing.sysml` trägt bewusst **keine** Kurznamen: `<'REQ001'>`
+   würde die ID zu `REQ001` machen und im Mapping auf nichts passen.
+
+**Keine Vereinfachung mehr:** Das *Subjekt* einer Anforderung wird jetzt über
+den `satisfy`-Link des Modells aufgelöst statt aus der ersten `ReferenceUsage`
+im Teilbaum geraten. Siehe `extract.resolve_satisfies`.
 
 ## Konventionen
 
@@ -188,27 +231,71 @@ out/               STEP, JUnit-XML, Dumps (gitignored)
 - **Messsemantik explizit:** `bbox_size(axis="X")` ist etwas anderes als ein
   benanntes Feature-Maß. Steht in `mapping.yaml` unter `note`.
 - `Requirement` ist frozen; Ergänzungen via `dataclasses.replace`.
+- **Ein CAD-Schnitt:** Nichts außerhalb von `src/sysmlcad/adapters/` darf
+  build123d, FreeCAD oder einen anderen Geometriekern importieren. Alles
+  oberhalb spricht `CadAdapter` und pint-Größen.
+- **Adapter melden Lücken, sie setzen nie Werte ein.** `Unsupported` ist die
+  Antwort auf „dieses Backend kann das nicht messen", und der Lauf hält das als
+  Lücke fest (SRS FREQ-2).
+- **Zuständigkeit statt Merge:** Das `direction`-Feld des Mappings
+  (`sysml_owns` / `cad_owns` / `both`) entscheidet, wer einen Wert schreiben
+  darf. SysML besitzt Grenzwerte, CAD besitzt Ist-Werte. Es schreibt noch
+  nichts; das Feld existiert, damit das Freischalten eine Verhaltensänderung
+  ist und keine Schemamigration.
+- **KI schlägt vor, sie bewertet nie.** Eine KI-Komponente darf Mappings
+  vorschlagen und natürliche Sprache sprechen. Sobald ein Mapping bestätigt
+  ist, ist es eine gewöhnliche deterministische Regel und ihre Herkunft
+  beeinflusst kein Ergebnis mehr (SRS FREQ-5, NFREQ-1). Die Folien lesen sich
+  so, als führe die KI die Verifikation durch — das darf sie nicht.
+- **Das Mapping ist YAML und liegt in git; das Evidenz-Log wird SQLite.** Das
+  Mapping ist Entwurfsabsicht und gehört ins Review (FREQ-3 verlangt
+  menschenlesbar und versionierbar). Das append-only-Lauf-Log ist das, was eine
+  Datenbank braucht. Zwei Speicher, zwei Aufgaben.
 
 ## Verifizierter Referenzlauf
 
 ```
-$ python -m sysmlcad.verify api            # LENGTH_MM = 118.0
-MaxLength length  118 mm  <= 120 mm  OK
-MaxMass   mass   0.7429 kg <= 0.9 kg  OK    → Exit 0
+$ python -m sysmlcad.verify                # LENGTH_MM = 118.0
+source       : fixture
+cad state    : build123d:bdaee4cff5d3ddfa
+mapping      : a4b11cc20a9634e8
+
+ID         Attribute        Measured          Limit      Deviation  Status
+MaxLength  length                118 mm            120 mm             -2 mm  OK
+MaxMass    mass               0.7429 kg            0.9 kg        -0.1571 kg  OK
+2 compliant, 0 within tolerance, 0 violated, 0 not checked   → Exit 0
 
 $ sed -i 's/LENGTH_MM = 118.0/LENGTH_MM = 123.0/' cad/motor_housing.py
-$ python -m sysmlcad.verify api
-MaxLength verletzt: length = 123 mm <= 120 mm ist falsch  → Exit 1
+$ python -m sysmlcad.verify
+MaxLength  length                123 mm            120 mm             +3 mm  VIOLATED
+  VIOLATED MaxLength: length = 123 mm <= 120 mm is false (over by 3 mm; ...)
+                                                             → Exit 1
+
+# dasselbe 123-mm-Bauteil, mit `tolerance: "5 mm"` am MaxLength-Eintrag
+MaxLength  length                123 mm            120 mm             +3 mm  TOLERANCE
+  TOLERANCE MaxLength: ... inside the agreed tolerance of 5 mm   → Exit 0
 ```
+
+Die Digests `cad state` und `mapping` ändern sich, wenn sich Geometrie oder
+Mapping ändern. Genau das macht ein Urteil zitierfähig statt nur ausgedruckt.
 
 ## Roadmap
 
-Phasen, Begründungen und offene Architekturfragen stehen in **ROADMAP.md**.
-Kurz: Phasen 0–3 sind fertig, Phase 4 (Mapping-Store, deterministische Gates,
-KI-Hypothesen) ist der nächste Schritt.
+Stufen, Begründungen und offene Architekturfragen stehen in
+**[ROADMAP_de.md](ROADMAP_de.md)**. Kurz: Phasen 0–3 und Stufe A sind fertig;
+Stufe B (Change-Impact-Analyse) ist der nächste Schritt, danach C (Evidenz-Log
+und Reports), D (MCP-Server), E (Gates und Bestätigung), F (FreeCAD-Adapter),
+G (Schreibpfade über Zuständigkeit), H (KI-Mapping-Vorschläge).
+
+Reihenfolge, die nicht gebrochen werden darf: **Gates vor Schreiben, Gates vor
+KI, Adapter-Schnitt vor FreeCAD.**
 
 **Der wichtigste Punkt daraus, weil er leicht falsch gemacht wird:**
 Mapping-Gültigkeit und Anforderungserfüllung sind zwei getrennte Fragen. Gates
 prüfen die Zuordnung (Dimension, Existenz, Eindeutigkeit, Plausibilität), die
 Verifikations-Engine prüft die Erfüllung. Ein korrekt gemapptes, aber zu langes
 Bauteil ist ein Verstoß, kein Fehlmapping.
+
+Das Zielsystem beschreiben `goal_spec.txt` (SRS v0.1) und die
+HNI/IEM-Use-Case-Folien; ROADMAP_de.md hält fest, wo dieses Projekt bewusst
+davon abweicht und warum.

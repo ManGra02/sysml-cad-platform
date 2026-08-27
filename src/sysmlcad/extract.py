@@ -1,49 +1,47 @@
-"""Requirement-Extraktion aus der SysML-v2-API.
+"""Requirement extraction from the SysML v2 API.
 
 =============================================================================
-BEWUSSTE VEREINFACHUNGEN (Phase 1)
+DELIBERATE SIMPLIFICATIONS
 =============================================================================
-Dieser Extraktor liest NICHT das vollstaendige Metamodell. Er sucht in der
-von einer RequirementDefinition aus erreichbaren Teilmenge nach drei Dingen:
+This extractor does not read the full metamodel. Within the subgraph reachable
+from a RequirementDefinition it looks for three things:
 
-    1. OPERATOR  -- erste OperatorExpression mit einem Vergleichsoperator
-                    (<=, >=, <, >, ==). Bei uns liefert das die ConstraintUsage
-                    unterhalb der RequirementConstraintMembership.
-    2. GRENZWERT -- erstes Literal (LiteralInteger / LiteralRational) mit
-                    einem "value"-Feld. Bei uns die 120 bzw. 0.9 aus dem
-                    AttributeUsage maxLength / maxMass.
-    3. EINHEIT   -- erstes AttributeUsage mit isLibraryElement=true und
-                    declaredShortName ("mm", "kg"). Die Einheit steht im
-                    Modell NICHT als Feld, sondern als OperatorExpression mit
-                    operator="[", deren zweiter Operand auf das Einheiten-
-                    Element der Standardbibliothek zeigt.
+    1. OPERATOR  -- the first OperatorExpression carrying a comparison
+                    (<=, >=, <, >, ==). Here that is the ConstraintUsage below
+                    the RequirementConstraintMembership.
+    2. LIMIT     -- the first literal (LiteralInteger / LiteralRational) with a
+                    "value" field: the 120 or the 0.9 from the AttributeUsage
+                    maxLength / maxMass.
+    3. UNIT      -- the first AttributeUsage with isLibraryElement=true and a
+                    declaredShortName ("mm", "kg"). Units are not a field in
+                    the model; `120 [mm]` is an OperatorExpression with
+                    operator="[" whose second operand points at the unit
+                    element of the standard library.
 
-Was hier NICHT passiert, und warum:
+What still does NOT happen, and why:
 
-    * Die gemessene GROESSE (length, mass) wird nicht aus dem Ausdruck
-      "housing.length <= maxLength" geparst. Sie kommt aus mapping.yaml.
-      Begruendung: Welche CAD-Groesse wie gemessen wird, ist Mapping-Wissen
-      und steht dort ohnehin. Der Constraint-Baum haette dafuer eine
-      Aufloesung der FeatureChainExpression erfordert.
-      KOSTEN: Schreibt jemand die Constraint im SysML-Modell auf ein anderes
-      Attribut um, bemerkt das System es nicht. Nachzuziehen in Phase 4.
+    * The measured ATTRIBUTE (length, mass) is not parsed out of
+      "housing.length <= maxLength". It comes from mapping.yaml.
+      COST: retarget the constraint to a different attribute in SysML and the
+      system does not notice. Closing this needs the FeatureChainExpression
+      resolved; it is the next extractor step.
 
-    * Nur EIN Vergleich pro Anforderung. Zusammengesetzte Constraints
-      (and/or, mehrere Grenzen) werden auf den ersten Vergleich reduziert.
-      _find_all() warnt, wenn mehr als einer gefunden wird.
+    * Only ONE comparison per requirement. Compound constraints (and/or,
+      several bounds) collapse to the first comparison; _find_all() warns.
 
-    * Der Ausdruck wird nicht ausgewertet, nur seine Bestandteile gelesen.
-      Eine Anforderung wie "laenge + breite <= 200" wuerde falsch
-      interpretiert. Fuer solche Faelle ist Phase 6 (SMT) vorgesehen.
+    * The expression is never evaluated, only its parts are read. Something
+      like "length + width <= 200" would be misread. That is what SMT over the
+      constraint network is for.
 
-Die Fixture bleibt als Regressionstest erhalten: sie definiert die erwartete
-Zielstruktur unabhaengig von der Verfuegbarkeit des Servers.
+What DOES happen now, and did not before: the requirement's SUBJECT is
+resolved through the model's own `satisfy` link -- see resolve_satisfies().
 =============================================================================
 """
 
 from __future__ import annotations
 
 import json
+from collections import deque
 from pathlib import Path
 
 from .model import Requirement
@@ -54,9 +52,9 @@ FIXTURE = Path(__file__).resolve().parents[2] / "fixtures" / "requirements.json"
 
 COMPARISON_OPERATORS = {"<=", ">=", "<", ">", "=="}
 
-# Felder, die im Modellgraph nach OBEN oder zur Seite zeigen. Wuerde man ihnen
-# folgen, waere von jedem Element aus das gesamte Modell erreichbar und die
-# Suche nach "dem" Literal einer Anforderung sinnlos.
+# Fields pointing UP or sideways in the model graph. Following them would make
+# the whole model reachable from any node, and the search for "the" literal of
+# one requirement meaningless.
 _UPWARD_FIELDS = frozenset({
     "owner",
     "owningRelationship",
@@ -72,11 +70,11 @@ _UPWARD_FIELDS = frozenset({
 
 
 # --------------------------------------------------------------------------
-# Graphtraversierung
+# Graph traversal
 # --------------------------------------------------------------------------
 
 def _refs(element: dict):
-    """Alle nach unten gerichteten @id-Referenzen eines Elements."""
+    """Every downward @id reference of an element."""
     for key, value in element.items():
         if key.startswith("@") or key in _UPWARD_FIELDS:
             continue
@@ -86,10 +84,10 @@ def _refs(element: dict):
 
 
 def reachable(root: dict, by_id: dict[str, dict]) -> list[dict]:
-    """Alle von root aus erreichbaren Elemente.
+    """Everything reachable from root.
 
-    Bibliothekselemente werden aufgenommen, aber nicht weiter durchlaufen --
-    sonst zoege eine einzige Einheit die halbe ISQ-Bibliothek herein.
+    Library elements are collected but not expanded -- otherwise a single unit
+    would drag in half of the ISQ library.
     """
     out: list[dict] = []
     seen: set[str] = set()
@@ -109,22 +107,121 @@ def reachable(root: dict, by_id: dict[str, dict]) -> list[dict]:
     return out
 
 
+def find_first(
+    root: dict,
+    by_id: dict[str, dict],
+    predicate,
+    max_depth: int = 12,
+) -> tuple[dict | None, list[str]]:
+    """Breadth-first search downward from root for the nearest match.
+
+    Returns the element and the path of element ids that led to it. The path is
+    not decoration: change-impact analysis has to be able to say *why* it
+    thinks two elements are related, and this is where that evidence comes
+    from.
+    """
+    queue = deque([(root["@id"], [root["@id"]])])
+    seen = {root["@id"]}
+    while queue:
+        eid, path = queue.popleft()
+        element = by_id.get(eid)
+        if element is None:
+            continue
+        if eid != root["@id"] and predicate(element):
+            return element, path
+        if element.get("isLibraryElement") or len(path) > max_depth:
+            continue
+        for ref in _refs(element):
+            if ref not in seen:
+                seen.add(ref)
+                queue.append((ref, path + [ref]))
+    return None, []
+
+
+def _of_type(type_name: str):
+    return lambda e: e.get("@type") == type_name
+
+
+# --------------------------------------------------------------------------
+# The satisfy link
+# --------------------------------------------------------------------------
+
+def resolve_satisfies(
+    elements: list[dict],
+    by_id: dict[str, dict] | None = None,
+) -> dict[str, tuple[dict, list[str]]]:
+    """Map RequirementDefinition id -> (satisfying PartUsage, link path).
+
+    `satisfy maxLengthCheck by motorHousing;` lands in the model as a
+    SatisfyRequirementUsage with two branches:
+
+        ReferenceSubsetting.general -> RequirementUsage
+                                       -> FeatureTyping.general -> RequirementDefinition
+        SubjectMembership.memberElement -> ReferenceUsage
+                                       -> FeatureValue -> FeatureReferenceExpression
+                                       -> Membership.memberElement -> PartUsage
+
+    This link, not mapping.yaml, is what says which physical thing a
+    requirement is about. Reading it is what lets the mapping be anchored on
+    parts instead of on requirements: a new requirement on an already-mapped
+    part then needs no new mapping entry at all.
+
+    The two branches are searched separately on purpose. Searching the whole
+    SatisfyRequirementUsage at once would work today but would start crossing
+    between neighbouring requirements as soon as a model has more than one
+    part per satisfy.
+    """
+    by_id = by_id or {e["@id"]: e for e in elements if "@id" in e}
+    out: dict[str, tuple[dict, list[str]]] = {}
+
+    for satisfy in elements:
+        if satisfy.get("@type") != "SatisfyRequirementUsage":
+            continue
+
+        definition = part = None
+        definition_path: list[str] = []
+        part_path: list[str] = []
+
+        for ref in satisfy.get("ownedRelationship", []):
+            branch = by_id.get(ref.get("@id", ""))
+            if branch is None:
+                continue
+            if branch["@type"] == "ReferenceSubsetting":
+                definition, definition_path = find_first(
+                    branch, by_id, _of_type("RequirementDefinition")
+                )
+            elif branch["@type"] == "SubjectMembership":
+                part, part_path = find_first(branch, by_id, _of_type("PartUsage"))
+
+        if definition is None or part is None:
+            continue
+
+        path = [satisfy["@id"]] + definition_path + part_path
+        out[definition["@id"]] = (part, path)
+
+    return out
+
+
+# --------------------------------------------------------------------------
+# Conversion
+# --------------------------------------------------------------------------
+
 def _find_all(elements: list[dict], predicate, what: str, context: str) -> list[dict]:
     hits = [e for e in elements if predicate(e)]
     if len(hits) > 1:
-        print(f"[warn] {context}: {len(hits)} Kandidaten fuer {what}, nehme den ersten")
+        print(f"[warn] {context}: {len(hits)} candidates for {what}, taking the first")
     return hits
 
 
-# --------------------------------------------------------------------------
-# Umwandlung
-# --------------------------------------------------------------------------
+def _to_requirement(
+    definition: dict,
+    by_id: dict[str, dict],
+    satisfied_by: dict[str, tuple[dict, list[str]]] | None = None,
+) -> Requirement | None:
+    """Translate one RequirementDefinition into the intermediate format.
 
-def _to_requirement(definition: dict, by_id: dict[str, dict]) -> Requirement | None:
-    """Eine RequirementDefinition in das Zwischenformat uebersetzen.
-
-    Gibt None zurueck, wenn eines der drei gesuchten Teile fehlt -- eine
-    unvollstaendig extrahierte Anforderung waere gefaehrlicher als gar keine.
+    Returns None if any of the three parts is missing -- a partially extracted
+    requirement would be more dangerous than none at all.
     """
     name = definition.get("declaredName") or definition.get("name")
     if not name:
@@ -135,45 +232,57 @@ def _to_requirement(definition: dict, by_id: dict[str, dict]) -> Requirement | N
     operators = _find_all(
         subtree,
         lambda e: e.get("operator") in COMPARISON_OPERATORS,
-        "Vergleichsoperator", name,
+        "comparison operator", name,
     )
     literals = _find_all(
         subtree,
         lambda e: str(e.get("@type", "")).startswith("Literal") and "value" in e,
-        "Grenzwert", name,
+        "limit value", name,
     )
     units = _find_all(
         subtree,
         lambda e: e.get("isLibraryElement") and e.get("declaredShortName"),
-        "Einheit", name,
+        "unit", name,
     )
 
     missing = [
         label for label, hits in
-        (("Operator", operators), ("Grenzwert", literals), ("Einheit", units))
+        (("operator", operators), ("limit", literals), ("unit", units))
         if not hits
     ]
     if missing:
-        print(f"[warn] {name}: {', '.join(missing)} nicht gefunden -- uebersprungen")
+        print(f"[warn] {name}: {', '.join(missing)} not found -- skipped")
         return None
 
     unit_symbol = units[0]["declaredShortName"]
     try:
         limit = ureg.Quantity(literals[0]["value"], unit_symbol)
-    except Exception as exc:  # pint kennt das Symbol nicht
-        print(f"[warn] {name}: Einheit {unit_symbol!r} unbekannt ({exc}) -- uebersprungen")
+    except Exception as exc:  # pint does not know the symbol
+        print(f"[warn] {name}: unknown unit {unit_symbol!r} ({exc}) -- skipped")
         return None
 
-    subjects = [
-        e.get("declaredName") for e in subtree
-        if e.get("@type") == "ReferenceUsage" and e.get("declaredName")
-    ]
+    # Preferred: the part the model says satisfies this requirement. Fallback:
+    # the subject parameter of the definition, which is what a model without a
+    # satisfy link can offer.
+    satisfied = (satisfied_by or {}).get(definition["@id"])
+    if satisfied is not None:
+        part, _path = satisfied
+        subject = part.get("declaredName") or part.get("declaredShortName") or ""
+        subject_id = part["@id"]
+    else:
+        parameters = [
+            e.get("declaredName") for e in subtree
+            if e.get("@type") == "ReferenceUsage" and e.get("declaredName")
+        ]
+        subject = parameters[0] if parameters else ""
+        subject_id = ""
 
     return Requirement(
         requirement_id=definition.get("declaredShortName") or name,
         element_id=definition["@id"],
-        subject=subjects[0] if subjects else "",
-        prop="",  # kommt aus mapping.yaml, siehe Modulkopf
+        subject=subject,
+        subject_id=subject_id,
+        prop="",  # comes from mapping.yaml, see module header
         operator=operators[0]["operator"],
         limit=limit,
         text=name,
@@ -181,22 +290,23 @@ def _to_requirement(definition: dict, by_id: dict[str, dict]) -> Requirement | N
 
 
 def elements_to_requirements(elements: list[dict]) -> list[Requirement]:
-    """Reine Funktion -- ohne Netz testbar."""
+    """Pure function -- testable without a network."""
     by_id = {e["@id"]: e for e in elements if "@id" in e}
+    satisfied_by = resolve_satisfies(elements, by_id)
     result = []
     for element in elements:
         if element.get("@type") != "RequirementDefinition":
             continue
         if element.get("isLibraryElement"):
             continue
-        req = _to_requirement(element, by_id)
+        req = _to_requirement(element, by_id, satisfied_by)
         if req:
             result.append(req)
     return result
 
 
 # --------------------------------------------------------------------------
-# Quellen
+# Sources
 # --------------------------------------------------------------------------
 
 def from_fixture(path: Path = FIXTURE) -> list[Requirement]:
@@ -204,21 +314,41 @@ def from_fixture(path: Path = FIXTURE) -> list[Requirement]:
     return [Requirement.from_dict(d) for d in data["requirements"]]
 
 
-def from_api(project_id: str | None = None, base_url: str | None = None) -> list[Requirement]:
+def from_api(
+    project_id: str | None = None,
+    base_url: str | None = None,
+) -> tuple[list[Requirement], dict[str, str]]:
+    """Requirements plus the model state they came from.
+
+    SRS FREQ-1 requires the commit id to be recorded so that every later result
+    can be attributed to an exact state of the system model. Fetching it and
+    dropping it, as this used to, makes a verdict unciteable.
+    """
     client = SysMLClient(base_url)
     try:
         if project_id is None:
             projects = client.projects()
             if not projects:
-                raise RuntimeError("Keine Projekte im API-Server")
+                raise RuntimeError("no projects on the API server")
             project_id = sorted(projects, key=lambda p: p.get("created", ""))[-1]["@id"]
         commit_id = client.head_commit(project_id)
         elements = client.all_elements(project_id, commit_id)
     finally:
         client.close()
-    return elements_to_requirements(elements)
+    return elements_to_requirements(elements), {
+        "sysml_project_id": project_id,
+        "sysml_commit_id": commit_id,
+    }
 
 
 def load(source: str | None = None) -> list[Requirement]:
-    """source="api" liest aus dem Server, sonst aus der Fixture."""
-    return from_api() if source == "api" else from_fixture()
+    """source="api" reads from the server, anything else from the fixture."""
+    return load_with_context(source)[0]
+
+
+def load_with_context(
+    source: str | None = None,
+) -> tuple[list[Requirement], dict[str, str]]:
+    if source == "api":
+        return from_api()
+    return from_fixture(), {}

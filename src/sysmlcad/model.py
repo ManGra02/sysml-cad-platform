@@ -1,13 +1,32 @@
-"""Das JSON-Zwischenformat zwischen SysML-Seite und CAD-Seite."""
+"""The intermediate format between the SysML side and the CAD side.
+
+Three ideas live here:
+
+* `Requirement` -- one SysML constraint, normalised and carrying units.
+* `Verdict`     -- the result of evaluating one requirement against one
+                   measurement. Three-valued, per SRS FREQ-7: a design can be
+                   compliant, inside an agreed tolerance, or violated. A bool
+                   cannot express the middle case, and the middle case is the
+                   one engineers argue about.
+* `RunContext`  -- which model states a verdict came from. SRS FREQ-1 requires
+                   that every result be attributable to an exact commit; a
+                   verdict without provenance is not evidence.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Literal
 
 from .units import Q, ureg
 
 Operator = Literal["<=", ">=", "==", "<", ">"]
+
+#: `compliant` and `within_tolerance` both leave the pipeline green; only
+#: `violated` turns it red. Reporting keeps them apart because "we used up the
+#: tolerance" is information, not noise.
+Status = Literal["compliant", "within_tolerance", "violated"]
 
 _OPS = {
     "<=": lambda a, b: a <= b,
@@ -18,9 +37,32 @@ _OPS = {
 }
 
 
+def parse_tolerance(spec: str | float | None, limit: Q) -> Q | None:
+    """Read a tolerance from the mapping entry.
+
+    Accepts an absolute value with units (``"0.5 mm"``), a bare number in the
+    units of the limit (``0.5``), or a percentage of the limit (``"2%"``).
+    Returns None when no tolerance is agreed -- which is not the same as a
+    tolerance of zero, and is why this is not simply `0`.
+    """
+    if spec is None:
+        return None
+    if isinstance(spec, str):
+        text = spec.strip()
+        if text.endswith("%"):
+            return abs(limit) * (float(text[:-1]) / 100.0)
+        return ureg.Quantity(text).to(limit.units)
+    return ureg.Quantity(float(spec), limit.units)
+
+
 @dataclass(frozen=True)
 class Requirement:
-    """Eine SysML-Constraint, normalisiert und einheitenbehaftet."""
+    """A SysML constraint, normalised and carrying units.
+
+    `subject` is the part the requirement is actually about, resolved through
+    the model's own `satisfy` link -- not the subject *parameter* of the
+    requirement definition. See `extract.resolve_satisfies`.
+    """
 
     requirement_id: str
     element_id: str
@@ -29,6 +71,7 @@ class Requirement:
     operator: Operator
     limit: Q
     text: str = ""
+    subject_id: str = ""
 
     @classmethod
     def from_dict(cls, d: dict) -> "Requirement":
@@ -40,20 +83,102 @@ class Requirement:
             operator=d["operator"],
             limit=ureg.Quantity(d["value"], d["unit"]),
             text=d.get("text", ""),
+            subject_id=d.get("subject_id", ""),
         )
 
-    def check(self, measured: Q) -> bool:
+    def evaluate(self, measured: Q, tolerance: Q | None = None) -> tuple[Status, Q]:
+        """Compare a measurement against the limit. Returns status and deviation.
+
+        The deviation is always `measured - limit`, so its sign reads the same
+        way for every operator: positive means "over the number in the model".
+        """
         if measured.dimensionality != self.limit.dimensionality:
             raise TypeError(
-                f"{self.requirement_id}: Dimension {measured.dimensionality} "
-                f"passt nicht zu {self.limit.dimensionality}"
+                f"{self.requirement_id}: dimension {measured.dimensionality} "
+                f"does not match {self.limit.dimensionality}"
             )
-        return _OPS[self.operator](measured, self.limit)
+
+        deviation = (measured - self.limit).to(self.limit.units)
+
+        if _OPS[self.operator](measured, self.limit):
+            return "compliant", deviation
+
+        if tolerance is not None:
+            tol = abs(tolerance)
+            if self.operator == "==":
+                within = abs(deviation) <= tol
+            else:
+                within = _OPS[self.operator](measured, self._relaxed(tol))
+            if within:
+                return "within_tolerance", deviation
+
+        return "violated", deviation
+
+    def _relaxed(self, tol: Q) -> Q:
+        """The limit loosened by the tolerance, in the direction that helps."""
+        if self.operator in ("<=", "<"):
+            return self.limit + tol
+        if self.operator in (">=", ">"):
+            return self.limit - tol
+        return self.limit
 
 
 @dataclass(frozen=True)
 class Verdict:
     requirement: Requirement
     measured: Q
-    passed: bool
+    status: Status
+    deviation: Q
     method: str
+    tolerance: Q | None = None
+
+    @property
+    def passed(self) -> bool:
+        """Only an outright violation fails the run."""
+        return self.status != "violated"
+
+
+@dataclass(frozen=True)
+class RunContext:
+    """Which model states produced a set of verdicts.
+
+    SRS FREQ-1: the commit id is recorded "so that every later result can be
+    attributed to an exact state of the system model". `cad_state_id` is the
+    same idea for the other side -- see `CadAdapter.state_id`.
+    """
+
+    source: str
+    sysml_project_id: str = ""
+    sysml_commit_id: str = ""
+    cad_adapter: str = ""
+    cad_state_id: str = ""
+    mapping_digest: str = ""
+    started_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
+    )
+
+
+@dataclass(frozen=True)
+class Run:
+    """One verification run: what was checked, against which model states.
+
+    `gaps` are requirements that could not be evaluated at all -- no confirmed
+    mapping, or a quantity the CAD adapter cannot supply. They are carried
+    rather than printed and forgotten, because "we did not check this" and "we
+    checked this and it passed" are different claims, and an evidence report
+    that conflates them is worthless (SRS SCN-1 lists unmapped elements as open
+    items; FREQ-2 requires gaps be reported, not substituted).
+    """
+
+    context: RunContext
+    verdicts: list[Verdict]
+    gaps: list[str] = field(default_factory=list)
+
+    @property
+    def violations(self) -> list[Verdict]:
+        return [v for v in self.verdicts if v.status == "violated"]
+
+    @property
+    def exit_code(self) -> int:
+        """Violations fail the run. Gaps do not -- they are reported, not enforced."""
+        return 1 if self.violations else 0

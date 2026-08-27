@@ -1,23 +1,55 @@
-# Phase 3 ist bewusst hartcodiert. Phase 4 ersetzt "author: hardcoded"
-# durch KI-Vorschlaege plus deterministische Gates -- das Schema bleibt gleich.
-version: 1
-mappings:
-  - requirement_id: MaxLength
-    cad_module: motor_housing
-    property: length          # Anzeigename; siehe Modulkopf von extract.py
+# Mapping, schema v2.
+#
+# Anchored on PARTS, not on requirements -- matching SRS FREQ-3 ("the
+# identifier of the system model element and the name of its attribute, the
+# CAD object and its parameter") and the architecture slide's table
+# partdef -> component, attribute -> parameter.
+#
+# Why this shape: which requirement constrains a part is already in the SysML
+# model, in the `satisfy` link. Repeating it here was duplicating the model.
+# Anchoring on the part means a new requirement on an already-mapped part
+# needs no new mapping entry.
+#
+# This file stays YAML and stays in git on purpose. FREQ-3 asks for a mapping
+# that is human-readable and can be placed under version control -- it is
+# design intent and belongs in review. The append-only EVIDENCE log is the
+# thing that wants a database; the two are not the same store.
+version: 2
+
+# --- which CAD object is which SysML part -----------------------------------
+parts:
+  - sysml_part: motorHousing        # PartUsage.declaredName, resolved via `satisfy`
+    adapter: build123d
+    cad_object: motor_housing
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-08-21"
+
+# --- which measurement stands for which attribute ---------------------------
+attributes:
+  - sysml_part: motorHousing
+    attribute: length
+    requirement: MaxLength          # until the constraint expression is parsed,
+                                    # this is what ties attribute to requirement
     method: bbox_size
     args:
       axis: X
+    direction: cad_owns             # CAD owns the actual value; SysML owns the limit
+    tolerance: null                 # e.g. "0.5 mm" or "2%"
     status: confirmed
     author: hardcoded
-    note: "Laenge = Huellbox entlang X, siehe LENGTH_AXIS im CAD-Skript"
+    confirmed_at: "2026-08-21"
+    note: "Length = bounding box along X, see LENGTH_AXIS in the CAD script.
+           A bbox extent is not the same thing as a named feature dimension."
 
-  - requirement_id: MaxMass
-    cad_module: motor_housing
-    property: mass
+  - sysml_part: motorHousing
+    attribute: mass
+    requirement: MaxMass
     method: mass
-    args:
-      density_g_per_cm3: 2.70
+    args: {}                        # density now comes from the part's MATERIAL
+    direction: cad_owns
+    tolerance: null
     status: confirmed
     author: hardcoded
-    note: "Homogen AlSi10Mg; bei Mehrmaterial spaeter pro Solid rechnen"
+    confirmed_at: "2026-08-21"
+    note: "Homogeneous AlSi10Mg. Multi-material parts need per-solid mass."

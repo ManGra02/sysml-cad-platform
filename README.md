@@ -3,7 +3,7 @@
 One continuous thread from a SysML v2 requirement to a red CI pipeline.
 Deliberately narrow: one part, two requirements, a hardcoded mapping.
 
-**Status:** Phase 1 complete, verified end to end.
+**Status:** Stage A complete, verified end to end.
 
 *German original: [README_de.md](README_de.md).*
 
@@ -63,15 +63,24 @@ sed -i 's/^LENGTH_MM = 118.0/LENGTH_MM = 123.0/' cad/motor_housing.py
 python -m sysmlcad.verify api ; echo "Exit: $?"
 ```
 
-The CLI still prints German (`verletzt` = violated), verbatim:
-
 ```
-MaxLength verletzt: length = 123 mm <= 120 mm ist falsch
-(Quelle: 72f3b6a1-..., Methode: bbox_size({'axis': 'X'}))
+ID         Attribute        Measured          Limit      Deviation  Status
+MaxLength  length                123 mm            120 mm             +3 mm  VIOLATED
+MaxMass    mass               0.7753 kg            0.9 kg        -0.1247 kg  OK
+1 compliant, 0 within tolerance, 1 violated, 0 not checked
+
+  VIOLATED MaxLength: length = 123 mm <= 120 mm is false (over by 3 mm;
+  source 72f3b6a1-..., bbox_size({'axis': 'X'}) on build123d:motor_housing)
 Exit: 1
 ```
 
 Exit 1 turns the pipeline red. That is the milestone this PoC exists to demonstrate.
+
+A verdict is three-valued, not a boolean. Give the `MaxLength` mapping entry a
+`tolerance: "5 mm"` and the same 123 mm part reports `TOLERANCE` and exits 0 —
+still visible in the report, but not a failure. "Over the limit but inside what
+we agreed" is the case engineers actually negotiate over, and a boolean cannot
+express it.
 
 ## Architecture
 
@@ -106,17 +115,20 @@ models/motor_housing.sysml    the system model, textual
 notebooks/                    01_publish_motor_housing.ipynb
 cad/motor_housing.py          the part as a build123d script
 fixtures/requirements.json    stand-in + regression test
-mapping/mapping.yaml          requirement ↔ measurement method
+mapping/mapping.yaml          parts ↔ CAD objects, attributes ↔ measurements
 src/sysmlcad/
 ├── config.py                 SYSML_API_URL from the environment
 ├── units.py                  exactly one pint registry
-├── model.py                  Requirement, Verdict
+├── model.py                  Requirement, Verdict, RunContext, Run
 ├── sysml_client.py           REST client, all_elements() paginates
-├── extract.py                API or fixture → list of Requirements
-├── measure.py                CAD property → quantity with a unit
+├── extract.py                API or fixture → Requirements, incl. satisfy links
+├── mapping.py                loads and resolves mapping.yaml
 ├── verify.py                 evaluation, report, exit code
-└── explore.py                debugging tool for API payloads
-tests/                        test_extract.py, test_requirements.py
+├── explore.py                debugging tool for API payloads
+└── adapters/
+    ├── __init__.py           CadAdapter protocol -- the CAD seam
+    └── build123d_adapter.py  the reference (and CI) backend
+tests/                        test_extract.py, test_requirements.py, test_verify.py
 .github/workflows/verify.yml  CI, runs against the fixture
 CLAUDE.md                     project context for Claude Code
 ```
@@ -163,6 +175,13 @@ web still show the method form.
 
 ## Next steps
 
-Phase 4, in this order: mapping store (SQLite with an audit log) →
-deterministic gates → only then AI-generated hypotheses. Details in
+Stage B: change-impact analysis — given a change on either side, derive the
+affected requirements and verification cases from the model links instead of
+estimating them, and report the link path that produced each one. It needs no
+CAD write access and no new infrastructure.
+
+Then C (evidence log and reports), D (MCP server), E (gates and human
+confirmation), F (FreeCAD adapter), G (ownership-gated writes), H (AI mapping
+proposals). Order that must not be broken: **gates before writes, gates before
+AI, adapter seam before FreeCAD.** Details and rationale in
 [ROADMAP.md](ROADMAP.md).

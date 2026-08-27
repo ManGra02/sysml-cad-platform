@@ -1,12 +1,15 @@
-"""Prueft die Graphtraversierung gegen die reale API-Struktur.
+"""Checks the graph traversal against the real API structure.
 
-Der Elementgraph unten ist aus einem echten %publish-Dump nachgebaut:
+The element graph below is reconstructed from an actual %publish dump:
 RequirementDefinition -> FeatureMembership -> AttributeUsage[maxLength]
--> FeatureValue -> OperatorExpression("[") -> {LiteralInteger, Einheit},
+-> FeatureValue -> OperatorExpression("[") -> {LiteralInteger, unit},
 plus RequirementConstraintMembership -> ConstraintUsage -> "<=".
+
+Running without a network is the point: these tests pin the traversal rules,
+which is where the subtle breakage lives.
 """
 
-from sysmlcad.extract import elements_to_requirements
+from sysmlcad.extract import elements_to_requirements, resolve_satisfies
 
 
 def _graph(name, value, unit_short, operator="<="):
@@ -20,7 +23,7 @@ def _graph(name, value, unit_short, operator="<="):
          "ownedRelatedElement": [{"@id": f"{p}-subj"}]},
         {"@id": f"{p}-subj", "@type": "ReferenceUsage", "declaredName": "housing",
          "owner": {"@id": f"{p}-req"}},
-        # Grenzwert samt Einheit
+        # Limit value with its unit
         {"@id": f"{p}-fm", "@type": "FeatureMembership",
          "source": [{"@id": f"{p}-req"}],
          "ownedRelatedElement": [{"@id": f"{p}-au"}]},
@@ -48,7 +51,7 @@ def _graph(name, value, unit_short, operator="<="):
         {"@id": f"{p}-mem", "@type": "Membership", "target": [{"@id": f"unit-{unit_short}"}]},
         {"@id": f"unit-{unit_short}", "@type": "AttributeUsage",
          "declaredShortName": unit_short, "isLibraryElement": True},
-        # Constraint mit dem Vergleichsoperator
+        # Constraint carrying the comparison operator
         {"@id": f"{p}-rcm", "@type": "RequirementConstraintMembership",
          "ownedRelatedElement": [{"@id": f"{p}-cu"}]},
         {"@id": f"{p}-cu", "@type": "ConstraintUsage",
@@ -59,7 +62,40 @@ def _graph(name, value, unit_short, operator="<="):
     ]
 
 
-def test_extrahiert_wert_einheit_und_operator():
+def _satisfy(name, part_name):
+    """`satisfy <name>Check by <part>;` as the API actually serialises it.
+
+    Two branches off one SatisfyRequirementUsage: the ReferenceSubsetting side
+    leads to the RequirementDefinition, the SubjectMembership side to the
+    PartUsage.
+    """
+    p = name.lower()
+    return [
+        {"@id": f"{p}-sat", "@type": "SatisfyRequirementUsage",
+         "ownedRelationship": [{"@id": f"{p}-rs"}, {"@id": f"{p}-satsm"}]},
+        # -> requirement definition
+        {"@id": f"{p}-rs", "@type": "ReferenceSubsetting",
+         "general": {"@id": f"{p}-requsage"}},
+        {"@id": f"{p}-requsage", "@type": "RequirementUsage",
+         "declaredName": f"{p}Check",
+         "ownedRelationship": [{"@id": f"{p}-ft"}]},
+        {"@id": f"{p}-ft", "@type": "FeatureTyping", "general": {"@id": f"{p}-req"}},
+        # -> part usage
+        {"@id": f"{p}-satsm", "@type": "SubjectMembership",
+         "memberElement": {"@id": f"{p}-satref"}},
+        {"@id": f"{p}-satref", "@type": "ReferenceUsage",
+         "ownedRelationship": [{"@id": f"{p}-satfv"}]},
+        {"@id": f"{p}-satfv", "@type": "FeatureValue",
+         "memberElement": {"@id": f"{p}-satfre"}},
+        {"@id": f"{p}-satfre", "@type": "FeatureReferenceExpression",
+         "ownedRelationship": [{"@id": f"{p}-satmem"}]},
+        {"@id": f"{p}-satmem", "@type": "Membership",
+         "memberElement": {"@id": f"part-{part_name}"}},
+        {"@id": f"part-{part_name}", "@type": "PartUsage", "declaredName": part_name},
+    ]
+
+
+def test_extracts_value_unit_and_operator():
     reqs = elements_to_requirements(_graph("MaxLength", 120, "mm"))
     assert len(reqs) == 1
     r = reqs[0]
@@ -70,21 +106,66 @@ def test_extrahiert_wert_einheit_und_operator():
     assert r.subject == "housing"
 
 
-def test_mehrere_anforderungen_bleiben_getrennt():
-    """Kernrisiko der Traversierung: Greift der Teilbaum von MaxLength
-    versehentlich auf den Grenzwert von MaxMass zu?"""
+def test_requirements_stay_separate():
+    """The core traversal risk: does MaxLength's subtree reach into MaxMass's
+    limit value?"""
     reqs = elements_to_requirements(_graph("MaxLength", 120, "mm")
                                     + _graph("MaxMass", 0.9, "kg"))
-    werte = {r.requirement_id: (r.limit.magnitude, str(r.limit.units)) for r in reqs}
-    assert werte == {"MaxLength": (120, "millimeter"), "MaxMass": (0.9, "kilogram")}
+    values = {r.requirement_id: (r.limit.magnitude, str(r.limit.units)) for r in reqs}
+    assert values == {"MaxLength": (120, "millimeter"), "MaxMass": (0.9, "kilogram")}
 
 
-def test_unvollstaendige_anforderung_wird_verworfen():
+def test_incomplete_requirement_is_discarded():
     graph = [e for e in _graph("MaxLength", 120, "mm") if e["@id"] != "maxlength-cmp"]
     assert elements_to_requirements(graph) == []
 
 
-def test_bibliothekselemente_werden_ignoriert():
+def test_library_elements_are_ignored():
     graph = _graph("MaxLength", 120, "mm")
     graph[0]["isLibraryElement"] = True
     assert elements_to_requirements(graph) == []
+
+
+# --------------------------------------------------------------------------
+# The satisfy link -- what anchors a requirement to a physical part
+# --------------------------------------------------------------------------
+
+def test_satisfy_link_resolves_the_real_subject():
+    """Without the satisfy link the best available answer is the subject
+    *parameter* of the definition ("housing"). With it, the answer is the part
+    the model actually says is constrained ("motorHousing"). Those are
+    different things, and only the second one can be mapped to CAD."""
+    graph = _graph("MaxLength", 120, "mm") + _satisfy("MaxLength", "motorHousing")
+    reqs = elements_to_requirements(graph)
+    assert len(reqs) == 1
+    assert reqs[0].subject == "motorHousing"
+    assert reqs[0].subject_id == "part-motorHousing"
+
+
+def test_subject_falls_back_when_no_satisfy_link_exists():
+    reqs = elements_to_requirements(_graph("MaxLength", 120, "mm"))
+    assert reqs[0].subject == "housing"
+    assert reqs[0].subject_id == ""
+
+
+def test_satisfy_links_do_not_cross_between_requirements():
+    """Two requirements on two different parts must not swap subjects -- the
+    failure mode that would silently measure the wrong component."""
+    graph = (
+        _graph("MaxLength", 120, "mm") + _satisfy("MaxLength", "motorHousing")
+        + _graph("MaxMass", 0.9, "kg") + _satisfy("MaxMass", "gearCover")
+    )
+    subjects = {r.requirement_id: r.subject for r in elements_to_requirements(graph)}
+    assert subjects == {"MaxLength": "motorHousing", "MaxMass": "gearCover"}
+
+
+def test_satisfy_resolution_records_a_link_path():
+    """The path is the evidence for *why* two elements are considered related.
+    Change-impact analysis reports it; without it a result is an assertion."""
+    graph = _graph("MaxLength", 120, "mm") + _satisfy("MaxLength", "motorHousing")
+    resolved = resolve_satisfies(graph)
+    assert len(resolved) == 1
+    part, path = resolved["maxlength-req"]
+    assert part["declaredName"] == "motorHousing"
+    assert path[0] == "maxlength-sat"
+    assert "part-motorHousing" in path

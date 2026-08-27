@@ -5,7 +5,7 @@
 Ein durchgehender Faden von einer SysML-v2-Anforderung bis zu einer roten
 CI-Pipeline. Bewusst schmal: ein Bauteil, zwei Anforderungen, hartcodiertes Mapping.
 
-**Status:** Phase 1 abgeschlossen. Ende-zu-Ende verifiziert.
+**Status:** Stufe A abgeschlossen. Ende-zu-Ende verifiziert.
 
 ## Schnellstart
 
@@ -65,12 +65,24 @@ python -m sysmlcad.verify api ; echo "Exit: $?"
 ```
 
 ```
-MaxLength verletzt: length = 123 mm <= 120 mm ist falsch
-(Quelle: 72f3b6a1-..., Methode: bbox_size({'axis': 'X'}))
+ID         Attribute        Measured          Limit      Deviation  Status
+MaxLength  length                123 mm            120 mm             +3 mm  VIOLATED
+MaxMass    mass               0.7753 kg            0.9 kg        -0.1247 kg  OK
+1 compliant, 0 within tolerance, 1 violated, 0 not checked
+
+  VIOLATED MaxLength: length = 123 mm <= 120 mm is false (over by 3 mm;
+  source 72f3b6a1-..., bbox_size({'axis': 'X'}) on build123d:motor_housing)
 Exit: 1
 ```
 
 Exit 1 → die Pipeline wird rot. Das ist der PoC-Meilenstein.
+
+Ein Urteil ist dreiwertig, kein Boolean. Gibt man dem `MaxLength`-Eintrag im
+Mapping ein `tolerance: "5 mm"`, meldet dasselbe 123-mm-Bauteil `TOLERANCE` und
+endet mit Exit 0 — im Report weiterhin sichtbar, aber kein Fehlschlag. „Über
+dem Grenzwert, aber innerhalb dessen, was vereinbart war" ist der Fall, über
+den Ingenieure tatsächlich verhandeln, und ein Boolean kann ihn nicht
+ausdrücken.
 
 ## Architektur
 
@@ -104,17 +116,20 @@ models/motor_housing.sysml    Systemmodell, textuell
 notebooks/                    01_publish_motor_housing.ipynb
 cad/motor_housing.py          Bauteil als build123d-Skript
 fixtures/requirements.json    Stand-in + Regressionstest
-mapping/mapping.yaml          Anforderung ↔ Messmethode
+mapping/mapping.yaml          Bauteile ↔ CAD-Objekte, Attribute ↔ Messmethoden
 src/sysmlcad/
 ├── config.py                 SYSML_API_URL aus der Umgebung
 ├── units.py                  genau eine pint-Registry
-├── model.py                  Requirement, Verdict
+├── model.py                  Requirement, Verdict, RunContext, Run
 ├── sysml_client.py           REST-Client, all_elements() paginiert
-├── extract.py                API oder Fixture → Requirement-Liste
-├── measure.py                CAD-Property → einheitenbehaftete Größe
+├── extract.py                API oder Fixture → Requirements, inkl. satisfy-Links
+├── mapping.py                lädt und löst mapping.yaml auf
 ├── verify.py                 Auswertung, Report, Exit-Code
-└── explore.py                Debug-Werkzeug für Payloads
-tests/                        test_extract.py, test_requirements.py
+├── explore.py                Debug-Werkzeug für Payloads
+└── adapters/
+    ├── __init__.py           CadAdapter-Protokoll -- der CAD-Schnitt
+    └── build123d_adapter.py  das Referenz- (und CI-) Backend
+tests/                        test_extract.py, test_requirements.py, test_verify.py
 .github/workflows/verify.yml  CI, läuft gegen die Fixture
 CLAUDE.md                     Projektkontext für Claude Code
 ```
@@ -161,5 +176,14 @@ Netz zeigen die alte Form.
 
 ## Nächste Schritte
 
-Phase 4, in dieser Reihenfolge: Mapping-Store (SQLite mit Audit-Log) →
-deterministische Gates → erst dann KI-Hypothesen. Details in CLAUDE.md.
+Stufe B: Change-Impact-Analyse — zu einer Änderung auf einer der beiden Seiten
+die betroffenen Anforderungen und Verifikationsfälle aus den Modell-Links
+ableiten statt sie zu schätzen, und zu jedem Treffer den Pfad ausweisen, der
+ihn ergeben hat. Braucht keinen CAD-Schreibzugriff und keine neue
+Infrastruktur.
+
+Danach C (Evidenz-Log und Reports), D (MCP-Server), E (Gates und Bestätigung),
+F (FreeCAD-Adapter), G (Schreibpfade über Zuständigkeit), H
+(KI-Mapping-Vorschläge). Reihenfolge, die nicht gebrochen werden darf: **Gates
+vor Schreiben, Gates vor KI, Adapter-Schnitt vor FreeCAD.** Details und
+Begründungen in [ROADMAP_de.md](ROADMAP_de.md).

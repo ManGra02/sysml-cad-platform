@@ -1,78 +1,186 @@
-"""Verifikations-Engine: Anforderung + Mapping + Messung -> Urteil."""
+"""Verification engine: requirement + mapping + measurement -> verdict.
+
+The one distinction worth holding on to while reading this: mapping validity
+and requirement satisfaction are separate questions. This module answers only
+the second one. A correctly mapped part that is too long is a violation, not a
+bad mapping -- and it is exactly the case the system exists to report.
+"""
 
 from __future__ import annotations
 
 import sys
-from dataclasses import replace
-from pathlib import Path
 
-import yaml
+from .adapters import CadAdapter, Unsupported
+from .adapters.build123d_adapter import Build123dAdapter
+from .extract import load_with_context
+from .mapping import AttributeMapping, Mapping, load_mapping
+from .model import Requirement, Run, RunContext, Verdict, parse_tolerance
 
-from .extract import load
-from .measure import load_part, measure
-from .model import Requirement, Verdict
+#: Adapter registry. FreeCAD joins this table; nothing else has to change.
+ADAPTERS: dict[str, type] = {
+    "build123d": Build123dAdapter,
+}
 
-ROOT = Path(__file__).resolve().parents[2]
-MAPPING = ROOT / "mapping" / "mapping.yaml"
+_STATUS_LABEL = {
+    "compliant": "OK",
+    "within_tolerance": "TOLERANCE",
+    "violated": "VIOLATED",
+}
 
 
-def load_mapping(path: Path = MAPPING) -> dict[str, dict]:
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return {m["requirement_id"]: m for m in data["mappings"]}
+def _leaf(name: str) -> str:
+    """Last segment of a qualified name: MotorHousing::motorHousing -> motorHousing."""
+    return name.rsplit("::", 1)[-1]
 
 
-def run(source: str | None = None) -> list[Verdict]:
-    requirements = load(source)
+class AdapterPool:
+    """One adapter instance per backend, so geometry is built once per run."""
+
+    def __init__(self) -> None:
+        self._instances: dict[str, CadAdapter] = {}
+
+    def get(self, name: str) -> CadAdapter:
+        if name not in self._instances:
+            if name not in ADAPTERS:
+                raise Unsupported(f"unknown CAD adapter: {name!r}")
+            self._instances[name] = ADAPTERS[name]()
+        return self._instances[name]
+
+    @property
+    def names(self) -> str:
+        return ",".join(sorted(self._instances))
+
+    @property
+    def state_id(self) -> str:
+        return ",".join(
+            f"{name}:{adapter.state_id()}"
+            for name, adapter in sorted(self._instances.items())
+        )
+
+
+def _evaluate(
+    req: Requirement,
+    entry: AttributeMapping,
+    mapping: Mapping,
+    pool: AdapterPool,
+) -> Verdict:
+    part = mapping.part_for(entry)
+    if part is None:
+        raise Unsupported(f"no CAD object mapped for part {entry.sysml_part!r}")
+
+    adapter = pool.get(part.adapter)
+    measured = adapter.measure(part.cad_object, entry.method, entry.args)
+    tolerance = parse_tolerance(entry.tolerance, req.limit)
+    status, deviation = req.evaluate(measured, tolerance)
+
+    return Verdict(
+        requirement=req,
+        measured=measured,
+        status=status,
+        deviation=deviation,
+        method=f"{entry.method}({entry.args or {}}) on {part.adapter}:{part.cad_object}",
+        tolerance=tolerance,
+    )
+
+
+def run(source: str | None = None) -> Run:
+    requirements, state = load_with_context(source)
     mapping = load_mapping()
+    pool = AdapterPool()
+
     verdicts: list[Verdict] = []
+    gaps: list[str] = []
 
     for req in requirements:
-        m = mapping.get(req.requirement_id)
-        if m is None:
-            print(f"[warn] kein Mapping fuer {req.requirement_id} -- uebersprungen")
+        subject = _leaf(req.subject)
+        entry = mapping.for_requirement(req.requirement_id, subject)
+
+        if entry is None:
+            gaps.append(f"{req.requirement_id}: no mapping entry for part {subject!r}")
             continue
-        # Die gemessene Groesse steht im Mapping, nicht in der Anforderung
-        # (bewusste Vereinfachung, siehe Modulkopf von extract.py).
-        if not req.prop:
-            req = replace(req, prop=m.get("property", m["method"]))
-        part, _ = load_part(m["cad_module"])
-        measured = measure(part, m["method"], m.get("args"))
-        verdicts.append(
-            Verdict(
-                requirement=req,
-                measured=measured,
-                passed=req.check(measured),
-                method=f"{m['method']}({m.get('args', {})})",
+        if not entry.usable:
+            gaps.append(
+                f"{req.requirement_id}: mapping is {entry.status}, "
+                f"not confirmed -- not used in this run"
             )
-        )
-    return verdicts
+            continue
+
+        # The measured attribute comes from the mapping, not from the
+        # constraint expression (see the header of extract.py).
+        req = Requirement(**{**req.__dict__, "prop": entry.attribute})
+
+        try:
+            verdicts.append(_evaluate(req, entry, mapping, pool))
+        except Unsupported as exc:
+            # FREQ-2: report the gap, never substitute a value.
+            gaps.append(f"{req.requirement_id}: {exc}")
+
+    context = RunContext(
+        source="api" if source == "api" else "fixture",
+        cad_adapter=pool.names,
+        cad_state_id=pool.state_id,
+        mapping_digest=mapping.digest,
+        **state,
+    )
+    return Run(context=context, verdicts=verdicts, gaps=gaps)
 
 
-def report(verdicts: list[Verdict]) -> int:
-    print(f"\n{'ID':<8} {'Property':<10} {'Gemessen':>14} {'Grenze':>14}  Status")
-    print("-" * 68)
-    for v in verdicts:
-        status = "OK" if v.passed else "VERLETZT"
+def report(result: Run) -> int:
+    ctx = result.context
+    print(f"\nsource       : {ctx.source}")
+    if ctx.sysml_commit_id:
+        print(f"sysml commit : {ctx.sysml_commit_id}")
+    print(f"cad state    : {ctx.cad_state_id or '-'}")
+    print(f"mapping      : {ctx.mapping_digest}")
+
+    print(f"\n{'ID':<10} {'Attribute':<10} {'Measured':>14} {'Limit':>14} "
+          f"{'Deviation':>14}  Status")
+    print("-" * 82)
+    for v in result.verdicts:
         print(
-            f"{v.requirement.requirement_id:<8} {v.requirement.prop:<10} "
-            f"{v.measured:>14.4g~P} {v.requirement.limit:>14.4g~P}  {status}"
+            f"{v.requirement.requirement_id:<10} {v.requirement.prop:<10} "
+            f"{v.measured:>14.4g~P} {v.requirement.limit:>14.4g~P} "
+            f"{v.deviation:>+14.4g~P}  {_STATUS_LABEL[v.status]}"
         )
-    failed = [v for v in verdicts if not v.passed]
-    print("-" * 68)
-    print(f"{len(verdicts) - len(failed)} erfuellt, {len(failed)} verletzt\n")
-    for v in failed:
-        print(
-            f"  {v.requirement.requirement_id} verletzt: "
-            f"{v.requirement.prop} = {v.measured:.4g~P} "
-            f"{v.requirement.operator} {v.requirement.limit:.4g~P} ist falsch "
-            f"(Quelle: {v.requirement.element_id}, Methode: {v.method})"
-        )
-    return 1 if failed else 0
+    print("-" * 82)
+
+    counts = {s: 0 for s in _STATUS_LABEL}
+    for v in result.verdicts:
+        counts[v.status] += 1
+    print(
+        f"{counts['compliant']} compliant, "
+        f"{counts['within_tolerance']} within tolerance, "
+        f"{counts['violated']} violated, "
+        f"{len(result.gaps)} not checked\n"
+    )
+
+    for v in result.verdicts:
+        if v.status == "violated":
+            print(
+                f"  VIOLATED {v.requirement.requirement_id}: "
+                f"{v.requirement.prop} = {v.measured:.4g~P} "
+                f"{v.requirement.operator} {v.requirement.limit:.4g~P} is false "
+                f"(over by {v.deviation:.4g~P}; "
+                f"source {v.requirement.element_id}, {v.method})"
+            )
+        elif v.status == "within_tolerance":
+            print(
+                f"  TOLERANCE {v.requirement.requirement_id}: "
+                f"{v.requirement.prop} = {v.measured:.4g~P} exceeds "
+                f"{v.requirement.limit:.4g~P} by {v.deviation:.4g~P}, "
+                f"inside the agreed tolerance of {v.tolerance:.4g~P}"
+            )
+
+    for gap in result.gaps:
+        print(f"  NOT CHECKED {gap}")
+    if result.gaps:
+        print()
+
+    return result.exit_code
 
 
 def main() -> int:
     source = sys.argv[1] if len(sys.argv) > 1 else None
-    print(f"Quelle: {'SysML-v2-API' if source == 'api' else 'Fixture'}")
     return report(run(source))
 
 

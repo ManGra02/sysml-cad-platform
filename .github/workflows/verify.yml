@@ -1,8 +1,18 @@
-name: SysML-CAD-Verifikation
+name: SysML-CAD verification
 
 on:
   push:
-    paths: ["cad/**", "mapping/**", "fixtures/**", "src/**"]
+    paths:
+      - "cad/**"
+      - "mapping/**"
+      - "fixtures/**"
+      - "src/**"
+      - "tests/**"
+      - "requirements.txt"
+      - "pyproject.toml"
+      - ".github/workflows/verify.yml"
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   verify:
@@ -11,8 +21,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          # Match the devcontainer. build123d/cadquery-ocp ship cp314 wheels
+          # for linux; ezdxf does not and falls back to pure Python, which
+          # affects DXF only, not the STEP path this project uses.
+          python-version: "3.14"
+          cache: pip
       - run: pip install -r requirements.txt
+      # Runs against the FIXTURE, deliberately: CI must be able to go green
+      # without a live SysML API server.
       - run: PYTHONPATH=src:cad pytest
       - uses: actions/upload-artifact@v4
         if: always()

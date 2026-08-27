@@ -6,3 +6,6 @@ out/*.xml
 vendor/SysML-v2-API-Services/
 .pytest_cache/
 .env
+
+# Compose env files: real secrets, never committed.
+docker/.env

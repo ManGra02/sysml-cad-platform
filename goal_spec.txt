@@ -1,0 +1,381 @@
+
+Software Requirements Specification
+for
+Bi-Directional Synchronization
+Version 0.1 approved
+Prepared by Vincent Alexander Hey, Manuel Granseuer
+SysML V2 to 3D – Use Case 3
+
+06.08.2026
+Table of Contents
+1.	Introduction	2
+1.1	Purpose	3
+1.2	Intended Audience and Reading Suggestions	3
+1.3	Product Scope	3
+1.4	References	4
+2.	Overall Description	4
+2.1	Product Perspective	4
+2.2	Product Functions	4
+2.3	User Classes and Characteristics	5
+2.4	Operating Environment	5
+2.5	Design and Implementation Constraints	5
+2.6	User Documentation	6
+2.7	Assumptions and Dependencies	6
+3.	User Stories	6
+4.	External Interfaces and Requirements	6
+4.1	User Interface	7
+4.2	Software Interfaces	7
+4.3	Communications Interfaces	7
+5.	System Requirements	8
+5.1	Functional Requirements	8
+5.1.1	FREQ-1: Access to the system model	8
+5.1.2	FREQ-2: Access to the CAD model	8
+5.1.3	FREQ-3: Mapping model	8
+5.1.4	FREQ-4: AI-assisted mapping proposal	9
+5.1.5	FREQ-5: Confirmation of mappings	9
+6.	System Scenarios	9
+6.1	Use-case Diagrams	10
+6.2	Scenarios	10
+6.2.1	SCN-Template: <Scenario name (a sentence)>	10
+6.2.2	SCN-1: Map system-model and CAD	11
+6.2.3	SCN-2: Detect a unilateral interface change	12
+6.2.4	SCN-Template: <Scenario name (a sentence)>	13
+7.	System Constraints	14
+7.1	Important Nonfunctional Requirements	15
+7.1.1	NFREQ-Template:	15
+7.1.2	NFREQ-1: Determinism	15
+8.	Other Requirements	15
+
+
+Revision History
+Name	Date	Release Description	Version
+	08/25/26		0.1
+	08/25/26	<Write your new release description over here>
+
+
+1. Introduction
+1.1 Purpose
+<Identify the product whose software requirements are specified in this document, including the revision or release number. Describe the scope of the product that is covered by this SRS, particularly if this SRS describes only part of the system or a single subsystem.>
+
+This document specifies the software requirements for the Bi-Directional Synchronization system (BDS) between a SysML v2 and a CAD model. It will be a subsystem in a system engineering assistant suite.
+The scope covered by this document is the synchronization layer itself: the access to both models, the mapping model that connects them, the verification, change-impact and reporting functions built on top of that mapping. Also the user interface through which engineers operate the system is described. The SysML v2 repository, the CAD kernel and the AI service are existing third-party components that are not specified here.
+
+1.2 Intended Audience and Reading Suggestions
+<Describe the different types of reader that the document is intended for, such as developers, project managers, marketing staff, users, testers, and documentation writers. Describe what the rest of this SRS contains and how it is organized. Suggest a sequence for reading the document, beginning with the overview sections and proceeding through the sections that are most pertinent to each reader type.>
+    • Project manager
+        ◦ Work with this document
+        ◦ Plan the high-level planning of the product
+        ◦ Fill in the scope, requirements, features and use cases
+    • Developers
+        ◦ Get an overview of the project
+        ◦ Read about the high-level planning of the product
+    • Testers
+        ◦ Test if the product meets the planning criteria
+    • Users
+        ◦ Models the users view of the subsystem
+        ◦ Documents the needs of the user
+1.3 Product Scope
+<Provide a short description of the software being specified and its purpose, including relevant benefits, objectives, and goals. Relate the software to corporate goals or business strategies. If a separate vision and scope document is available, refer to it rather than duplicating its contents here.>
+Bi-Directional Synchronization (BDS) maintains data consistency between the logical SysML v2 architecture and the physical 3D CAD model. It provides three capabilities:
+    • parameter propagation, that is updating the system model with computed mechanical properties from the CAD environment such as material and size
+    • constraint verification, that is evaluating CAD-derived parameters against defined system boundaries
+    • and impact traceability, that is correlating requirement modifications with the affected geometric entities.
+The problem addressed is a document-based working practice. Today, target values live in the system model while actual values live in the CAD model, and the comparison between them is done by hand. Deviations therefore become visible long after they were introduced. BDS replaces this with a model-based practice: limits are stored in the system model as machine-checkable rules, actual values are pulled from the CAD model automatically, and deviations surface immediately.
+The intended benefits are the following. Budget overruns in mass or installation space are detected instant. Unilateral changes to agreed interface dimensions become visible across subsystem boundaries when several design owners work in parallel. The consequences of a design change are derived from the model instead of being estimated by an engineer. Verification results are captured directly as review and certification evidence, which removes the manual compilation of documentation.
+
+1.4 References
+<List any other documents or Web addresses to which this SRS refers. These may include user interface style guides, contracts, standards, system requirements specifications, use case documents, or a vision and scope document. Provide enough information so that the reader could access a copy of each reference, including title, author, version number, date, and source or location.>
+    • Use case presentation: Use Case Presentation.pptx
+2. Overall Description
+2.1 Product Perspective
+<Describe the context and origin of the product being specified in this SRS. For example, state whether this product is a follow-on member of a product family, a replacement for certain existing systems, or a new, self-contained product. If the SRS defines a component of a larger system, relate the requirements of the larger system to the functionality of this software and identify interfaces between the two. A simple diagram that shows the major components of the overall system, subsystem interconnections, and external interfaces can be helpful.>
+    • Component of new product
+2.2 Product Functions
+<Summarize the major functions the product must perform or must let the user perform. Details will be provided in Section 3, so only a high level summary (such as a bullet list) is needed here. Organize the functions to make them understandable to any reader of the SRS. A picture of the major groups of related requirements and how they relate, such as a top level data flow diagram or object class diagram, is often effective.>
+    • Connect to a SysML v2 repository and a CAD system
+        ◦ read and write model data in both
+    • Maintain a mapping model between SysML v2 and CAD elements
+        ◦ Generate the mapping using AI
+        ◦ Let the user manually change mappings
+    • Hold target values and actual values (from CAD)
+    • Analyze change impact and checks in both directions
+        ◦ which requirements and verification cases are affected by a CAD change
+        ◦ which geometry is affected by a requirement change
+        ◦ (default inner SysMLv2 check)
+    • Logging for tracking the impact of each single change, each check and result
+    • Verify replacement parts: check whether a substitute material or component still satisfies the original requirements and system limits
+    • Generate reports from collected data
+    • Expose these functions to integrate in AI systems engineering assistant suite
+        ◦ Also integrate other use cases like ”Missing CAD Component Recommendation” for replacement parts function
+2.3 User Classes and Characteristics
+<Identify the various user classes that you anticipate will use this product. User classes may be differentiated based on frequency of use, subset of product functions used, technical expertise, security or privilege levels, educational level, or experience. Describe the pertinent characteristics of each user class. Certain requirements may pertain only to certain user classes. Distinguish the most important user classes for this product from those who are less important to satisfy. For this product it should be at least two. A typical example is the “user and the administrator”, but it does not necessary apply to your system.>
+    • Systems engineer (frequent use, high technical expertise in MBSE, limited CAD expertise). Owns the SysML v2 model, expresses limits and requirements as machine-checkable constraints, confirms the mapping and interprets verification results. Uses most of the product functions. Takes precedence where requirements conflict.
+    • (CAD Design) Engineer (frequent use, high CAD expertise, limited MBSE expertise). Works in the CAD environment, receives target parameters, triggers verification and reacts to violations. This class must be able to use the system without reading SysML v2 textual notation, so need a graphical visualization of SysML v2.
+    • Quality and compliance officer or reviewer (occasional use, read-only, low tool expertise). Consumes evidence reports and needs to understand which design state was checked against which requirement state.
+2.4 Operating Environment
+<Describe the environment in which the software will operate, including the hardware platform, operating system and versions, and any other software components or applications with which it must peacefully coexist.>
+    • Web based Frontend for desktop screens (no explicit mobile support)
+    • Server for Hosting of MCP, Backend and Frontend
+2.5 Design and Implementation Constraints
+<Describe any items or issues that will limit the options available to the developers. These might include: corporate or regulatory policies; hardware limitations (timing requirements, memory requirements); interfaces to other applications; specific technologies, tools, and databases to be used; parallel operations; language requirements; communications protocols; security considerations; design conventions or programming standards (for example, if the customer’s organization will be responsible for maintaining the delivered software).>
+2.6 User Documentation
+<List the user documentation components (such as user manuals, on-line help, and tutorials) that will be delivered along with the software. Identify any known user documentation delivery formats or standards.>
+    • Project Report at the end
+2.7 Assumptions and Dependencies
+<List any assumed factors (as opposed to known facts) that could affect the requirements stated in the SRS. These could include third-party or commercial components that you plan to use, issues around the development or operating environment, or constraints. The project could be affected if these assumptions are incorrect, are not shared, or change. Also identify any dependencies the project has on external factors, such as software components that you intend to reuse from another project, unless they are already documented elsewhere (for example, in the vision and scope document or the project plan).>
+
+    • AI Service (ChatGPT, Claude, Gemini) --> Assumption that our Product is limited by capabilities and performance of the AI Service
+    • Project depends on the quality and the level of detail of the SysML v2 and CAD Model. Can only Sync things that are modeled in both formats. So more Data/Details means more opportunities for our tool
+    • Project depends on Open-Source APIs and Projects (SysML v2 API, CAD API, ...)
+3. User Stories
+As a systems engineer, I want ...
+    • the SysML v2 architecture and the 3D CAD model to stay linked and consistent while both evolve, so that I do not have to compare them manually and do not work with outdated information.
+    • the design to be checked against the agreed limits continuously and automatically, so that deviations become visible when they occur, not weeks later in a manually maintained spreadsheet.
+    • the affected requirements, verification cases and components to be derived from the model (SysMLv2 or CAD), so that the impact of a change is based on existing links instead of individual experience and estimation.
+    • every check to be recorded as evidence and reports to be generated from those records, so that review and certification documentation does not have to be compiled manually and can be traced back to its source.
+    • substitute materials and components to be checked against the original requirements and system limits, so that I can react to end-of-life notices and supply chain changes without repeating the full verification by hand.
+        ◦ a search engine for missing parts (link to other use case)
+4. External Interfaces and Requirements
+4.1 User Interface
+<Describe the logical characteristics of the interface between the software product and the users. This may include sample screen images, any GUI standards or product family style guides that are to be followed, screen layout constraints, standard buttons and functions (e.g., help) that will appear on every screen, keyboard shortcuts, error message display standards, and so on. Define the software components for which a user interface is needed. Details of the user interface design should be documented in a separate user interface specification.>
+    • SysML v2 editor (text-view and graph-view)
+    • CAD editor
+    • AI Chat
+    • Mapping view
+        ◦ create and edit the component mapping between SysML v2 and CAD
+        ◦ Chat Interface with AI to propose changes
+    • Synchronization view
+        ◦ selection of the direction
+        ◦ preview of the value changes that a run would produce
+    • Impact view
+        ◦ tree of the requirements, verification cases and components affected by a selected change
+        ◦ link path that caused each entry
+    • Report view
+        ◦ selection of scope and format
+    • Project List / Dashboard
+    • Login / Registration
+
+4.2 Software Interfaces
+<Describe the connections between this product and other specific software components (name and version), including databases, operating systems, tools, libraries, and integrated commercial components. Identify the data items or messages coming into the system and going out and describe the purpose of each. Describe the services needed and the nature of communications. Refer to documents that describe detailed application programming interface protocols. Identify data that will be shared across software components. If the data sharing mechanism must be implemented in a specific way (for example, use of a global data area in a multitasking operating system), specify this as an implementation constraint.>
+Interfaces needed:
+    • MCP for connecting AI with the tooling
+    • CAD API --> OpenCascade (OCCT)
+    • SysMLv2 API
+    • Database for storing Mappings and Models --> too be definded
+Interfaces provided:
+    • API to call functionality of BDS system
+4.3 Communications Interfaces
+<Describe the requirements associated with any communications functions required by this product, including e-mail, web browser, network server communications protocols, electronic forms, and so on. Define any pertinent message formatting. Identify any communication standards that will be used, such as FTP or HTTP. Specify any communication security or encryption issues, data transfer rates, and synchronization mechanisms.>
+
+    • Web-Client <-> Web-Server (HTTP)
+    • Web-Client <-> Authentication-Service (HTTP, OAuth2)
+    • (MCP-)Server <-> AI-Service/App like ChatGPT or Claude (Rest / HTTP)
+    • Web-Server <-> Database
+    • Every Communication is secured with HTTPS and Bearer Token for Authentication
+5. System Requirements
+<This template illustrates organizing the functional requirements for the product by system features, the major services provided by the product. You may prefer to organize this section by use case, mode of operation, user class, object class, functional hierarchy, or combinations of these, whatever makes the most logical sense for your product.>
+5.1 Functional Requirements
+<Each requirement should be uniquely identified with a sequence number or a meaningful tag of some kind.  These are the software capabilities that must be present in order for the user to carry out the services provided by the system.>
+
+5.1.1 FREQ-1: Access to the system model
+The system shall connect to a SysML v2 repository through the standard Systems Modeling API and Services and read the elements of a selected project and commit.
+
+Description: The user configures the endpoint, the project and the branch. The system retrieves the part definitions and usages, the attribute usages and the requirement and constraint definitions of the selected commit, and holds them in an internal read-only working copy for the duration of the run. The identifier of the commit is recorded, so that every later result can be attributed to an exact state of the system model. Read access to the system model is a precondition for every other function of the product.
+User Priority(x/5): 5/5
+Technical Priority(y/5): 5/5
+
+5.1.2 FREQ-2: Access to the CAD model
+The system shall access the currently opened CAD document and read its assembly structure, its named parameters and its geometry-derived properties.
+
+Description: The system reads the object tree, the named parameters maintained in skeleton objects and spreadsheets, and the computed properties volume, mass, bounding box, centre of mass and assigned material. Reading does not modify the document and does not hold it in a state that prevents the design engineer from continuing to work. Where a property cannot be computed, for example because a part has no material assigned, the system reports the gap instead of substituting a value.
+User Priority(x/5): 5/5
+Technical Priority(y/5): 5/5
+
+5.1.3 FREQ-3: Mapping model
+The system shall maintain an explicit and persistent mapping between elements and attributes of the system model and objects and parameters of the CAD model.
+
+Description: A mapping entry consists of the identifier of the system model element and the name of its attribute, the CAD object and its parameter, the unit on each side together with the conversion between them, the synchronization direction (target value downwards, actual value upwards, or both), an optional tolerance, and a status of proposed, confirmed or disabled. The mapping is stored with the project in a human-readable format and can be placed under version control. The mapping is what makes the behaviour of the system predictable: it, and not the AI component, decides which value is compared against which.
+User Priority(x/5): 4/5
+Technical Priority(y/5): 5/5
+
+5.1.4 FREQ-4: AI-assisted mapping proposal
+The system should propose candidate mappings between the system model and the CAD model using an AI service.
+
+Description: On request, the system passes a structural excerpt of both models to the AI service, which returns candidate correspondences following the pattern shown in Appendix B: part definitions correspond to component definitions, interfaces and connections correspond to assembly constraints, and attributes correspond to parameters. Each candidate carries a confidence value and a short rationale. Candidates are never applied automatically; they enter the mapping table with the status proposed. Establishing the mapping by hand is the most tedious step of setting up the system, which is why this support is worth having even though it is not strictly necessary.
+User Priority(x/5): 4/5
+Technical Priority(y/5): 3/5
+
+5.1.5 FREQ-5: Confirmation of mappings
+The system shall require explicit human confirmation of a mapping entry before that entry is used in any synchronization or verification run.
+
+Description: The user reviews a proposed entry, adjusts units, direction and tolerance where necessary, and then confirms or rejects it. The confirmation is recorded with the user and the timestamp. This requirement is what allows an AI component to be used at all without giving up reproducibility: after confirmation, the entry is an ordinary deterministic rule and its origin no longer influences the result.
+User Priority(x/5): 4/5
+Technical Priority(y/5): 5/5
+
+5.1.6 FREQ-6: Structural instantiation
+The system shall generate and update a CAD skeleton structure derived from the part structure of the system model.
+
+Description: For every part usage in the selected branch of the system model, a corresponding node is created in the CAD assembly if none is mapped yet, preserving the hierarchy and the naming of the system model. Existing objects are identified through the mapping and are never replaced. Objects created by the system are marked as generated, so that a later run can tell them apart from objects the design engineer created manually and can update them without touching the manual work.
+User Priority(x/5): 4/5
+Technical Priority(y/5): 4/5
+
+
+5.1.7 FREQ-7: Automated target–actual verification
+
+The system shall evaluate the extracted actual values against the limits, budgets and agreed values defined in the system model, and shall report a verdict for every evaluated constraint.
+
+Description: This is the central function of the product. Every constraint yields one of three verdicts – compliant, within tolerance, or violated – together with the actual value, the target value and the deviation. The same mechanism covers all four operational cases identified in the concept: budget tracking, where mass and installation space are checked against the allocations of the subsystems; interface control, where agreed interface dimensions are compared against the as-designed geometry across subsystem boundaries; replacement part approval, where a substitute material or an alternative component is checked against the original requirements; and substance compliance, where regulatory thresholds and recycling ratios stored as requirements are checked against the material and mass data of the CAD model. The four differ only in which constraints are evaluated and in what triggers the run, not in the evaluation logic. The evaluation is deterministic and its result depends only on the two model states and the mapping.
+User Priority(x/5): 5/5
+Technical Priority(y/5): 5/5
+
+5.1.8 FREQ-7: Change impact analysis
+The system shall determine, for a given change in either model, which elements of the other model, which requirements and which verification cases are affected.
+
+Description: The analysis follows the mapping entries and the traceability links of the system model, and returns the affected requirements and verification cases together with the link path that led to each of them. The example from the concept illustrates the value: switching a housing from aluminium to plastic looks like a local design change, but it affects the mass budget, the thermal path and the material certification. The system derives this from the links instead of leaving the estimate to the engineer. Results that follow from an incomplete link structure are marked as such, because the analysis can only be as complete as the model it traverses.
+User Priority(x/5): 5/5
+Technical Priority(y/5): 4/5
+
+
+6. System Scenarios
+6.1 Use-case Diagrams
+<In this section provide your use-case diagrams of your system. It should be at least one. If there is not enough space inside on the page or inside the diagram, break it in two. This split is also beneficial to group the various scenarios. It is also recommended to keep each scenario and its dependent scenarios in one diagram.>
+6.2 Scenarios
+<Scenario descriptions. In the scenario descriptions, you can find yourselves writing huge amount of text for describing simple things. That is however not what somebody reading this text wants. Be “Concise and meaningful”. Try to link with other points of the document as much as possible. This will help you minimizing the volume  of text. If you find yourself specifying more scenarios than asked, that is good, however try to limit yourself from trivial scenarios. A trivial scenario is for example: ”The user types in the console and the console shows the letters the user types.”.>
+
+6.2.1 SCN-Template: <Scenario name (a sentence)>
+
+FREQ reference	<Refer to the Functional Requirement numbers this scenario uses.>
+NFREQ reference	<Refer to the Non Functional Requirement numbers this scenario uses. If none then write NA.>
+Short Description:	<A short scenario description. Up to three lines.>
+Activation action:	<What activates this scenario. For example: “Does the user pushes a certain button?”. Up to two lines.>
+Precondition:	<What is the precondition (state) for this scenario. Keep in mind that different precondition with the same activation action can lead to different scenario. Up to three lines>
+
+
+Basic flow: <Scenario name>
+Step	User action	System response
+1	<User activation action>	<System does something that gives output to the user>
+2	<User action 3>	<This can left empty>
+3	<User action 2>	<System does something>
+4	<This can also left empty>	<System does something else>
+Post-condition:	<Specify the post-condition of this scenario. Hint: It can be the same as the precondition with or without something additional.>
+
+Scenario Diagram for SCN-1 <Scenario name>
+
+
+6.2.2 SCN-1: Map system-model and CAD
+
+FREQ reference
+NFREQ reference
+Short Description:	The system reads both models, proposes a mapping between SysML v2 elements and CAD elements using AI, and the engineer confirms it. Confirmed mappings become fixed adapters.
+Activation action:	The engineer initiates the mapping with a command or button click.
+Precondition:	    • A SysMLv2 model is needed
+    • A CAD model is needed
+
+
+Basic flow: Map system-model and CAD
+Step	User action	System response
+1	User initiates the mapping initialization.
+2		AI reads both models and generates the mapping. The mapping and potential problems are shown to the user.
+
+3	User review of the mapping. The user can edit the mapping.
+4		Stores each confirmed pair as a fixed adapter and writes the mapping creation to the log.
+Post-condition:	A confirmed mapping model exists. All later synchronization runs deterministically without AI. Remaining unmapped elements are listed as open items.
+
+Scenario Diagram for SCN-1
+
+
+
+6.2.3 SCN-2: Detect a unilateral interface change
+
+FREQ reference	-
+NFREQ reference	-
+Short Description:	A designer changes a mounting dimension without coordinating it. The next check compares as-designed geometry against the agreed interface definition and reports the exact deviation.
+Activation action:	A CAD change event, or the scheduled check run.
+Precondition:	The interface dimensions are agreed and stored in the system model. The change is not applied in both models (due to multiple engineers working in parallel or sync is forgotten).
+
+
+Basic flow: Detect a unilateral interface change
+Step	User action	System response
+1	Designer A saves a changed mounting dimension in CAD.
+2		Detects the change and reads the affected interface parameters.
+3		Compares them against the agreed interface definition and finds a deviation.
+4		Shows agreed value, as-designed value and who changed it.
+5	Engineer(s) agree on resolution and fix the derivation in SysMLv2 or CAD model (or both).
+6		Re-runs the check and closes the finding when it passes.
+Post-condition:	The deviation is resolved and the check has run successfully.
+
+Scenario Diagram for SCN-2
+
+
+
+6.2.4 SCN-3: Impact of a material change
+
+FREQ reference	<Refer to the Functional Requirement numbers this scenario uses.>
+NFREQ reference	<Refer to the Non Functional Requirement numbers this scenario uses. If none then write NA.>
+Short Description:	A designer wants to switch a housing from aluminium to plastic. The system derives the affected requirements and verification cases from the model links instead of leaving the designer to estimate them.
+Activation action:	The engineer selects the component/change and triggers "Analyze impact".
+Precondition:	A CAD and SysMLv2 model exists and a mapping between them.
+
+
+Basic flow: Impact of a material change
+Step	User action	System response
+1	Selects the housing and enters the intended material change.
+2		Resolves the component to its mapped SysML v2 element.
+3		Follows the model relations and returns the affected requirements and verification cases, including indirect effects on mass, thermal path and material certification.
+4		Logs the analysis with the model version it was based on.
+5	Opens a result entry.
+6		Shows the trace path that led to it (interactively).
+Post-condition:	The change request carries a derived, traceable impact list. No model or CAD data has been modified.
+
+Scenario Diagram for SCN-3 Impact of a material change
+
+
+
+6.2.5 SCN-4: Compile a report
+
+FREQ reference
+NFREQ reference
+Short Description:	Instead of collecting spreadsheets and screenshots, the project lead generates a report from the stored check results, stating which design state was verified against which requirement state.
+Activation action:	The project lead starts "Generate report" before a review or certification submission.
+Precondition:	Check has succeeded and has been logged.
+
+
+Basic flow: Compile a report
+Step	User action	System response
+1	Selects scope, time range and report type.
+2		Queries the matching log entries.
+3		Compiles the report: design state, requirement state, result per check, and remaining open items. Includes links to the log as evidence.
+4		Provides a human-readable and a machine-readable version.
+Post-condition:	A review or certification report exists that is fully traceable to logged, deterministic check results.
+
+Scenario Diagram for SCN-4 Compile a report
+
+
+
+7. System Constraints
+7.1 Important Nonfunctional Requirements
+<If there are nonfunctional requirements for the product under various circumstances, state them here and explain their rationale, to help the developers understand the intent and make suitable design choices. Specify the system limitations or extensions to various platforms(e.g. cloud servers), safety or security requirements. Make such requirements as specific as possible. You may need to state the connection between functional requirements.>
+7.1.1 NFREQ-Template:
+The system should ...
+
+Description: <Describe the non functional requirement >
+User Priority(x/5): < How important is this requirement for the user, comparing with others>
+Technical Priority(y/5): <How important is this requirement for the system, e.g. do requirements also need it?>
+
+7.1.2 NFREQ-1: Determinism
+Description: be as deterministic as possible.
+User Priority(x/5):
+    • 4
+    • minimizes hallucinations of AI
+    • Increases reliability
+Technical Priority(y/5):
+    • 4
+    • To reach this more logic and engineering is required
+8. Other Requirements
+<Define any other requirements not covered elsewhere in the SRS. This might include database requirements, internationalization requirements, legal requirements, reuse objectives for the project, and so on. Add any new sections that are pertinent to the project.>
+Appendix A: Glossary
+<Define all the terms necessary to properly interpret the SRS, including acronyms and abbreviations. You may wish to build a separate glossary that spans multiple projects or the entire organization, and just include terms specific to a single project in each SRS.>
+Appendix B: Analysis Models
+<Optionally, include any pertinent analysis models, such as data flow diagrams, class diagrams, state-transition diagrams, or entity-relationship diagrams.>
+Appendix C: To Be Determined List
+<Collect a numbered list of the TBD (to be determined) references that remain in the SRS so they can be tracked to closure.>
