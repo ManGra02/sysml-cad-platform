@@ -9,3 +9,6 @@ vendor/SysML-v2-API-Services/
 
 # Compose env files: real secrets, never committed.
 docker/.env
+
+# Jupyter editor artefacts, never source.
+.ipynb_checkpoints/

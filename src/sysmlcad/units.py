@@ -1,7 +1,7 @@
-"""Eine einzige Unit-Registry fuer das gesamte Projekt.
+"""A single unit registry for the whole project.
 
-Zwei Registries im selben Prozess erzeugen Quantities, die pint nicht
-miteinander vergleichen kann -- ein Fehler, der erst spaet auffaellt.
+Two registries in one process produce quantities pint refuses to compare --
+a mistake that only surfaces late, at the moment a verdict is computed.
 """
 
 import pint

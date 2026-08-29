@@ -1,8 +1,8 @@
-"""Duenner Client auf die SysML-v2-API-Services (Play, Port 9000).
+"""A thin client for the SysML v2 API Services (Play, port 9000).
 
-Die Endpunkte folgen dem Pilot-PSM. Bevor du dich darauf verlaesst:
-oeffne http://localhost:9000/docs/ und gleiche die Pfade ab -- das ist
-der Realitaetstest aus Schritt 1.
+The endpoints follow the pilot PSM. Before relying on them, open
+http://localhost:9000/docs/ and check the paths against the running
+server -- the specification and the implementation do drift.
 """
 
 from __future__ import annotations
@@ -33,18 +33,18 @@ class SysMLClient:
         r.raise_for_status()
         commits = r.json()
         if not commits:
-            raise RuntimeError(f"Projekt {project_id} hat keine Commits")
+            raise RuntimeError(f"project {project_id} has no commits")
         return commits[0]["@id"]
 
     def elements(self, project_id: str, commit_id: str) -> list[dict]:
-        """Nur die ERSTE Seite (Standard: 100 Elemente)."""
+        """The FIRST page only (100 elements by default)."""
         r = self._c.get(f"/projects/{project_id}/commits/{commit_id}/elements")
         r.raise_for_status()
         return r.json()
 
     def all_elements(self, project_id: str, commit_id: str, page_size: int = 200) -> list[dict]:
-        """Alle Seiten. Die API verlinkt die naechste im Link-Header --
-        wer das ignoriert, arbeitet still auf einem Teilmodell."""
+        """Every page. The API links the next one in the Link header --
+        ignoring it means silently working on a partial model."""
         url = f"/projects/{project_id}/commits/{commit_id}/elements?page[size]={page_size}"
         out: list[dict] = []
         while url:

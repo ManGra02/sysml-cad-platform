@@ -17,16 +17,28 @@ COMPOSE := docker compose --env-file docker/.env \
              -f .devcontainer/docker-compose.dev.yml
 
 .PHONY: help venv secret vendor up api jupyter down logs api-docs \
-        cad verify verify-api test clean
+        cad verify verify-api test clean step-fixtures
 
 help:
-	@echo "In the devcontainer:  cad  verify  verify-api  test  clean"
+	@echo "In the devcontainer:  cad  verify  verify-api  test  clean  step-fixtures"
 	@echo "On the host:          secret  vendor  api  jupyter  logs  down  up"
 
 # ---------------------------------------------------------------- devcontainer
 
 cad:
 	$(PY) cad/motor_housing.py
+	$(PY) cad/gearbox.py
+
+# Regenerates fixtures/step/. They are committed, so this is only needed after
+# changing a CAD script -- the STEP tests must be able to run without it.
+step-fixtures:
+	$(PY) cad/export_fixtures.py
+
+# Show what is inside a STEP file: node names, volumes, bounding boxes, and the
+# reference strings to paste into mapping.yaml.
+#   make explore-cad FILE=fixtures/step/gearbox.step
+explore-cad:
+	$(PY) -m sysmlcad.explore_cad $(or $(FILE),fixtures/step/gearbox.step)
 
 verify:
 	$(PY) -m sysmlcad.verify

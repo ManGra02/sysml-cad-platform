@@ -32,14 +32,14 @@ services:
       SYSML_JDBC_URL: "jdbc:postgresql://postgres:5432/sysml2"
       SYSML_JDBC_USER: "postgres"
       SYSML_JDBC_PASSWORD: "mysecretpassword"
-    # Ueberschreibt das CMD des Forks: dessen Startzeile kennt den
-    # AllowedHostsFilter nicht, der "Host: sysml-api:9000" sonst mit 400 blockt.
+    # Overrides the fork's CMD: its start line does not account for Play's
+    # AllowedHostsFilter, which otherwise rejects "Host: sysml-api:9000" with 400.
     command:
       - /app/start-sysml
       - -Dhttp.address=0.0.0.0
       - -Dhttp.port=9000
       - -Dplay.filters.hosts.allowed.0=.
-      - -Dplay.http.secret.key=${PLAY_SECRET:?bitte in docker/.env setzen -- 'make secret'}
+      - -Dplay.http.secret.key=${PLAY_SECRET:?set it in docker/.env -- run 'make secret'}
     volumes:
       - ivy2:/root/.ivy2
       - sbt:/root/.sbt
@@ -55,7 +55,7 @@ services:
     ports:
       - "8888:8888"
     environment:
-      # Ziel des %publish-Magics. Servicename, nicht localhost.
+      # Target of the %publish magic. Service name, not localhost.
       ISYSML_API_BASE_PATH: "http://sysml-api:9000"
       JUPYTER_TOKEN: "sysmlcad"
     volumes:

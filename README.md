@@ -5,8 +5,6 @@ Deliberately narrow: one part, two requirements, a hardcoded mapping.
 
 **Status:** Stage A complete, verified end to end.
 
-*German original: [README_de.md](README_de.md).*
-
 ## Quick start
 
 Everything runs in containers. Open the devcontainer first:
@@ -116,6 +114,7 @@ notebooks/                    01_publish_motor_housing.ipynb
 cad/motor_housing.py          the part as a build123d script
 fixtures/requirements.json    stand-in + regression test
 mapping/mapping.yaml          parts ↔ CAD objects, attributes ↔ measurements
+fixtures/step/                committed STEP fixtures for the step adapter
 src/sysmlcad/
 ├── config.py                 SYSML_API_URL from the environment
 ├── units.py                  exactly one pint registry
@@ -125,9 +124,12 @@ src/sysmlcad/
 ├── mapping.py                loads and resolves mapping.yaml
 ├── verify.py                 evaluation, report, exit code
 ├── explore.py                debugging tool for API payloads
+├── explore_cad.py            what is inside a STEP file
 └── adapters/
     ├── __init__.py           CadAdapter protocol -- the CAD seam
-    └── build123d_adapter.py  the reference (and CI) backend
+    ├── measurements.py       the four methods, over a shape
+    ├── build123d_adapter.py  code-CAD: scripts with named parameters
+    └── step_adapter.py       CAD files any system exported
 tests/                        test_extract.py, test_requirements.py, test_verify.py
 .github/workflows/verify.yml  CI, runs against the fixture
 CLAUDE.md                     project context for Claude Code
@@ -172,6 +174,60 @@ definition.
 **`export_step` is a module function.** In build123d 0.11 the call is
 `export_step(part, path)`, not `part.export_step(path)`. Older examples on the
 web still show the method form.
+
+## Using a real CAD file
+
+The build123d path needs the part as a Python script. The step adapter takes a
+file straight out of a CAD system — FreeCAD, CATIA, Creo, NX, SolidWorks and
+Onshape all export STEP, and no extra dependency is needed to read it.
+
+First look inside the file. The node names are the addresses, and there is no
+other way to learn them:
+
+```bash
+make explore-cad FILE=fixtures/step/gearbox.step
+```
+
+```
+node                               kind         volume [mm3]            bbox X/Y/Z [mm]
+Gearbox                            assembly        239151.15    90.00 /  60.00 /  46.00
+   Housing                         part            207957.52    90.00 /  60.00 /  40.00
+   Cover                           part             31193.63    90.00 /  60.00 /   6.00
+
+reference strings for mapping.yaml:
+    cad_object: fixtures/step/gearbox.step#Housing
+    cad_object: fixtures/step/gearbox.step#Cover
+```
+
+Then point a mapping at it. `#` selects one node; without it the whole file is
+measured, so an assembly's mass and bounding box aggregate over its parts:
+
+```yaml
+parts:
+  - sysml_part: motorHousing
+    adapter: step
+    cad_object: fixtures/step/gearbox.step#Housing
+    status: confirmed
+
+attributes:
+  - sysml_part: motorHousing
+    attribute: mass
+    requirement: MaxMass
+    method: mass
+    args: {density_g_per_cm3: 2.70}   # STEP rarely carries a material
+    direction: cad_owns
+    status: confirmed
+```
+
+**What a STEP file cannot give you:** named parameters. `LENGTH_MM` exists only
+in the script — a STEP file is baked geometry, so `parameter()` returns None and
+nothing can be written back parametrically. That is what the FreeCAD adapter is
+for. Everything measurable — geometry, assembly tree, material where the
+exporter wrote one — the step adapter already covers.
+
+Two things it refuses rather than guesses: a node name matching more than one
+node, and `mass` on a part with no material and no density override. Both are
+reported as gaps.
 
 ## Next steps
 

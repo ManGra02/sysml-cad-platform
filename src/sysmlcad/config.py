@@ -1,7 +1,8 @@
-"""Umgebungsabhaengige Adressen an genau einer Stelle.
+"""Environment-dependent addresses, in exactly one place.
 
-Im Devcontainer zeigt SYSML_API_URL auf den Servicenamen sysml-api,
-auf dem Host auf localhost. Kein Code darunter kennt den Unterschied.
+Inside the devcontainer SYSML_API_URL points at the service name sysml-api;
+on the host it points at localhost. No code below this line knows the
+difference.
 """
 
 import os

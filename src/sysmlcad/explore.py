@@ -1,10 +1,12 @@
-"""Einmal-Werkzeug fuer Phase 1: die echten Payloads sichtbar machen.
+"""A throwaway tool for looking at the real API payloads.
 
-Kein Produktivcode. Zweck ist, die Struktur einer RequirementDefinition
-zu sehen, bevor extract._to_requirement dagegen geschrieben wird.
+Not production code. Its purpose is to see the shape of a
+RequirementDefinition before writing extract._to_requirement against it.
 
-    python -m sysmlcad.explore              # Uebersicht + Dump nach out/
-    python -m sysmlcad.explore MaxLength    # Baum einer Anforderung
+    python -m sysmlcad.explore              # overview + dump to out/
+    python -m sysmlcad.explore MaxLength    # tree of one requirement
+
+For the CAD side of the same question, see explore_cad.py.
 """
 
 from __future__ import annotations
@@ -20,8 +22,8 @@ OUT = Path("out/elements.json")
 
 
 def fetch_all(client: SysMLClient, project_id: str, commit_id: str) -> list[dict]:
-    """Blaettert durch alle Seiten. Die API liefert 100 Elemente pro Seite
-    und verlinkt die naechste im Link-Header."""
+    """Follows every page. The API returns 100 elements per page and links
+    the next one in the Link header."""
     url = f"/projects/{project_id}/commits/{commit_id}/elements?page[size]=200"
     out: list[dict] = []
     while url:
@@ -43,7 +45,7 @@ def label(e: dict) -> str:
 
 
 def walk(eid: str, by_id: dict[str, dict], depth: int = 0, seen: set | None = None) -> None:
-    """Folgt allen @id-Referenzen eines Elements rekursiv."""
+    """Follows every @id reference of an element, recursively."""
     seen = seen if seen is not None else set()
     if eid in seen or depth > 8:
         return
@@ -53,7 +55,7 @@ def walk(eid: str, by_id: dict[str, dict], depth: int = 0, seen: set | None = No
         return
     print("  " * depth + label(e))
 
-    # Literale und Operatoren direkt mit ausgeben -- dort steckt der Grenzwert.
+    # Print literals and operators inline -- that is where the limit sits.
     for key in ("value", "operator", "shortName"):
         if key in e and e[key] is not None:
             print("  " * (depth + 1) + f".{key} = {e[key]!r}")
@@ -72,41 +74,41 @@ def main() -> int:
     try:
         projects = client.projects()
         if not projects:
-            print("Keine Projekte im Server.")
+            print("No projects on the server.")
             return 1
-        # Das zuletzt angelegte Projekt gewinnt.
+        # The most recently created project wins.
         proj = sorted(projects, key=lambda p: p.get("created", ""))[-1]
-        print(f"Projekt: {proj.get('name')} ({proj['@id']})")
+        print(f"Project: {proj.get('name')} ({proj['@id']})")
 
         commit = client.head_commit(proj["@id"])
         elements = fetch_all(client, proj["@id"], commit)
     finally:
         client.close()
 
-    print(f"{len(elements)} Elemente\n")
+    print(f"{len(elements)} elements\n")
     for typ, n in Counter(e.get("@type") for e in elements).most_common(15):
         print(f"  {n:4d}  {typ}")
 
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(json.dumps(elements, indent=2), encoding="utf-8")
-    print(f"\nVollstaendiger Dump: {OUT}")
+    print(f"\nFull dump: {OUT}")
 
     by_id = index(elements)
     wanted = sys.argv[1] if len(sys.argv) > 1 else None
     if wanted:
         hits = [e for e in elements if (e.get("declaredName") or e.get("name")) == wanted]
         if not hits:
-            print(f"\nKein Element mit Namen {wanted!r}.")
+            print(f"\nNo element named {wanted!r}.")
             return 1
         for h in hits:
-            print(f"\n=== Baum von {label(h)} ===")
+            print(f"\n=== tree of {label(h)} ===")
             walk(h["@id"], by_id)
     else:
         names = sorted(
             {e.get("declaredName") for e in elements if e.get("declaredName")}
         )
-        print("\nBenannte Elemente:", ", ".join(names[:30]))
-        print("\nNaechster Schritt: python -m sysmlcad.explore MaxLength")
+        print("\nNamed elements:", ", ".join(names[:30]))
+        print("\nNext: python -m sysmlcad.explore MaxLength")
     return 0
 
 

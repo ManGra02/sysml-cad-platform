@@ -1,6 +1,6 @@
-# Overlay auf docker/docker-compose.yml. Compose merged beide Dateien zu
-# EINEM Projekt -- dadurch haengen dev, postgres und sysml-api im selben
-# Netzwerk und erreichen sich ueber ihre Servicenamen.
+# Overlay on docker/docker-compose.yml. Compose merges the two into ONE
+# project, which is what puts dev, postgres and sysml-api on the same network
+# and lets them reach each other by service name.
 services:
   dev:
     build:
@@ -10,7 +10,7 @@ services:
       - ..:/workspaces/sysml-cad-poc:cached
     command: sleep infinity
     environment:
-      # Servicename, NICHT localhost -- siehe README.
+      # Service name, NOT localhost -- see README.
       SYSML_API_URL: "http://sysml-api:9000"
       PGHOST: "postgres"
       PGDATABASE: "sysml2"

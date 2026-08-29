@@ -1,7 +1,5 @@
 # Roadmap
 
-*German original: [ROADMAP_de.md](ROADMAP_de.md).*
-
 Guiding principle: get the thin end-to-end thread working first, then add
 breadth. Every stage builds on a verified predecessor.
 
@@ -13,11 +11,12 @@ both in a few places; where it does, the reason is written down.
 |---|---|---|
 | 0–3 | Infrastructure, extraction, measurement core, verification engine, CI | **done** |
 | A | Re-anchor the mapping on parts; CAD adapter seam; three verdicts; provenance | **done** |
+| A2 | STEP adapter — read CAD files the project did not author | **done** |
 | B | Change-impact analysis | open |
 | C | Evidence log and reports | open |
 | D | MCP server | open |
 | E | Gates and human confirmation | open |
-| F | FreeCAD adapter | open |
+| F | FreeCAD adapter — the parametric half STEP cannot do | open |
 | G | Ownership-gated writes | open |
 | H | AI mapping proposals | open |
 
@@ -114,6 +113,44 @@ rather than a schema migration.
 
 ---
 
+## Stage A2 — STEP adapter ✅
+
+Before this, a "CAD object" was a Python module: applying the project to a new
+model meant rewriting the part as a build123d script. Now a file exported from
+any CAD system is measurable, and the seam from stage A is what made it a
+new file rather than a rewrite.
+
+**Why STEP.** ISO 10303, exported by FreeCAD, CATIA, Creo, NX, SolidWorks and
+Onshape alike, and readable with **no new dependency** — build123d already
+brings OCCT, including the XCAF layer that carries names, assembly structure
+and materials. B-Rep solids mean all four measurement methods work unchanged;
+the round trip of the reference part differs by 2.9·10⁻¹⁰ mm³.
+
+*Rejected:* IGES (surfaces only, legacy), BREP (not an interchange format),
+STL/3MF/glTF (meshes — a tessellated volume is approximate, disqualifying for a
+tool that must not substitute values), FCStd (that is stage F).
+
+**What it deliberately does not do.** A STEP file is baked geometry.
+`parameter()` returns `None`, always — there is no `LENGTH_MM` in a STEP file —
+and nothing can be written back parametrically.
+
+**Addressing** is `path/to/file.step#NodeName`, or the whole file without a
+fragment, in which case an assembly aggregates. A name matching two nodes raises
+`Unsupported`; picking the first would be the same class of bug as substituting
+a value.
+
+**Built as an add-on.** `Build123dAdapter` was not touched, the mapping schema
+did not change, and `make verify` produces byte-identical output. The cost is
+that the measurement vocabulary now exists twice; `test_both_adapters_measure_
+the_same` enforces the invariant instead of a refactor.
+
+`python -m sysmlcad.explore_cad <file.step>` prints the assembly tree with the
+reference strings to paste into the mapping — without it nobody can map a file
+they did not author, because the node names are the addresses. It is also the
+**catalogue of the CAD side** that stage H will need.
+
+---
+
 ## Stage B — Change-impact analysis
 
 5/5 user priority in the SRS (FREQ-8), a capability group on the slides, its
@@ -164,17 +201,21 @@ Required before any write and before any AI proposal.
 
 ## Stage F — FreeCAD adapter
 
-The second `CadAdapter`: document model, named parameters and Spreadsheet,
-assembly tree, assigned materials. FREQ-2 describes a live CAD document, which
-build123d structurally is not — it has no document, no assembly constraints and
-no material property. FreeCAD is OCCT-based (matching SRS §4.2), free, and
-scriptable headless.
+**Narrowed by stage A2.** Everything measurable — geometry, assembly tree,
+material where the exporter wrote one — the STEP adapter now covers, and for
+every CAD system rather than only FreeCAD. Budget tracking, interface control
+and substance compliance are reachable today through exported files.
 
-Unlocks three of the four operational cases from the slides: budget tracking
-(mass summed over an assembly), interface control (agreed dimension vs
-as-designed), substance compliance (material and mass data).
+What remains for FreeCAD is what a file fundamentally cannot carry:
 
-`Build123dAdapter` stays, so CI never needs FreeCAD installed.
+- **named parameters** — the `LENGTH_MM` equivalent, in the document and its
+  Spreadsheet, which is what FREQ-2 means by "named parameters maintained in
+  skeleton objects and spreadsheets"
+- **a live document** — reading a model the design engineer currently has open
+- **parametric write-back** — the prerequisite for stage G's downward direction
+  and for FREQ-6
+
+`Build123dAdapter` stays regardless, so CI never needs FreeCAD installed.
 
 ## Stage G — Ownership-gated writes
 

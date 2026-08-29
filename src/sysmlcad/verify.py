@@ -12,13 +12,15 @@ import sys
 
 from .adapters import CadAdapter, Unsupported
 from .adapters.build123d_adapter import Build123dAdapter
+from .adapters.step_adapter import StepAdapter
 from .extract import load_with_context
 from .mapping import AttributeMapping, Mapping, load_mapping
 from .model import Requirement, Run, RunContext, Verdict, parse_tolerance
 
-#: Adapter registry. FreeCAD joins this table; nothing else has to change.
+#: Adapter registry. A new backend joins this table; nothing else changes.
 ADAPTERS: dict[str, type] = {
     "build123d": Build123dAdapter,
+    "step": StepAdapter,
 }
 
 _STATUS_LABEL = {

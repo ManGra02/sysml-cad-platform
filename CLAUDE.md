@@ -38,12 +38,15 @@ Compose files: `docker/docker-compose.yml` + `.devcontainer/docker-compose.dev.y
 
 **Inside the devcontainer:**
 ```bash
-make cad                        # CAD script, writes out/motor_housing.step
+make cad                        # CAD scripts, writes out/motor_housing.step
 make verify                     # verify against fixtures/requirements.json
+make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
+make step-fixtures              # regenerate fixtures/step/ (they are committed)
 python -m sysmlcad.verify api   # verify against the live API server
 make test                       # pytest, JUnit XML to out/
 python -m sysmlcad.explore      # element dump to out/elements.json
 python -m sysmlcad.explore MaxLength   # tree of one requirement
+python -m sysmlcad.explore_cad fixtures/step/gearbox.step   # the CAD side
 ```
 
 **On the host (needs Docker access):**
@@ -70,15 +73,20 @@ vendor/            hni-ase/SysML-v2-API-Services (git clone, not in the repo)
                    (deliberate: CI must be able to go green without a server)
 models/            motor_housing.sysml
 notebooks/         01_publish_motor_housing.ipynb
-cad/               motor_housing.py  (build123d)
+cad/               motor_housing.py, gearbox.py (two-part assembly),
+                   export_fixtures.py (writes fixtures/step/)
 fixtures/          requirements.json  (stand-in + regression test)
+                   step/*.step        (committed STEP fixtures)
 mapping/           mapping.yaml       (schema v2: parts ↔ CAD objects,
                                        attributes ↔ measurements)
 src/sysmlcad/      config, units, model, sysml_client, extract, mapping,
                    verify, explore
 src/sysmlcad/adapters/   __init__.py (CadAdapter protocol),
-                         build123d_adapter.py
-tests/             test_extract.py, test_requirements.py, test_verify.py
+                         build123d_adapter.py, step_adapter.py,
+                         measurements.py (vocabulary over a Shape)
+src/sysmlcad/explore_cad.py   what is inside a STEP file
+tests/             test_extract.py, test_requirements.py, test_verify.py,
+                   test_step_adapter.py
 pyproject.toml     package metadata + pytest config (pytest.ini is gone)
 out/               STEP, JUnit XML, dumps (gitignored)
 ```
@@ -153,6 +161,32 @@ run. FREQ-2: report the gap, never substitute a value.
 - `Build123dAdapter.state_id()` hashes the source of the loaded CAD modules. For
   code-CAD the script *is* the design state, so that digest is exact, not an
   approximation.
+
+**STEP files / the step adapter**
+- `Shape.cast()` on the BASE class is an `@abstractmethod` and returns `None`.
+  `Shape.shape_LUT` maps to class *names* (strings), not classes. The adapter
+  therefore keeps its own explicit `TopAbs_* -> build123d class` table.
+- `build123d.import_step()` MANGLES node names: it translates `" .()"` to `"_"`,
+  so `Housing (rev A)` becomes `Housing__rev_A_`. Since stable identity through
+  names is the core convention, the adapter drives XCAF
+  (`STEPCAFControl_Reader`) directly instead. `import_step` also surfaces
+  colours but no materials.
+- `xstep.cascade.unit` is a PROCESS-GLOBAL OCCT static. It reads empty before
+  the first reader is constructed and `MM` afterwards. The adapter sets it on
+  every read rather than trusting whatever ran before -- a silent factor of
+  25.4 would produce confident, wrong verdicts.
+- `export_step(..., unit=Unit.IN)` only DECLARES the unit, it does not rescale
+  the geometry. A genuine inch fixture has to be scaled first
+  (`build().scale(1 / 25.4)`), otherwise you are testing a mislabelled mm part.
+- `XCAFDoc_MaterialTool.GetMaterial` does not exist in OCP; there is
+  `GetMaterial_s` with out-parameters that do not bind back in Python. Use
+  `GetDensityForShape_s(label)`, which returns `0.0` when no material is
+  assigned.
+- build123d does not export `CompSolid` at the top level -- import `Compound`,
+  `Solid`, `Shell` and map COMPSOLID onto `Compound`.
+- `export_step` writes names and assembly structure (`STEPCAFControl_Writer`,
+  `SetNameMode(True)`), which is why the repo can generate its own assembly
+  fixtures instead of committing a foreign binary it cannot regenerate.
 
 **Jupyter / SysML kernel**
 - conda-forge `jupyter-sysml-kernel=0.60.1`, `openjdk>=21`.
@@ -236,7 +270,17 @@ through the model's `satisfy` link rather than guessed from the first
 - `Requirement` is frozen; extend it via `dataclasses.replace`.
 - **One CAD seam:** nothing outside `src/sysmlcad/adapters/` may import
   build123d, FreeCAD, or any other geometry kernel. Everything above the seam
-  speaks `CadAdapter` and pint quantities.
+  speaks `CadAdapter` and pint quantities. Proven, not asserted: swapping a
+  mapping from `adapter: build123d` to `adapter: step` yields identical
+  verdicts and changes only the recorded `cad state`.
+- **The measurement vocabulary exists twice, on purpose.** `measurements.py`
+  serves the step adapter; `Build123dAdapter` keeps its own copy because adding
+  STEP support was an add-on and rewiring working code is how add-ons lose
+  features. `test_both_adapters_measure_the_same` enforces the invariant a
+  shared module would have guaranteed. Merging them is a separate step.
+- **An ambiguous CAD node name is an error, not a choice.** If a name matches
+  two nodes the adapter raises `Unsupported`. Taking the first would be the same
+  class of bug as substituting a value: a plausible number from the wrong object.
 - **Adapters report gaps, never substitute values.** `Unsupported` is the
   answer to "this backend cannot measure that", and the run records it as a
   gap (SRS FREQ-2).

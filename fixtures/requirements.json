@@ -1,5 +1,5 @@
 {
-  "_comment": "Handgeschriebener Stand-in fuer die API-Antwort aus Phase 1.",
+  "_comment": "Hand-written stand-in for the API response, kept as a regression test.",
   "requirements": [
     {
       "requirement_id": "MaxLength",
@@ -9,7 +9,7 @@
       "operator": "<=",
       "value": 120.0,
       "unit": "mm",
-      "text": "Die maximale Laenge des Motorgehaeuses darf 120 mm nicht ueberschreiten."
+      "text": "The motor housing must not exceed 120 mm in length."
     },
     {
       "requirement_id": "MaxMass",
@@ -19,7 +19,7 @@
       "operator": "<=",
       "value": 0.9,
       "unit": "kg",
-      "text": "Die Masse des Motorgehaeuses darf 0,9 kg nicht ueberschreiten."
+      "text": "The mass of the motor housing must not exceed 0.9 kg."
     }
   ]
 }
