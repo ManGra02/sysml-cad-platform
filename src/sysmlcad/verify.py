@@ -156,16 +156,16 @@ def report(result: Run) -> int:
     print(f"cad state    : {ctx.cad_state_id or '-'}")
     print(f"mapping      : {ctx.mapping_digest}")
 
-    print(f"\n{'ID':<10} {'Attribute':<10} {'Measured':>14} {'Limit':>14} "
+    print(f"\n{'ID':<18} {'Attribute':<12} {'Measured':>14} {'Limit':>14} "
           f"{'Deviation':>14}  Status")
-    print("-" * 82)
+    print("-" * 92)
     for v in result.verdicts:
         print(
-            f"{v.requirement.requirement_id:<10} {v.requirement.prop:<10} "
+            f"{v.requirement.requirement_id:<18} {v.requirement.prop:<12} "
             f"{v.measured:>14.4g~P} {v.requirement.limit:>14.4g~P} "
             f"{v.deviation:>+14.4g~P}  {_STATUS_LABEL[v.status]}"
         )
-    print("-" * 82)
+    print("-" * 92)
 
     counts = {s: 0 for s in _STATUS_LABEL}
     for v in result.verdicts:

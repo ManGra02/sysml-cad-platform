@@ -4,22 +4,28 @@
 # mappings" is an impression; with it, it is a hit rate that a stdlib string
 # matcher can be held up against.
 #
-# TWO THINGS TO UNDERSTAND BEFORE READING THE SCORE
+# THREE THINGS TO UNDERSTAND BEFORE READING THE SCORE
 #
-# 1. THIS SET IS TOO SMALL TO SEPARATE ANYTHING. Two attributes on one part. A
-#    proposer that gets both right has shown that it can match `motorHousing` to
-#    `motor_housing`, which is not a discovery. The set becomes useful when
-#    models/gearbox.sysml is published and captured -- three parts, ten
-#    attributes, two of them genuinely ambiguous between housing and cover.
-#    Until then, treat any difference between two proposers here as noise.
-#
-# 2. AN ANSWER MAY BE RIGHT IN MORE THAN ONE WAY. The same part is measurable
+# 1. AN ANSWER MAY BE RIGHT IN MORE THAN ONE WAY. The same part is measurable
 #    through the build123d script and through its STEP export, and the two give
 #    identical verdicts -- that is the adapter seam working, not a mistake to
 #    penalise. So each entry lists every accepted answer, preferred one first.
+#
+# 2. SOMETIMES THE RIGHT ANSWER IS NOTHING. `boreRadius` is a real attribute of
+#    a real part, and no measurement in the vocabulary can express it: a bounding
+#    box cannot, and the parameter that does know it lives in a script that
+#    cannot address a single component. An entry with an empty `accept:` scores
+#    a hit when the proposer stays silent, and a false positive when it does not.
+#    A proposer that fills every gap with something plausible is worse than one
+#    that leaves gaps, because a human has to check all of them either way.
+#
+# 3. TWO PARTS HAVE THE SAME SHAPE IN X AND Y. Housing and Cover are both
+#    90 x 60, so length and width alone cannot tell them apart -- only the name
+#    can. That is the ambiguity this set exists to measure.
 version: 1
 
 gold:
+  # --- MotorHousing: one part, the original reference -----------------------
   - sysml_part: motorHousing
     attribute: length
     note: >-
@@ -27,23 +33,94 @@ gold:
       dimension -- which is why the accepted answers pin the axis, not just the
       object.
     accept:
-      - adapter: build123d
-        cad_object: motor_housing
-        method: bbox_size
-        args: {axis: X}
-      - adapter: step
-        cad_object: fixtures/step/motor_housing.step
-        method: bbox_size
-        args: {axis: X}
+      - {adapter: build123d, cad_object: motor_housing, method: bbox_size, args: {axis: X}}
+      - {adapter: step, cad_object: fixtures/step/motor_housing.step, method: bbox_size, args: {axis: X}}
 
   - sysml_part: motorHousing
     attribute: mass
     note: >-
       Homogeneous AlSi10Mg. The script declares the density; the STEP export
-      does not carry one, so the file-based answer needs the override and the
-      catalogue does not offer `mass` on it at all.
+      does not carry one, so the catalogue does not offer `mass` on it at all.
     accept:
-      - adapter: build123d
-        cad_object: motor_housing
-        method: mass
-        args: {}
+      - {adapter: build123d, cad_object: motor_housing, method: mass, args: {}}
+
+  # --- Gearbox: two components under an assembly ----------------------------
+  # Addressed through the STEP export: the build123d script's build() returns
+  # the whole assembly and cannot name one component.
+  - sysml_part: housing
+    attribute: length
+    accept:
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: bbox_size, args: {axis: X}}
+
+  - sysml_part: housing
+    attribute: width
+    accept:
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: bbox_size, args: {axis: Y}}
+
+  - sysml_part: housing
+    attribute: height
+    accept:
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: bbox_size, args: {axis: Z}}
+
+  - sysml_part: housing
+    attribute: mass
+    note: >-
+      Correct, and out of a proposer's reach. The STEP file carries no material,
+      so this needs `density_g_per_cm3` -- a number neither model states, and one
+      no proposer may invent. The right behaviour here is silence; proposing the
+      whole assembly's mass instead would be confidently wrong and would pass
+      every gate, which is exactly what this entry is here to catch.
+    accept:
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: mass, args: {density_g_per_cm3: 2.7}}
+
+  - sysml_part: housing
+    attribute: boreRadius
+    note: >-
+      NOTHING is the right answer. No measurement in the vocabulary yields a
+      bore radius. Suggesting a bounding box extent here would be dimensionally
+      valid, plausible, and wrong -- the exact failure the gates cannot catch,
+      because the mistake is in the meaning rather than in the arithmetic.
+    accept: []
+
+  - sysml_part: cover
+    attribute: length
+    accept:
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: bbox_size, args: {axis: X}}
+
+  - sysml_part: cover
+    attribute: width
+    accept:
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: bbox_size, args: {axis: Y}}
+
+  - sysml_part: cover
+    attribute: thickness
+    note: >-
+      Z, because the cover is modelled lying flat. Rotate it and this becomes
+      quietly wrong -- the cost of a bounding box standing in for a named
+      feature dimension.
+    accept:
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: bbox_size, args: {axis: Z}}
+
+  - sysml_part: cover
+    attribute: mass
+    note: Same as the housing mass -- correct, and not reachable without a density.
+    accept:
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: mass, args: {density_g_per_cm3: 2.7}}
+
+  - sysml_part: cover
+    attribute: boreRadius
+    note: Nothing, for the same reason as the housing bore.
+    accept: []
+
+  - sysml_part: gearbox
+    attribute: mass
+    note: >-
+      The whole file, so the mass aggregates over both components -- this is the
+      assembly-level budget, not a component's mass.
+    accept:
+      - {adapter: step, cad_object: fixtures/step/gearbox.step, method: mass, args: {density_g_per_cm3: 2.7}}
+      # Equally correct, and measured to prove it: the build123d module builds
+      # the same assembly and declares its own material, so both routes give
+      # 0.6457 kg. Penalising the second would be penalising the adapter seam
+      # for working.
+      - {adapter: build123d, cad_object: gearbox, method: mass, args: {}}

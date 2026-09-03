@@ -5,7 +5,7 @@ Check SysML v2 requirements automatically against CAD geometry. CI turns red whe
 the CAD model violates a system requirement. Later: a mapping store, AI-assisted
 mapping proposals, bidirectional sync, SMT-based verification.
 
-**Status: stages A, A2, E and H complete; 120 tests pass.** The verification
+**Status: stages A, A2, E and H complete; 127 tests pass.** The verification
 chain runs end to end (SysML v2 API → extractor → CAD adapter → verdict → exit
 code), and on top of it the mapping can now be *proposed*: a catalogue of both
 sides, four gates over any proposed entry, a proposal store, a human
@@ -14,10 +14,14 @@ and a Claude one. The server side runs on the `hni-ase/SysML-v2-API-Services`
 fork. All three reference runs at the bottom of this file reproduce exactly,
 digests included.
 
-One caveat stated plainly: the AI proposer has never been run against the live
-API (no credentials in this environment), and the gold set has two entries, so
-the scoreboard cannot yet separate the baseline from the AI. Both are wired,
-tested and honest about it -- see `make propose-score`.
+Two models are published and captured: `MotorHousing` (one part) and `Gearbox`
+(three parts, ten attributes, an interface dimension and an assembly mass
+budget). The baseline proposer scores **11/13 hit@1 with 2 false positives**
+against `fixtures/gold_mapping.yaml`.
+
+One caveat stated plainly: the AI proposer has never been run for real -- there
+are no credentials in this environment -- so its column on the scoreboard is
+empty. It is wired, tested against a recorded response, and unmeasured.
 
 Stage A re-anchored the mapping on *parts* (resolved through the model's own
 `satisfy` link), put a `CadAdapter` seam under the CAD side, made verdicts
@@ -63,7 +67,7 @@ make catalog                    # what exists on each side, as data
 make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
 make step-fixtures              # regenerate fixtures/step/ (they are committed)
 python -m sysmlcad.verify api   # same as make verify-api
-make test                       # pytest, JUnit XML to out/ (120 tests)
+make test                       # pytest, JUnit XML to out/ (127 tests)
 
 # Mapping proposals -- nothing here can change a verdict
 make propose                    # baseline proposer -> mapping/proposals.yaml
@@ -299,6 +303,31 @@ first:
   `operator: "["`, operand 0 a `LiteralInteger`, and operand 1 a library
   `AttributeUsage` with `declaredShortName: "mm"`.
 
+**The satisfy link, and dotted paths**
+- `satisfy c by gearbox.housing` does NOT serialise like `satisfy c by gearbox`.
+  A plain reference is a `Membership` pointing straight at the PartUsage; a
+  dotted path becomes an anonymous `Feature` owning one `FeatureChaining` per
+  segment, in order, and **the last link is the subject**:
+
+  ```
+  FeatureReferenceExpression
+    -> OwningMembership.memberElement -> Feature
+         |- FeatureChaining.chainingFeature -> PartUsage[gearbox]   first
+         `- FeatureChaining.chainingFeature -> PartUsage[housing]   LAST = meant
+  ```
+
+  Nearest-match search finds `gearbox` and is wrong in the worst available way:
+  it measures the assembly for a requirement about one component and reports a
+  confident verdict. This actually happened -- the first `verify api` against the
+  published gearbox resolved all four requirements to `gearbox`. See
+  `extract._chained_subject` and `test_a_dotted_satisfy_resolves_to_the_last_link`.
+- Order comes from the order of `ownedRelationship`; there is no index field on
+  `FeatureChaining`. If the last link does not resolve to a usage, the resolver
+  returns nothing and the caller falls back rather than picking another link.
+- A part's package is found by walking `owner` **upward**, which is the one
+  place that is right: `owner` is in `_UPWARD_FIELDS` and never followed during
+  a downward search. A nested part needs several steps to reach its package.
+
 **API details**
 - `/projects/{id}/commits/{cid}/elements` paginates — 100 per page by default,
   and the client asks for `page[size]=200`. The next page is in the Link header.
@@ -316,6 +345,15 @@ first:
   inserts it at the end of its section, leaving every existing byte alone, then
   re-parses the result and restores the original if it does not read back as
   intended. The dependency was tried and dropped; do not reintroduce it.
+- **The catalogue merges every capture in `fixtures/*elements*.json`.** Two
+  models are published; a catalogue showing only one would make the other's
+  mapping entries look like mistakes to the existence gate. Element ids are
+  UUIDs, so merging is safe.
+- **Two models can both have a `housing`.** `CatalogPart.qualified` is
+  `Gearbox::housing`, and the proposer compares that against the CAD object's
+  *file plus node* rather than the bare names. Measured, not assumed: with
+  containment scoring alone the baseline mapped all four gearbox housing
+  attributes onto `motor_housing`, a different model's part, confidently.
 - **A membership names its member under two keys.** In the API payload a
   `FeatureMembership` carries both `memberElement` and `ownedRelatedElement`
   pointing at the same `AttributeUsage`. Reading both without de-duplicating

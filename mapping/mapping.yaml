@@ -25,6 +25,32 @@ parts:
     author: hardcoded
     confirmed_at: "2026-08-21"
 
+  # --- the gearbox assembly, published from models/gearbox.sysml -------------
+  # Addressed through the STEP export rather than the build123d module: the
+  # script's build() returns the whole assembly, so it cannot name one component.
+  # The STEP file can, and the node names are the addresses.
+  - sysml_part: housing              # gearbox.housing, via the satisfy chain
+    adapter: step
+    cad_object: fixtures/step/gearbox.step#Housing
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-03"
+
+  - sysml_part: cover
+    adapter: step
+    cad_object: fixtures/step/gearbox.step#Cover
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-03"
+
+  - sysml_part: gearbox
+    adapter: step
+    cad_object: fixtures/step/gearbox.step
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-03"
+    note: "The whole file, so mass and bounding box aggregate over the components."
+
 # --- which measurement stands for which attribute ---------------------------
 attributes:
   - sysml_part: motorHousing
@@ -53,3 +79,51 @@ attributes:
     author: hardcoded
     confirmed_at: "2026-08-21"
     note: "Homogeneous AlSi10Mg. Multi-material parts need per-solid mass."
+
+  - sysml_part: housing
+    attribute: length
+    requirement: MaxHousingLength
+    method: bbox_size
+    args:
+      axis: X
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-03"
+
+  - sysml_part: cover
+    attribute: thickness
+    requirement: MaxCoverThickness
+    method: bbox_size
+    args:
+      axis: Z
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-03"
+    note: "Thickness is the Z extent because the cover is modelled lying flat.
+           Rotate it in CAD and this entry becomes quietly wrong -- which is the
+           cost of a bounding box standing in for a named feature dimension."
+
+  - sysml_part: gearbox
+    attribute: mass
+    requirement: MaxAssemblyMass
+    method: mass
+    args: {density_g_per_cm3: 2.70}   # STEP carries no material; see the note
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-03"
+    note: "The density is an override, not a fact from the file. Without it the
+           adapter reports a gap rather than assuming aluminium."
+
+  # DELIBERATELY UNMAPPED: housing.boreRadius, checked by MinBoreRadius.
+  # No measurement in the vocabulary can express a bore radius -- a bounding box
+  # cannot, and the parameter that does know it (BORE_RADIUS_MM) lives in the
+  # build123d script, which cannot address a single component. So the run reports
+  # MinBoreRadius as NOT CHECKED, which is the honest answer. Mapping it to
+  # something merely dimensionally plausible would be the exact failure this
+  # project exists to prevent.

@@ -31,6 +31,14 @@ def parts():
 
 
 @pytest.fixture(scope="module")
+def housing(parts):
+    """The motor housing, looked up by name rather than by position -- the
+    catalogue merges every capture in fixtures/, so what else is in it depends
+    on which models have been published."""
+    return next(p for p in parts if p.name == "motorHousing")
+
+
+@pytest.fixture(scope="module")
 def targets():
     return cad_catalog()
 
@@ -39,26 +47,41 @@ def targets():
 # The SysML side
 # --------------------------------------------------------------------------
 
-def test_finds_the_part_and_its_definition(parts):
-    assert [p.name for p in parts] == ["motorHousing"]
-    assert parts[0].definition == "Housing"
-    assert parts[0].element_id
+def test_finds_the_part_and_its_definition(housing):
+    assert housing.definition == "Housing"
+    assert housing.element_id
 
 
-def test_lists_the_attributes_of_the_definition(parts):
-    assert [a.name for a in parts[0].attributes] == ["length", "mass"]
+def test_every_published_model_is_catalogued(parts):
+    """Two models are published, and the catalogue merges every capture. One
+    showing only the other's parts would make its mapping entries look like
+    mistakes to the existence gate."""
+    assert {"motorHousing", "housing", "cover", "gearbox"} <= {p.name for p in parts}
+
+
+def test_lists_the_attributes_of_the_definition(housing):
+    assert [a.name for a in housing.attributes] == ["length", "mass"]
 
 
 def test_each_attribute_appears_once(parts):
     """A membership names its member under two keys. Reading both without
     de-duplicating produced every attribute twice -- which would have doubled
     every proposal built on this catalogue."""
-    names = [a.name for a in parts[0].attributes]
-    assert len(names) == len(set(names))
+    for part in parts:
+        names = [a.name for a in part.attributes]
+        assert len(names) == len(set(names)), f"{part.name} has duplicates"
 
 
-def test_the_type_name_carries_the_dimension(parts):
-    by_name = {a.name: a for a in parts[0].attributes}
+def test_a_nested_part_carries_its_own_attributes(parts):
+    """`gearbox` owns `housing` and `cover`, and each definition's attributes
+    must stay with it -- collecting the whole reachable subgraph would give the
+    assembly its components' attributes as well."""
+    gearbox = next(p for p in parts if p.name == "gearbox")
+    assert [a.name for a in gearbox.attributes] == ["mass"]
+
+
+def test_the_type_name_carries_the_dimension(housing):
+    by_name = {a.name: a for a in housing.attributes}
     assert by_name["length"].type_name == "LengthValue"
     assert by_name["length"].dimensionality == ureg.mm.dimensionality
     assert by_name["mass"].dimensionality == ureg.kg.dimensionality

@@ -55,6 +55,16 @@ class GoldEntry:
     def key(self) -> tuple[str, str]:
         return (self.sysml_part, self.attribute)
 
+    @property
+    def expects_silence(self) -> bool:
+        """No accepted answer means the correct behaviour is to propose nothing.
+
+        Not an unfinished entry: some attributes genuinely have no counterpart
+        in the CAD model, and a proposer that fills every gap with something
+        plausible has saved nobody any work.
+        """
+        return not self.accept
+
     def matches(self, proposal: Proposal) -> bool:
         return any(
             answer.get("adapter") == proposal.adapter
@@ -122,6 +132,20 @@ def score(proposer: Proposer, gold: list[GoldEntry], catalog: Catalog) -> Score:
 
     for entry in gold:
         suggestions = by_attribute.get(entry.key, [])
+
+        if entry.expects_silence:
+            if suggestions:
+                result.false_positives.append(
+                    f"{entry.sysml_part}.{entry.attribute}: suggested "
+                    f"{suggestions[0].cad_object} via {suggestions[0].method}"
+                    f"{suggestions[0].args or ''} at {suggestions[0].confidence:.2f}, "
+                    f"but nothing can measure this attribute"
+                )
+            else:
+                result.hit_at_1 += 1
+                result.hit_at_3 += 1
+            continue
+
         if not suggestions:
             result.missed.append(f"{entry.sysml_part}.{entry.attribute}: nothing suggested")
             continue

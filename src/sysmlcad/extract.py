@@ -146,6 +146,51 @@ def _of_type(type_name: str):
 # The satisfy link
 # --------------------------------------------------------------------------
 
+def _chained_subject(branch: dict, by_id: dict[str, dict]) -> tuple[dict | None, list[str]]:
+    """The part named by a dotted path, e.g. `satisfy c by gearbox.housing`.
+
+    A plain `by gearbox` serialises as a Membership pointing straight at the
+    PartUsage. A dotted path does not: it becomes an anonymous Feature owning one
+    FeatureChaining per segment, in order.
+
+        Feature
+          |- FeatureChaining.chainingFeature -> PartUsage[gearbox]   first
+          `- FeatureChaining.chainingFeature -> PartUsage[housing]   LAST = meant
+
+    The last link is the subject; every earlier one is the road to it. Nearest-
+    match search finds `gearbox` and is wrong in the worst way -- it measures the
+    assembly where the requirement is about one component, and reports a
+    confident verdict for the wrong object.
+
+    Order comes from the order of `ownedRelationship`, which is the only thing
+    the payload offers -- there is no index field on FeatureChaining. If the last
+    link does not resolve to a usage, this returns None and the caller falls
+    back rather than guessing at a different link.
+    """
+    def owns_a_chain(element: dict) -> bool:
+        return any(
+            by_id.get(rel.get("@id", ""), {}).get("@type") == "FeatureChaining"
+            for rel in element.get("ownedRelationship") or []
+        )
+
+    feature, path = find_first(branch, by_id, owns_a_chain)
+    if feature is None:
+        return None, []
+
+    chain = [
+        by_id[rel["@id"]]
+        for rel in feature.get("ownedRelationship") or []
+        if by_id.get(rel.get("@id", ""), {}).get("@type") == "FeatureChaining"
+    ]
+    if not chain:
+        return None, []
+
+    last = by_id.get((chain[-1].get("chainingFeature") or {}).get("@id", ""))
+    if last is None or not str(last.get("@type", "")).endswith("Usage"):
+        return None, []
+    return last, path + [chain[-1]["@id"], last["@id"]]
+
+
 def resolve_satisfies(
     elements: list[dict],
     by_id: dict[str, dict] | None = None,
@@ -191,7 +236,11 @@ def resolve_satisfies(
                     branch, by_id, _of_type("RequirementDefinition")
                 )
             elif branch["@type"] == "SubjectMembership":
-                part, part_path = find_first(branch, by_id, _of_type("PartUsage"))
+                # A dotted path first: `by gearbox.housing` must resolve to
+                # housing, and the nearest PartUsage under it is gearbox.
+                part, part_path = _chained_subject(branch, by_id)
+                if part is None:
+                    part, part_path = find_first(branch, by_id, _of_type("PartUsage"))
 
         if definition is None or part is None:
             continue

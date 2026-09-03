@@ -74,6 +74,53 @@ class Proposer(Protocol):
 # Name handling
 # --------------------------------------------------------------------------
 
+def words(name: str) -> set[str]:
+    return set(normalise(name).split())
+
+
+def cad_identity(target) -> set[str]:
+    """The words that identify a CAD target: the file it lives in and the node.
+
+    `fixtures/step/gearbox.step#Housing` is identified by *gearbox* and
+    *Housing* together -- the directories are storage, not identity, and the
+    node name alone is not enough because two files can both contain a
+    `Housing`.
+    """
+    reference = target.reference
+    node = reference.split("#", 1)[1] if "#" in reference else ""
+    stem = reference.split("#", 1)[0].rsplit("/", 1)[-1]
+    for suffix in (".step", ".stp", ".py"):
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+    return words(stem) | words(node)
+
+
+def identity_score(part, target) -> float:
+    """How well a SysML part and a CAD object identify the *same thing*.
+
+    Symmetric on purpose, unlike `similarity`: a word on either side that the
+    other cannot account for counts against the match. That is what tells
+    `Gearbox::housing` from `motor_housing` -- both contain "housing", and only
+    one accounts for the rest.
+
+    Learned from a measurement, not assumed: with containment scoring alone the
+    baseline mapped all four gearbox housing attributes onto the motor housing
+    of a different model, confidently and wrongly.
+    """
+    left = words(part.package) | words(part.name) | words(part.definition)
+    right = cad_identity(target)
+    if not left or not right:
+        return 0.0
+
+    shared = left & right
+    if not shared:
+        return SequenceMatcher(None, " ".join(sorted(left)), " ".join(sorted(right))).ratio()
+
+    precision = len(shared) / len(right)
+    recall = len(shared) / len(left)
+    return 2 * precision * recall / (precision + recall)
+
+
 def normalise(name: str) -> str:
     """`motorHousing`, `motor_housing`, `MOTOR_HOUSING` -> `motor housing`.
 
@@ -83,7 +130,7 @@ def normalise(name: str) -> str:
     be useless on its first real model.
     """
     spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", name)
-    spaced = re.sub(r"[_\-./#]+", " ", spaced)
+    spaced = re.sub(r"[_\-./#:]+", " ", spaced)
     spaced = re.sub(r"\s+", " ", spaced)
     return spaced.strip().lower()
 
@@ -155,20 +202,19 @@ class DifflibProposer:
             if not methods:
                 continue
 
-            # The part's own name, and its definition's -- `motorHousing` may be
-            # typed by `Housing`, and the CAD object is often named after one or
-            # the other. Which of the two matched goes into the rationale: a
-            # proposal that misstates its own evidence is worse than one that
-            # gives none, because it survives review it should not survive.
-            part_score, matched_on = max(
-                (similarity(part.name, target.name), part.name),
-                (similarity(part.definition, target.name) if part.definition else 0.0,
-                 part.definition),
-            )
+            # Does this CAD object identify the same thing as this part? Judged
+            # on the qualified name against the file-plus-node, so that a second
+            # published model cannot steal the match with a shared word.
+            part_score = identity_score(part, target)
+            matched_on = part.qualified
 
             for method in methods:
-                evidence, why = self._attribute_evidence(attribute, target, method)
-                confidence = round(0.6 * part_score + 0.4 * evidence, 3)
+                evidence, why = self._attribute_evidence(part, attribute, target, method)
+                # Identity dominates, and deliberately so: a parameter named
+                # exactly after the attribute is worth nothing if it sits on the
+                # wrong object. Attribute evidence breaks ties between objects
+                # that identify equally well -- it does not overrule them.
+                confidence = round(0.75 * part_score + 0.25 * evidence, 3)
                 if confidence < self.threshold:
                     continue
 
@@ -189,8 +235,8 @@ class DifflibProposer:
                     args=args,
                     confidence=confidence,
                     rationale=(
-                        f"name similarity {part_score:.2f} between {matched_on!r} "
-                        f"and {target.name!r}; {why}"
+                        f"identity match {part_score:.2f} between {matched_on!r} "
+                        f"and {target.reference!r}; {why}"
                         + (f"; {attribute.name} taken along {args['axis']} by naming "
                            f"convention, not from the model" if args else "")
                     ),
@@ -198,19 +244,33 @@ class DifflibProposer:
                 ))
         return candidates
 
-    def _attribute_evidence(self, attribute, target, method) -> tuple[float, str]:
+    def _attribute_evidence(self, part, attribute, target, method) -> tuple[float, str]:
         """How much the CAD side says about *this attribute*, beyond the object.
 
         A named parameter is the strongest signal there is -- `LENGTH_MM` on a
         script is a deliberate statement by whoever wrote it. A method whose name
         matches the attribute is the next best.
+
+        Scored by precision: every word of the parameter name has to be
+        accounted for by the part and the attribute it is claimed to measure.
+        `HOUSING_LENGTH_MM` says "length" *and* "housing", so it is evidence for
+        the housing's length and only half-evidence for the cover's -- the word
+        the cover cannot explain is the whole point.
         """
         best, why = 0.0, "no attribute-level evidence, object name only"
+        claimed = words(part.name) | words(part.package) | words(attribute.name)
 
         for parameter in target.parameters:
-            score = similarity(attribute.name, re.sub(r"_(MM|KG|DEG|G_PER_CM3)$", "", parameter))
+            bare = re.sub(r"_(MM|KG|DEG|G_PER_CM3)$", "", parameter)
+            spoken = words(bare)
+            if not spoken:
+                continue
+            score = len(spoken & claimed) / len(spoken)
             if score > best:
-                best, why = score, f"parameter {parameter} matches {attribute.name!r} ({score:.2f})"
+                best, why = score, (
+                    f"parameter {parameter} accounted for by "
+                    f"{part.name}.{attribute.name} ({score:.2f})"
+                )
 
         method_score = similarity(attribute.name, method)
         if method_score > best:

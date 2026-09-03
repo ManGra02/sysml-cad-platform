@@ -13,7 +13,7 @@ both in a few places; where it does, the reason is written down.
 | A | Re-anchor the mapping on parts; CAD adapter seam; three verdicts; provenance | **done** |
 | A2 | STEP adapter — read CAD files the project did not author | **done** |
 | E | Gates and human confirmation | **done** |
-| H | AI mapping proposals | **done**, unmeasured |
+| H | AI mapping proposals | **done**; baseline measured, AI not |
 | B | Change-impact analysis | open |
 | C | Evidence log and reports | open |
 | D | MCP server | open |
@@ -22,9 +22,9 @@ both in a few places; where it does, the reason is written down.
 
 E and H were brought forward, in that order, because the constraint below said
 they had to be: an AI proposer without gates is a guess with a confidence score
-attached. H is marked *unmeasured* rather than simply done — the code is
-complete and tested, but the gold set has two entries, so its scoreboard cannot
-yet tell a language model from a string matcher.
+attached. The scoreboard exists and the baseline has a number on it — 11/13
+hit@1 with 2 false positives — while the AI column is empty, because no
+credentials were available to run it for real.
 
 Ordering constraints that must not be broken: **gates before writes**, **gates
 before AI**, **adapter seam before FreeCAD**.
@@ -109,17 +109,19 @@ to an exact model state, and the commit id used to be fetched and discarded.
 `cad_owns` / `both`, so enabling writes in Stage G is a change of behaviour
 rather than a schema migration.
 
-**Still open from Stage A** (both need a running API server):
-- Extend the reference model to a two-part assembly with an interface
-  dimension and an assembly-level mass budget. **`models/gearbox.sysml` is now
-  written** — three parts, ten attributes, a shared bore as the interface
-  dimension, an assembly-level mass budget, four requirements each with its own
-  `satisfy` — matching `cad/gearbox.py` and `fixtures/step/gearbox.step`. What
-  remains is purely operational: publish it through the notebook and capture the
-  elements to `fixtures/gearbox_elements.json`, the way `fixtures/elements.json`
-  was captured. That single step is what makes the proposer scoreboard mean
-  something; it is deliberately not faked, because a fixture that claims to be a
-  captured API response and is not would poison every test built on it.
+**Closed from Stage A:** the two-part assembly. `models/gearbox.sysml` is
+published and captured (`fixtures/gearbox_elements.json`, 370 elements): three
+parts, ten attributes, a shared bore as the interface dimension, an
+assembly-level mass budget. `make verify-api` checks three requirements across
+two components and reports the fourth as a gap, because no measurement in the
+vocabulary can express a bore radius.
+
+It paid for itself immediately by breaking something. `satisfy … by
+gearbox.housing` resolved to `gearbox` — the assembly, not the component — and
+would have reported confident verdicts for the wrong object. The dotted-path
+section in CLAUDE.md has the structure and the fix.
+
+**Still open from Stage A** (needs a running API server):
 - Publish `airbus/apollo-11-sysml-v2` and run `explore.py` over it. Expect the
   "one comparison per requirement" assumption to break first. Cheap, hard
   evidence for which extractor simplification to fix next.

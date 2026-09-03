@@ -38,8 +38,9 @@ from collections import Counter
 from dataclasses import dataclass
 
 from .adapters import Unsupported
-from .catalog import Catalog, load_catalog
-from .extract import load as load_requirements
+from .catalog import Catalog, load_catalog, load_elements
+from .extract import elements_to_requirements
+from .extract import load as load_fixture_requirements
 from .mapping import AttributeMapping, Mapping, load_mapping
 from .model import Requirement
 from .units import Q
@@ -282,7 +283,8 @@ def check_mapping(
     mapping = mapping or load_mapping()
     pool = pool or AdapterPool()
     catalog = catalog or load_catalog(pool=pool)
-    requirements = load_requirements() if requirements is None else requirements
+    if requirements is None:
+        requirements = _known_requirements()
 
     by_key = {
         (r.requirement_id, _leaf(r.subject)): r for r in requirements
@@ -292,6 +294,22 @@ def check_mapping(
         for entry in mapping.attributes
         if entry.status != "disabled"
     ]
+
+
+def _known_requirements() -> list[Requirement]:
+    """Every requirement the repository knows about, from the same captures the
+    catalogue reads.
+
+    Not the fixture: `fixtures/requirements.json` is a hand-written stand-in for
+    one model, and gating a second model's entries against it leaves their
+    limits unknown -- so the plausibility gate would report `unknown` for every
+    one of them and mean nothing by it.
+    """
+    try:
+        elements, _source = load_elements()
+    except FileNotFoundError:
+        return load_fixture_requirements()
+    return elements_to_requirements(elements)
 
 
 def unused_parts(mapping: Mapping) -> list[str]:

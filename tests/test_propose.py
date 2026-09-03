@@ -204,3 +204,34 @@ def test_proposing_writes_nothing_to_the_mapping():
     before = MAPPING.read_text(encoding="utf-8")
     run(top=3, catalog=CATALOG, mapping=Mapping(parts={}, attributes=[], digest="e"))
     assert MAPPING.read_text(encoding="utf-8") == before
+
+
+# --------------------------------------------------------------------------
+# The scoreboard -- a floor, not a target
+# --------------------------------------------------------------------------
+
+def test_the_baseline_does_not_regress():
+    """Pins the number the AI has to beat.
+
+    Honest about what it is: the baseline was tuned *after* seeing this gold
+    set, so 11/13 is a training score, not a held-out one. Its job is to stop a
+    later change quietly making the baseline worse -- and to stop anyone
+    claiming the AI helps without beating it.
+    """
+    from sysmlcad.catalog import load_catalog
+    from sysmlcad.score import load_gold, score
+
+    result = score(DifflibProposer(), load_gold(), load_catalog())
+    assert result.hit_at_1 >= 11, f"baseline regressed: {result.false_positives}"
+    assert len(result.false_positives) <= 2
+
+
+def test_the_proposer_does_not_invent_a_density():
+    """Mass on an object with no material needs a number nobody has stated.
+    Substituting one would be the failure this project is built to prevent, so
+    the proposer must not offer it -- even though it makes the score worse."""
+    from sysmlcad.catalog import load_catalog
+
+    for proposal in DifflibProposer().propose(load_catalog()):
+        if proposal.method == "mass":
+            assert "density_g_per_cm3" not in proposal.args

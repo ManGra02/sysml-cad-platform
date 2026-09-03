@@ -3,13 +3,13 @@
 One continuous thread from a SysML v2 requirement to a red CI pipeline.
 Deliberately narrow: one part, two requirements, a hardcoded mapping.
 
-**Status:** Stages A, A2, E and H complete — 120 tests green, and the failure
-case below reproduces exactly (last checked 2026-09-03; CLAUDE.md has the same
-runs with their provenance digests). Requirements are read from the live SysML
-v2 API or from a fixture; geometry is measured either from a build123d script or
-from a STEP file any CAD system exported. The mapping itself can now be
-proposed — by a string matcher or by Claude — gated by machine, and confirmed by
-a human before anything uses it.
+**Status:** Stages A, A2, E and H complete — 127 tests green. Two models are
+published and verified against CAD: `MotorHousing` (one part) and `Gearbox`
+(three parts, an interface dimension, an assembly mass budget). Requirements are
+read from the live SysML v2 API or from a fixture; geometry is measured either
+from a build123d script or from a STEP file any CAD system exported. The mapping
+itself can be proposed — by a string matcher or by Claude — gated by machine, and
+confirmed by a human before anything uses it.
 
 ## Quick start
 
@@ -25,7 +25,7 @@ Then, **inside the devcontainer**:
 make cad            # run the CAD scripts, write STEP to out/
 make verify         # verify against fixtures/requirements.json
 make gates          # is the MAPPING sound? (a different question)
-make test           # pytest, JUnit XML to out/ (120 tests)
+make test           # pytest, JUnit XML to out/ (127 tests)
 make catalog        # what exists on each side, as data
 make explore-cad FILE=fixtures/step/gearbox.step   # what is in a STEP file
 make step-fixtures  # regenerate fixtures/step/ after changing a CAD script
@@ -337,11 +337,24 @@ calls it: `anthropic` is an optional extra and the tests drive it from a
 recorded response.
 
 **Is it any good?** `make propose-score` answers that against
-`fixtures/gold_mapping.yaml`, and the column to watch is `wrong@1` — a confident
-wrong answer costs more than a missing one, because it looks exactly like a
-right one. Today the gold set has two entries and both proposers score 2/2,
-which says nothing about either; that becomes a real measurement once
-`models/gearbox.sysml` is published.
+`fixtures/gold_mapping.yaml` — thirteen attributes across both models, two of
+which have *no* correct mapping, so silence is the right answer:
+
+```
+proposer                    hit@1      hit@3   wrong@1   missed
+baseline:difflib      11/13 (85%) 11/13 (85%)         2        0
+```
+
+Watch `wrong@1`, not the hit rate: a confident wrong answer costs more than a
+missing one, because it looks exactly like a right one. Both remaining failures
+are the same case — the mass of a component in a STEP file with no material. The
+correct mapping needs a density nobody wrote down, the proposer must not invent
+one, so the right behaviour is silence and it proposes the whole assembly
+instead.
+
+Two honest caveats: the baseline was tuned *after* seeing this gold set, so 85%
+is a training score; and the AI column is empty, because `propose_ai.py` has
+never been run for real — only against a recorded response.
 
 ## Next steps
 

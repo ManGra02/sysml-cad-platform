@@ -39,9 +39,13 @@ from .verify import AdapterPool
 
 ROOT = Path(__file__).resolve().parents[2]
 
-#: A captured API response, so the catalogue (and its tests) run without a
-#: server. Lives in fixtures/ rather than out/ because `make clean` empties out/.
-ELEMENTS = ROOT / "fixtures" / "elements.json"
+#: Captured API responses, so the catalogue (and its tests) run without a
+#: server. They live in fixtures/ rather than out/ because `make clean` empties
+#: out/. Every capture is read and merged: the repository knows about two
+#: published models, and a catalogue that showed only one would make the other's
+#: mapping entries look like mistakes. Element ids are UUIDs, so merging is safe.
+ELEMENTS_DIR = ROOT / "fixtures"
+ELEMENTS_GLOB = "*elements*.json"
 
 #: Where to look for STEP files worth cataloguing. Project layout, not adapter
 #: knowledge -- which is why it lives here and not in the adapter.
@@ -103,7 +107,15 @@ class CatalogPart:
     element_id: str
     definition: str = ""
     definition_id: str = ""
+    package: str = ""
     attributes: tuple[CatalogAttribute, ...] = ()
+
+    @property
+    def qualified(self) -> str:
+        """`Gearbox::housing`. Two published models can both have a `housing`,
+        and the bare name cannot tell them apart -- which is exactly the mistake
+        a proposer makes when the catalogue does not say."""
+        return f"{self.package}::{self.name}" if self.package else self.name
 
 
 @dataclass(frozen=True)
@@ -171,6 +183,25 @@ def _attributes_of(definition: dict, by_id: dict[str, dict]) -> tuple[CatalogAtt
     return tuple(out)
 
 
+def _package_of(element: dict, by_id: dict[str, dict], limit: int = 12) -> str:
+    """The package a part lives in, by walking owners upward.
+
+    Upward, deliberately: `owner` is in `extract._UPWARD_FIELDS` and never
+    followed during a downward search, because following it would make the whole
+    model reachable from any node. Here it is exactly what is wanted, and a
+    nested part (`gearbox.housing`) needs several steps to reach the package.
+    """
+    current = element
+    for _ in range(limit):
+        owner_id = (current.get("owner") or {}).get("@id")
+        if not owner_id:
+            return ""
+        current = by_id.get(owner_id) or {}
+        if current.get("@type") == "Package":
+            return current.get("declaredName") or ""
+    return ""
+
+
 def sysml_catalog(elements: list[dict]) -> tuple[CatalogPart, ...]:
     """Every non-library PartUsage with its definition and attributes.
 
@@ -193,6 +224,7 @@ def sysml_catalog(elements: list[dict]) -> tuple[CatalogPart, ...]:
             element_id=element["@id"],
             definition=(definition or {}).get("declaredName") or "",
             definition_id=(definition or {}).get("@id", ""),
+            package=_package_of(element, by_id),
             attributes=_attributes_of(definition, by_id) if definition else (),
         ))
     return tuple(out)
@@ -215,13 +247,23 @@ def load_elements(source: str | None = None) -> tuple[list[dict], str]:
         finally:
             client.close()
 
-    path = Path(source) if source else ELEMENTS
-    if not path.is_file():
+    if source:
+        path = Path(source)
+        if not path.is_file():
+            raise FileNotFoundError(f"no element capture at {path}")
+        return json.loads(path.read_text(encoding="utf-8")), str(path)
+
+    captures = sorted(ELEMENTS_DIR.glob(ELEMENTS_GLOB))
+    if not captures:
         raise FileNotFoundError(
-            f"no element capture at {path}. Run `python -m sysmlcad.explore` "
-            f"against a live server and copy out/elements.json here."
+            f"no element capture in {ELEMENTS_DIR}/{ELEMENTS_GLOB}. Publish a "
+            f"model, then run `python -m sysmlcad.explore` and copy the dump here."
         )
-    return json.loads(path.read_text(encoding="utf-8")), str(path.relative_to(ROOT))
+
+    merged: list[dict] = []
+    for capture in captures:
+        merged.extend(json.loads(capture.read_text(encoding="utf-8")))
+    return merged, ", ".join(c.name for c in captures)
 
 
 # --------------------------------------------------------------------------
@@ -270,7 +312,7 @@ def report(catalog: Catalog) -> int:
     print(header)
     print("-" * len(header))
     for part in catalog.parts:
-        print(f"{part.name:<32} {'(' + part.definition + ')':<20} "
+        print(f"{part.qualified:<32} {'(' + part.definition + ')':<20} "
               f"{'':<24} {part.element_id[:8]}")
         for attribute in part.attributes:
             dimension = attribute.dimensionality

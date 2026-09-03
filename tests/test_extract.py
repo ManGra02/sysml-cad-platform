@@ -9,7 +9,17 @@ Running without a network is the point: these tests pin the traversal rules,
 which is where the subtle breakage lives.
 """
 
+import json
+from pathlib import Path
+
+import pytest
+
 from sysmlcad.extract import elements_to_requirements, resolve_satisfies
+
+#: A captured publish of models/gearbox.sysml -- three parts, and two of the
+#: four satisfy links written as dotted paths. Nothing else in the repository
+#: exercises a feature chain.
+GEARBOX = Path(__file__).resolve().parents[1] / "fixtures" / "gearbox_elements.json"
 
 
 def _graph(name, value, unit_short, operator="<="):
@@ -169,3 +179,57 @@ def test_satisfy_resolution_records_a_link_path():
     assert part["declaredName"] == "motorHousing"
     assert path[0] == "maxlength-sat"
     assert "part-motorHousing" in path
+
+
+# --------------------------------------------------------------------------
+# Dotted paths -- against a real capture, because this one was found the hard way
+# --------------------------------------------------------------------------
+
+@pytest.mark.skipif(not GEARBOX.is_file(), reason="gearbox capture missing")
+def test_a_dotted_satisfy_resolves_to_the_last_link():
+    """`satisfy housingLengthCheck by gearbox.housing` is about the HOUSING.
+
+    A dotted path serialises as an anonymous Feature owning one FeatureChaining
+    per segment, in order -- gearbox first, housing last. Searching for the
+    nearest PartUsage finds `gearbox` and is wrong in the worst available way:
+    it measures the whole assembly and reports a confident verdict for an object
+    the requirement is not about. This is what the live model did before the
+    chain was followed, and all four requirements resolved to `gearbox`.
+    """
+    requirements = {
+        r.requirement_id: r
+        for r in elements_to_requirements(json.loads(GEARBOX.read_text(encoding="utf-8")))
+    }
+
+    assert requirements["MaxHousingLength"].subject == "housing"
+    assert requirements["MaxCoverThickness"].subject == "cover"
+    assert requirements["MinBoreRadius"].subject == "housing"
+    # ... and a plain, undotted reference still resolves to itself.
+    assert requirements["MaxAssemblyMass"].subject == "gearbox"
+
+
+@pytest.mark.skipif(not GEARBOX.is_file(), reason="gearbox capture missing")
+def test_every_subject_is_a_real_element():
+    """Each subject carries the id of the element it came from, so a verdict can
+    be traced back to the model rather than to a name that merely matched."""
+    for requirement in elements_to_requirements(
+        json.loads(GEARBOX.read_text(encoding="utf-8"))
+    ):
+        assert requirement.subject_id, f"{requirement.requirement_id} has no subject id"
+
+
+@pytest.mark.skipif(not GEARBOX.is_file(), reason="gearbox capture missing")
+def test_the_chain_is_recorded_in_the_link_path():
+    """Change-impact analysis has to be able to say *why* it thinks a
+    requirement is about a part. For a dotted path that reason is the chain."""
+    elements = json.loads(GEARBOX.read_text(encoding="utf-8"))
+    by_id = {e["@id"]: e for e in elements if "@id" in e}
+    resolved = resolve_satisfies(elements, by_id)
+
+    housing = next(
+        (part, path) for part, path in resolved.values()
+        if part.get("declaredName") == "housing"
+    )
+    part, path = housing
+    assert part["@id"] in path
+    assert len(path) > 3, "the path should record the road, not just the destination"
