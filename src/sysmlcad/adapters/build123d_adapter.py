@@ -15,12 +15,17 @@ from __future__ import annotations
 import hashlib
 import inspect
 from importlib import import_module
+from pathlib import Path
 from types import ModuleType
 
 from build123d import Part
 
 from ..units import Q, ureg
-from . import Material, Unsupported
+from . import METHODS, CadTarget, Material, Unsupported
+
+#: Where the CAD scripts live, for `catalog()`. The modules are addressed by
+#: import name; this path only answers "which names exist".
+CAD_DIR = Path(__file__).resolve().parents[3] / "cad"
 
 #: Suffix conventions in the CAD scripts, so a parameter comes back with units
 #: instead of as a bare float. Explicit table rather than guesswork.
@@ -111,6 +116,59 @@ class Build123dAdapter:
         if method not in _METHODS:
             raise Unsupported(f"unknown measurement method: {method}")
         return _METHODS[method](self, obj, **(args or {}))
+
+    def catalog(self, objects: list[str] | None = None) -> list[CadTarget]:
+        """One target per CAD script, with its named parameters.
+
+        Named parameters are what this backend has and a STEP file does not, so
+        they are the interesting half of its catalogue: `LENGTH_MM` is a
+        candidate for a length attribute in a way a bounding box never quite is.
+        """
+        names = objects if objects is not None else self._known_modules()
+        out: list[CadTarget] = []
+
+        for name in names:
+            try:
+                module = self._module(name)
+            except Unsupported:
+                continue
+            if not hasattr(module, "build"):
+                continue
+
+            parameters = {}
+            for attr in dir(module):
+                if attr.startswith("_") or not attr.isupper():
+                    continue
+                value = self.parameter(name, attr)
+                if value is not None:
+                    parameters[attr] = value
+
+            # `mass` needs a density. Offering it without one would propose a
+            # mapping whose only possible outcome is a gap.
+            material = self.material(name)
+            methods = tuple(
+                m for m in METHODS
+                if m != "mass" or (material is not None and material.density is not None)
+            )
+            out.append(CadTarget(
+                adapter=self.name,
+                reference=name,
+                kind="module",
+                name=name,
+                methods=methods,
+                parameters=parameters,
+                note=f"material {material.name}" if material else "no material declared",
+            ))
+        return out
+
+    def _known_modules(self) -> list[str]:
+        """Declared modules first, then whatever `cad/` offers."""
+        found = list(self._declared)
+        if CAD_DIR.is_dir():
+            for path in sorted(CAD_DIR.glob("*.py")):
+                if not path.name.startswith("_") and path.stem not in found:
+                    found.append(path.stem)
+        return found
 
     # -- measurement vocabulary ---------------------------------------------
 

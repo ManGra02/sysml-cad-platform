@@ -8,6 +8,11 @@ are the addresses, and there is no other way to learn them.
 
 It prints the reference string for each node in the form mapping.yaml expects,
 so writing the mapping is copy-and-paste rather than guesswork.
+
+The node list, the reference strings and the material notes all come from
+`adapter.catalog()` -- the same data a mapping proposal is built from, so what
+you read here is exactly what the proposer sees. This module only adds the
+measurements, which a catalogue deliberately does not carry.
 """
 
 from __future__ import annotations
@@ -22,58 +27,45 @@ def describe(path: str) -> int:
     adapter = StepAdapter()
 
     try:
-        nodes = adapter.tree(path)
+        targets = adapter.catalog([path])
     except Unsupported as exc:
         print(f"error: {exc}")
+        return 1
+    if not targets:
+        print(f"error: nothing readable in {path}")
         return 1
 
     print(f"\n{path}")
     print(f"state    : step:{adapter.state_id()}")
-    print(f"nodes    : {len(nodes)}\n")
+    print(f"nodes    : {len(targets)}\n")
 
     header = f"{'node':<34} {'kind':<9} {'volume [mm3]':>15} {'bbox X/Y/Z [mm]':>26}"
     print(header)
     print("-" * len(header))
 
-    duplicates: dict[str, int] = {}
-    for _, node in nodes:
-        duplicates[node.name] = duplicates.get(node.name, 0) + 1
-
-    for depth, node in nodes:
-        ref = f"{path}#{node.name}" if depth else path
+    for target in targets:
         try:
-            shape = adapter.shape_of(ref)
+            shape = adapter.shape_of(target.reference)
             volume = f"{shape.volume:15.2f}"
             size = shape.bounding_box().size
             bbox = f"{size.X:7.2f} /{size.Y:7.2f} /{size.Z:7.2f}"
         except Unsupported as exc:
             volume, bbox = "  --", f"({exc})"
 
-        label = "   " * depth + node.name
-        kind = "assembly" if node.is_assembly else "part"
-        print(f"{label:<34} {kind:<9} {volume:>15} {bbox:>26}")
+        print(f"{'   ' * target.depth + target.name:<34} {target.kind:<9} "
+              f"{volume:>15} {bbox:>26}")
 
     print("\nreference strings for mapping.yaml:")
-    for depth, node in nodes:
-        if node.is_assembly and depth == 0 and len(nodes) > 1:
+    for target in targets:
+        if target.kind == "assembly" and target.depth == 0 and len(targets) > 1:
             continue
-        marker = "  # AMBIGUOUS, cannot be addressed by name" if duplicates[node.name] > 1 else ""
-        ref = path if not depth else f"{path}#{node.name}"
-        print(f"    cad_object: {ref}{marker}")
+        marker = "" if target.addressable else f"  # {target.note}"
+        print(f"    cad_object: {target.reference}{marker}")
 
-    material_notes = []
-    for depth, node in nodes:
-        ref = f"{path}#{node.name}" if depth else path
-        try:
-            material = adapter.material(ref)
-        except Unsupported:
-            material = None
-        if material is None:
-            material_notes.append(node.name)
-
-    if material_notes:
+    without_material = [t.name for t in targets if "no material" in t.note]
+    if without_material:
         print(
-            f"\nno material in the file for: {', '.join(material_notes)}\n"
+            f"\nno material in the file for: {', '.join(without_material)}\n"
             f"  -> `mass` needs `args: {{density_g_per_cm3: ...}}` in the mapping,\n"
             f"     otherwise the run reports a gap instead of inventing a density."
         )

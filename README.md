@@ -3,12 +3,13 @@
 One continuous thread from a SysML v2 requirement to a red CI pipeline.
 Deliberately narrow: one part, two requirements, a hardcoded mapping.
 
-**Status:** Stages A and A2 complete, verified end to end — 38 tests green, and
-the failure case below reproduces exactly (last checked 2026-09-03; CLAUDE.md
-has the same runs with their provenance digests).
-Requirements are read from the live SysML v2 API or from a fixture; geometry is
-measured either from a build123d script or from a STEP file any CAD system
-exported.
+**Status:** Stages A, A2, E and H complete — 120 tests green, and the failure
+case below reproduces exactly (last checked 2026-09-03; CLAUDE.md has the same
+runs with their provenance digests). Requirements are read from the live SysML
+v2 API or from a fixture; geometry is measured either from a build123d script or
+from a STEP file any CAD system exported. The mapping itself can now be
+proposed — by a string matcher or by Claude — gated by machine, and confirmed by
+a human before anything uses it.
 
 ## Quick start
 
@@ -23,7 +24,9 @@ Then, **inside the devcontainer**:
 ```bash
 make cad            # run the CAD scripts, write STEP to out/
 make verify         # verify against fixtures/requirements.json
-make test           # pytest, JUnit XML to out/ (38 tests)
+make gates          # is the MAPPING sound? (a different question)
+make test           # pytest, JUnit XML to out/ (120 tests)
+make catalog        # what exists on each side, as data
 make explore-cad FILE=fixtures/step/gearbox.step   # what is in a STEP file
 make step-fixtures  # regenerate fixtures/step/ after changing a CAD script
 ```
@@ -121,16 +124,24 @@ docker/
 ├── jupyter.Dockerfile        conda, SysML kernel, standard library
 └── .env                      PLAY_SECRET (not in git), see below
 vendor/                       hni-ase/SysML-v2-API-Services (clone, not in git)
-models/motor_housing.sysml    the system model, textual -- kept in step with
+models/
+├── motor_housing.sysml       the system model, textual -- kept in step with
                               the notebook, which is what reaches the server
+└── gearbox.sysml             the two-part assembly; written, not yet published
 notebooks/                    01_publish_motor_housing.ipynb
 cad/
 ├── motor_housing.py          the reference part as a build123d script
 ├── gearbox.py                two-part assembly, Housing + Cover, shared bore
 └── export_fixtures.py        writes fixtures/step/, `make step-fixtures`
-fixtures/requirements.json    stand-in + regression test
-fixtures/step/                committed STEP fixtures for the step adapter
-mapping/mapping.yaml          parts ↔ CAD objects, attributes ↔ measurements
+fixtures/
+├── requirements.json         stand-in + regression test
+├── elements.json             a captured API response -- the offline source
+├── gold_mapping.yaml         the answer key for scoring proposers
+├── ai_response.json          a constructed model response, for offline tests
+└── step/                     committed STEP fixtures for the step adapter
+mapping/
+├── mapping.yaml              parts ↔ CAD objects, attributes ↔ measurements
+└── proposals.yaml            machine-written; no verification run reads it
 src/sysmlcad/
 ├── config.py                 SYSML_API_URL from the environment
 ├── units.py                  exactly one pint registry
@@ -139,6 +150,13 @@ src/sysmlcad/
 ├── extract.py                API or fixture → Requirements, incl. satisfy links
 ├── mapping.py                loads and resolves mapping.yaml
 ├── verify.py                 evaluation, report, exit code
+├── catalog.py                what exists on each side, as data
+├── gates.py                  is the mapping sound (≠ is the design ok)
+├── proposals.py              the proposal store
+├── propose.py                Proposer protocol + the stdlib baseline
+├── propose_ai.py             the Claude proposer (optional dependency)
+├── confirm.py                human confirmation → mapping.yaml
+├── score.py                  hit rate against the gold set
 ├── explore.py                debugging tool for API payloads
 ├── explore_cad.py            what is inside a STEP file
 └── adapters/
@@ -149,8 +167,13 @@ src/sysmlcad/
 tests/
 ├── test_extract.py           the element graph, rebuilt from a real %publish
 ├── test_requirements.py      the rule runner -- runs verify() at collection
-├── test_verify.py            evaluation semantics, no geometry, no server
-└── test_step_adapter.py      STEP reading, and both adapters agreeing
+├── test_verify.py            evaluation semantics + the confirmation rule
+├── test_step_adapter.py      STEP reading, and both adapters agreeing
+├── test_catalog.py           both sides of the excerpt
+├── test_gates.py             the four gates, and what they may not conclude
+├── test_confirm.py           the store, and writing YAML without rewriting it
+├── test_propose.py           the baseline, and the dimension filter
+└── test_propose_ai.py        the AI proposer, from a recorded response
 out/                          STEP, JUnit XML, dumps. *.step and *.xml are
                               ignored; elements.json is a committed capture
 .github/workflows/verify.yml  CI, runs against the fixture
@@ -264,15 +287,74 @@ The swap is a real one, not a claim: point `motorHousing` at
 verdicts come out — 118 mm and 0.7429 kg — with only the recorded `cad state`
 changing. That is the adapter seam doing its job.
 
+## Where a mapping comes from
+
+Writing the mapping by hand is the most tedious part of setting this up, so it
+can be proposed. Nothing proposed can change a result: candidates live in their
+own file, are machine-checked before a human sees them, and reach `mapping.yaml`
+only through an explicit confirmation.
+
+```bash
+make catalog            # what is on each side: parts, attributes, CAD targets
+make propose            # stdlib name matching -> mapping/proposals.yaml
+make propose AI=1       # ask Claude instead (pip install anthropic, plus a key)
+make proposals          # what is waiting for a decision
+make confirm ID=p-01    # gate it again, then write it into mapping.yaml
+```
+
+A confirmation prints its gates before it writes anything:
+
+```
+p-01  motorHousing.mass  ->  build123d:motor_housing  via mass({})
+proposed by baseline:difflib with confidence 0.82
+  existence     valid    0.7429 kg
+  dimension     valid    [mass]
+  uniqueness    valid
+  plausibility  valid    measured/limit = 0.825
+
+confirmed by Vincent Hey:
+  + attributes: motorHousing.mass
+```
+
+The entry is appended to `mapping.yaml` with your name and the date; every
+existing byte of the file, comments included, is left exactly as it was. If the
+file does not read back as intended, the original is restored and nothing is
+written.
+
+**Two questions, deliberately not merged.** `make gates` asks whether the
+*mapping* is sound — right dimension, measurable, unique, plausible.
+`make verify` asks whether the *design* complies. A correctly mapped part that
+is too long passes the first and fails the second, and that is the case the
+system exists to report.
+
+**What the AI may and may not do.** It proposes, with a confidence and a
+rationale (SRS FREQ-4). Every candidate is then checked against the catalogue —
+a part, attribute or CAD object it names but that does not exist is dropped and
+the reason recorded — and then through the same four gates as any other
+proposal. Once confirmed, an entry is an ordinary deterministic rule and nothing
+behaves differently because a model suggested it (FREQ-5, NFREQ-1). CI never
+calls it: `anthropic` is an optional extra and the tests drive it from a
+recorded response.
+
+**Is it any good?** `make propose-score` answers that against
+`fixtures/gold_mapping.yaml`, and the column to watch is `wrong@1` — a confident
+wrong answer costs more than a missing one, because it looks exactly like a
+right one. Today the gold set has two entries and both proposers score 2/2,
+which says nothing about either; that becomes a real measurement once
+`models/gearbox.sysml` is published.
+
 ## Next steps
 
-Stage B: change-impact analysis — given a change on either side, derive the
+Publish `models/gearbox.sysml` (written, waiting) and capture its elements —
+that is what turns the proposer scoreboard from a mechanism into a number.
+
+Then stage B: change-impact analysis — given a change on either side, derive the
 affected requirements and verification cases from the model links instead of
 estimating them, and report the link path that produced each one. It needs no
 CAD write access and no new infrastructure.
 
-Then C (evidence log and reports), D (MCP server), E (gates and human
-confirmation), F (FreeCAD adapter), G (ownership-gated writes), H (AI mapping
-proposals). Order that must not be broken: **gates before writes, gates before
-AI, adapter seam before FreeCAD.** Details and rationale in
+Then C (evidence log and reports), D (MCP server), F (FreeCAD adapter) and
+G (ownership-gated writes). Order that must not be broken: **gates before
+writes, gates before AI, adapter seam before FreeCAD** — the middle one is now
+satisfied rather than merely planned. Details and rationale in
 [ROADMAP.md](ROADMAP.md).

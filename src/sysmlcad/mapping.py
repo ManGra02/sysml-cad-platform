@@ -37,6 +37,14 @@ class PartMapping:
     confirmed_at: str = ""
     note: str = ""
 
+    @property
+    def usable(self) -> bool:
+        """Only confirmed entries take part in a run -- same rule as for
+        attributes. Which CAD object stands for which part is as much a human
+        decision as which measurement stands for which attribute, and an
+        AI-written part entry must not be live the moment it is written."""
+        return self.status == "confirmed"
+
 
 @dataclass(frozen=True)
 class AttributeMapping:
@@ -104,6 +112,11 @@ def load_mapping(path: Path = MAPPING) -> Mapping:
         part = PartMapping(**item)
         if part.sysml_part in parts:
             raise ValueError(f"{path}: duplicate part mapping for {part.sysml_part!r}")
+        if part.status not in STATUSES:
+            raise ValueError(
+                f"{path}: part {part.sysml_part!r} has status {part.status!r}, "
+                f"expected one of {sorted(STATUSES)}"
+            )
         parts[part.sysml_part] = part
 
     attributes = [AttributeMapping(**item) for item in data.get("attributes") or []]

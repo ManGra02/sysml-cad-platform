@@ -3,12 +3,18 @@
 These are pure unit tests on `Requirement.evaluate` -- no geometry, no server.
 The engine's arithmetic is worth pinning separately from the CAD pipeline,
 because a wrong verdict is the one bug this whole system cannot tolerate.
+
+The last group covers the other half of FREQ-5: an unconfirmed mapping entry
+must not take part in a run, on the part side as much as on the attribute side.
 """
 
 import pytest
 
+from sysmlcad.adapters import Unsupported
+from sysmlcad.mapping import AttributeMapping, Mapping, PartMapping
 from sysmlcad.model import Requirement, parse_tolerance
 from sysmlcad.units import ureg
+from sysmlcad.verify import AdapterPool, _evaluate
 
 
 def _req(limit="120 mm", operator="<="):
@@ -80,3 +86,51 @@ def test_lower_bound_relaxes_downward():
     req = _req(limit="100 mm", operator=">=")
     assert req.evaluate(99 * ureg.mm)[0] == "violated"
     assert req.evaluate(99 * ureg.mm, parse_tolerance("2 mm", req.limit))[0] == "within_tolerance"
+
+
+# --------------------------------------------------------------------------
+# FREQ-5 on the part side
+# --------------------------------------------------------------------------
+
+def _mapping(part_status: str) -> Mapping:
+    """A minimal two-entry mapping. The attribute entry is always confirmed, so
+    only the part's status is under test."""
+    return Mapping(
+        parts={
+            "motorHousing": PartMapping(
+                sysml_part="motorHousing",
+                adapter="build123d",
+                cad_object="motor_housing",
+                status=part_status,
+            )
+        },
+        attributes=[
+            AttributeMapping(
+                sysml_part="motorHousing",
+                attribute="length",
+                method="bbox_size",
+                requirement="MaxLength",
+                args={"axis": "X"},
+                status="confirmed",
+            )
+        ],
+        digest="test",
+    )
+
+
+def test_an_unconfirmed_part_is_a_gap_not_a_measurement():
+    """A confirmed measurement method on an unconfirmed CAD object is still an
+    unconfirmed mapping. Measuring it anyway would let an AI-written part entry
+    take effect the moment it was written."""
+    mapping = _mapping("proposed")
+    entry = mapping.attributes[0]
+    with pytest.raises(Unsupported, match="not confirmed"):
+        _evaluate(_req(), entry, mapping, AdapterPool())
+
+
+def test_a_confirmed_part_is_measured():
+    """The same mapping with the part confirmed does reach the geometry -- the
+    refusal above is about the status, not about a broken fixture."""
+    mapping = _mapping("confirmed")
+    verdict = _evaluate(_req(), mapping.attributes[0], mapping, AdapterPool())
+    assert verdict.measured.to("mm").magnitude == pytest.approx(118.0)

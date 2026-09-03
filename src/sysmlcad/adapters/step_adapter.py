@@ -48,7 +48,7 @@ from OCP.TopAbs import TopAbs_ShapeEnum
 from OCP.XCAFDoc import XCAFDoc_DocumentTool
 
 from ..units import Q, ureg
-from . import Material, Unsupported
+from . import METHODS, CadTarget, Material, Unsupported
 from . import measurements as mm
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -301,6 +301,51 @@ class StepAdapter:
         return mm.mass(shape, density)
 
     # -- discovery ----------------------------------------------------------
+
+    def catalog(self, objects: list[str] | None = None) -> list[CadTarget]:
+        """One target per node of each named file.
+
+        A STEP file has no parameters, so `parameters` is always empty here --
+        that absence is the honest difference between a baked file and a script,
+        and a proposer should see it rather than infer it.
+
+        An ambiguous node name is listed with a note and no methods: it cannot
+        be addressed by name at all, so proposing it would produce an entry the
+        adapter would refuse to measure.
+        """
+        out: list[CadTarget] = []
+        for ref in (objects if objects is not None else list(self._files)):
+            path, _ = self._resolve(str(ref))
+            try:
+                entry = self._read(path)
+            except Unsupported:
+                continue
+
+            file_ref = str(ref).split("#", 1)[0]
+            for depth, node in self.tree(file_ref):
+                ambiguous = len(entry["by_name"].get(node.name, [])) > 1
+                target_ref = file_ref if depth == 0 else f"{file_ref}#{node.name}"
+                material = None if ambiguous else self.material(target_ref)
+                methods = () if ambiguous else tuple(
+                    m for m in METHODS
+                    if m != "mass"
+                    or (material is not None and material.density is not None)
+                )
+                out.append(CadTarget(
+                    adapter=self.name,
+                    reference=target_ref,
+                    kind="assembly" if node.is_assembly else "part",
+                    name=node.name,
+                    methods=methods,
+                    depth=depth,
+                    note=(
+                        f"ambiguous name, {node.path} is one of several"
+                        if ambiguous
+                        else f"material {material.name}" if material
+                        else "no material in the file"
+                    ),
+                ))
+        return out
 
     def tree(self, obj: str) -> list[tuple[int, _Node]]:
         """Every node of a file with its depth, for explore_cad."""

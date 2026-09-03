@@ -12,13 +12,19 @@ both in a few places; where it does, the reason is written down.
 | 0–3 | Infrastructure, extraction, measurement core, verification engine, CI | **done** |
 | A | Re-anchor the mapping on parts; CAD adapter seam; three verdicts; provenance | **done** |
 | A2 | STEP adapter — read CAD files the project did not author | **done** |
+| E | Gates and human confirmation | **done** |
+| H | AI mapping proposals | **done**, unmeasured |
 | B | Change-impact analysis | open |
 | C | Evidence log and reports | open |
 | D | MCP server | open |
-| E | Gates and human confirmation | open |
 | F | FreeCAD adapter — the parametric half STEP cannot do | open |
 | G | Ownership-gated writes | open |
-| H | AI mapping proposals | open |
+
+E and H were brought forward, in that order, because the constraint below said
+they had to be: an AI proposer without gates is a guess with a confidence score
+attached. H is marked *unmeasured* rather than simply done — the code is
+complete and tested, but the gold set has two entries, so its scoreboard cannot
+yet tell a language model from a string matcher.
 
 Ordering constraints that must not be broken: **gates before writes**, **gates
 before AI**, **adapter seam before FreeCAD**.
@@ -105,13 +111,15 @@ rather than a schema migration.
 
 **Still open from Stage A** (both need a running API server):
 - Extend the reference model to a two-part assembly with an interface
-  dimension and an assembly-level mass budget. A single part cannot exercise
-  part-anchored mapping properly. *The CAD half of this exists already*:
-  `cad/gearbox.py` builds Housing + Cover around a shared `BORE_RADIUS_MM`, and
-  `fixtures/step/gearbox.step` is its export. What is missing is the SysML side
-  — `models/motor_housing.sysml` is still one part, one `satisfy` per
-  requirement — and a `mapping.yaml` with more than one `parts:` entry. Until
-  that exists, "one requirement, one part" is untested by anything but design.
+  dimension and an assembly-level mass budget. **`models/gearbox.sysml` is now
+  written** — three parts, ten attributes, a shared bore as the interface
+  dimension, an assembly-level mass budget, four requirements each with its own
+  `satisfy` — matching `cad/gearbox.py` and `fixtures/step/gearbox.step`. What
+  remains is purely operational: publish it through the notebook and capture the
+  elements to `fixtures/gearbox_elements.json`, the way `fixtures/elements.json`
+  was captured. That single step is what makes the proposer scoreboard mean
+  something; it is deliberately not faked, because a fixture that claims to be a
+  captured API response and is not would poison every test built on it.
 - Publish `airbus/apollo-11-sysml-v2` and run `explore.py` over it. Expect the
   "one comparison per requirement" assumption to break first. Cheap, hard
   evidence for which extractor simplification to fix next.
@@ -192,25 +200,41 @@ This is the integration story from slides 8–9, and the point at which an
 assistant can be asked "what breaks if this housing becomes plastic?" and get a
 deterministic answer.
 
-## Stage E — Gates and human confirmation
+## Stage E — Gates and human confirmation ✅
 
-1. **Dimensional compatibility** — length↔length, mass↔mass, via pint
-2. **Existence** — is the quantity measurable on the CAD object at all?
-3. **Uniqueness** — no 1:n collisions
-4. **Plausibility** — order of magnitude, e.g. a factor of 0.1–10
-5. **Confirmation** — by a human, the first time round, recorded with user and
-   timestamp (FREQ-5)
+`gates.py`, `proposals.py`, `confirm.py`. `make gates` answers *is this mapping
+sound*; `make verify` answers *is this design compliant*. They are separate
+commands with separate reports because they are separate questions, and the
+project's most likely conceptual failure is answering one with the other.
 
-Result: *mapping valid / invalid*, reported separately from *pass / fail*.
-Required before any write and before any AI proposal.
+1. **Dimensional compatibility** — the measurement against the SysML attribute's
+   value type (`length : LengthValue` → `[length]`) *and* against the unit of the
+   requirement's limit. Two independent statements of the same thing; either one
+   catching a mismatch is enough.
+2. **Existence** — both sides: the model has that attribute, and the adapter can
+   actually measure it. Checked by measuring, not by assuming.
+3. **Uniqueness** — two confirmed entries for one attribute or one requirement
+   is `invalid`, because `Mapping.for_requirement` takes the first and the
+   second would never be used *or noticed*. One CAD object standing for two
+   parts is `unknown` — suspicious, not wrong.
+4. **Plausibility** — measured/limit within 0.1–10. **Never returns `invalid`**:
+   a part ten times over its limit is either a wrong mapping or a real, large
+   violation, and a gate that picked one would be deciding a verdict.
+5. **Confirmation** — `make confirm ID=p-01` re-runs the gates, refuses an
+   invalid entry, and appends to `mapping.yaml` with the confirming user and the
+   date (FREQ-5).
 
-**One concrete hole to close here first.** The confirmation gate that already
-exists covers `attributes:` only: `AttributeMapping.usable` demands
-`status: confirmed`, but a `parts:` entry is used whatever its status says, and
-that status is never validated on load. Setting the motorHousing part entry to
-`status: proposed` still yields two verdicts. Small fix, but it is exactly the
-FREQ-5 rule the rest of the design leans on, so it belongs at the front of this
-stage rather than in a later cleanup.
+**The hole this stage was supposed to close first, closed.** The confirmation
+gate used to cover `attributes:` only — a `parts:` entry was used whatever its
+status said, and that status was never validated. `PartMapping.usable` now
+exists, `load_mapping()` validates it, and an unconfirmed part is reported as a
+gap.
+
+**Found while building it:** a `DimensionMismatch` used to escape `verify.run()`
+as a `TypeError` and take down the whole run, so one bad mapping entry cost every
+other verdict in it. It is now a gap like any other, with a pointer to
+`make gates`. The gates did not just check the mapping; building them found a
+fault in the engine.
 
 ## Stage F — FreeCAD adapter
 
@@ -259,15 +283,41 @@ ownership, plus an Onshape connector that writes out of SysML. Opposite design
 decision to ours (there, SysML carries the geometry structure), but a finished
 answer to the transformation maths if we move from single parts to assemblies.
 
-## Stage H — AI mapping proposals
+## Stage H — AI mapping proposals ✅ (built, not yet measured)
 
-`rapidfuzz` (string distance) plus `sentence-transformers` (embeddings) over
-names and metadata; optionally an LLM with structured JSON output. Candidates
-enter with `status: proposed`, a confidence value and a rationale, and are
-never applied automatically (FREQ-4, FREQ-5).
+Four modules and one interface. A `Proposer` takes the catalogue and returns
+candidates; everything after that is identical whichever proposer produced them.
 
-**Make it measurable:** hit rate against a hand-mapped gold set. Without that
-number there is no evidence the AI part saves any time at all.
+* **`catalog.py`** — the "structural excerpt of both models" FREQ-4 speaks of,
+  as data rather than as a printout. SysML parts with their attributes *and
+  value types*; CAD objects with the measurements they actually support. The
+  same excerpt feeds the gates, the proposers and the two explorers.
+* **`propose.py`** — the `Proposer` protocol and `DifflibProposer`, which uses
+  nothing but the standard library. It exists to answer "does the AI help?" —
+  without a baseline, a hit rate is a number with nothing to beat. It is also
+  the offline fallback, so CI never needs a key.
+* **`propose_ai.py`** — `claude-opus-5` through `messages.parse` with a schema.
+* **`score.py`** — hit@1, hit@3, and the column that matters: **wrong@1**, the
+  confident answers that survived the gates. A proposer that finds nine of ten
+  mappings and invents one plausible wrong one has saved nobody any work,
+  because all ten still have to be checked.
+
+Not `rapidfuzz`, not `sentence-transformers`: `difflib` from the standard
+library is enough at this scale, and `sentence-transformers` would pull in torch
+for a candidate space of a few dozen names.
+
+**Two things it refuses to do.** A candidate whose part, attribute or CAD object
+does not appear in the catalogue is dropped with the reason recorded — a schema
+guarantees the shape of an answer, not its truth, and an invented-but-well-typed
+`cad_object` is the failure to expect. And a `bbox_size` proposal with no axis is
+dropped rather than defaulted to X: filling that in would be the project's whole
+failure mode in one line.
+
+**Still unmeasured, and honest about it.** `fixtures/gold_mapping.yaml` has two
+entries, so both proposers score 2/2 and the comparison means nothing. The
+report says so itself rather than letting a reader draw the flattering
+conclusion. It becomes a real measurement when `models/gearbox.sysml` is
+published — see the Stage A note above.
 
 ---
 

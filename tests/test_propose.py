@@ -1,0 +1,206 @@
+"""The baseline proposer (SRS FREQ-4).
+
+Most of these run against a hand-built catalogue rather than the real one: a
+proposer is a ranking function, and ranking is easiest to pin down when the
+candidate space is small enough to reason about completely.
+
+The one that matters most is `test_a_length_attribute_is_never_proposed_against
+_mass`. Everything else here is quality; that one is safety. A proposer that
+crosses dimensions produces a plausible number from the wrong quantity, which is
+the exact failure this project is built to prevent -- and it would arrive
+wearing a confidence score.
+"""
+
+import pytest
+
+from sysmlcad.adapters import CadTarget
+from sysmlcad.catalog import Catalog, CatalogAttribute, CatalogPart
+from sysmlcad.mapping import AttributeMapping, Mapping, PartMapping
+from sysmlcad.propose import DifflibProposer, normalise, run, similarity
+from sysmlcad.units import ureg
+
+PART = CatalogPart(
+    name="motorHousing",
+    element_id="p1",
+    definition="Housing",
+    attributes=(
+        CatalogAttribute("length", "a1", "LengthValue"),
+        CatalogAttribute("mass", "a2", "MassValue"),
+        CatalogAttribute("boreRadius", "a3", "LengthValue"),
+        CatalogAttribute("stiffness", "a4", "SpringRate"),
+    ),
+)
+
+SCRIPT = CadTarget(
+    adapter="build123d",
+    reference="motor_housing",
+    kind="module",
+    name="motor_housing",
+    parameters={"LENGTH_MM": 118.0 * ureg.mm, "BORE_RADIUS_MM": 8.0 * ureg.mm},
+    note="material AlSi10Mg",
+)
+STEP_NODE = CadTarget(
+    adapter="step",
+    reference="fixtures/step/gearbox.step#Cover",
+    kind="part",
+    name="Cover",
+    methods=("bbox_size", "volume", "face_count"),
+    note="no material in the file",
+)
+AMBIGUOUS = CadTarget(
+    adapter="step",
+    reference="fixtures/step/x.step#Bracket",
+    kind="part",
+    name="Bracket",
+    methods=(),
+    note="ambiguous name",
+)
+
+CATALOG = Catalog(parts=(PART,), targets=(SCRIPT, STEP_NODE, AMBIGUOUS), source="test")
+
+
+def _proposals(catalog=CATALOG):
+    return DifflibProposer().propose(catalog)
+
+
+# --------------------------------------------------------------------------
+# Names
+# --------------------------------------------------------------------------
+
+def test_the_three_naming_conventions_meet_in_the_middle():
+    """SysML camelCase, Python snake_case and CAD SCREAMING_CASE describe the
+    same things; a proposer blind to that is useless on its first real model."""
+    assert normalise("motorHousing") == "motor housing"
+    assert normalise("motor_housing") == "motor housing"
+    assert normalise("HOUSING_LENGTH_MM") == "housing length mm"
+    assert normalise("gearbox.step#Housing") == "gearbox step housing"
+
+
+def test_a_contained_name_scores_well():
+    """The commonest real shape: the CAD name is the SysML name with the
+    assembly's name in front of it."""
+    assert similarity("Housing", "motor_housing") > 0.7
+    assert similarity("Housing", "Housing") == 1.0
+    assert similarity("Housing", "shaft") < 0.5
+
+
+# --------------------------------------------------------------------------
+# The dimension filter -- the safety property
+# --------------------------------------------------------------------------
+
+def test_a_length_attribute_is_never_proposed_against_mass():
+    for proposal in _proposals():
+        if proposal.attribute in ("length", "boreRadius"):
+            assert proposal.method != "mass"
+
+
+def test_a_mass_attribute_is_never_proposed_against_a_bounding_box():
+    for proposal in _proposals():
+        if proposal.attribute == "mass":
+            assert proposal.method == "mass"
+
+
+def test_an_attribute_of_unknown_type_is_not_forced_into_a_measurement():
+    """`SpringRate` is not in `_VALUE_TYPES`, so no dimension filter applies.
+    The proposer may still suggest something, but nothing here may pretend the
+    dimension was checked -- the gate reports `unknown` and the human decides."""
+    for proposal in _proposals():
+        if proposal.attribute == "stiffness":
+            assert "weak" in proposal.rationale or "matches" in proposal.rationale
+
+
+# --------------------------------------------------------------------------
+# Method and axis choice
+# --------------------------------------------------------------------------
+
+def test_the_axis_comes_from_the_name_and_says_so():
+    """Which axis a `length` is measured along is a convention, not a fact. A
+    proposal that used it silently would hide its weakest assumption."""
+    length = next(p for p in _proposals() if p.attribute == "length")
+    assert length.args == {"axis": "X"}
+    assert "convention" in length.rationale
+
+
+def test_an_attribute_with_no_obvious_axis_gets_no_bounding_box_proposal():
+    """`boreRadius` is a length, but no axis of a bounding box is its radius.
+    Guessing X here would be the whole failure mode in miniature."""
+    assert not [
+        p for p in _proposals()
+        if p.attribute == "boreRadius" and p.method == "bbox_size"
+    ]
+
+
+def test_a_named_parameter_is_the_strongest_evidence():
+    """`LENGTH_MM` in a script is a deliberate statement by whoever wrote it."""
+    best = max(
+        (p for p in _proposals() if p.attribute == "length"),
+        key=lambda p: p.confidence,
+    )
+    assert best.cad_object == "motor_housing"
+    assert "LENGTH_MM" in best.rationale
+
+
+def test_an_unaddressable_target_is_never_proposed():
+    """An ambiguous node cannot be measured, so proposing it would only produce
+    a gap with a confidence score attached."""
+    assert not [p for p in _proposals() if "Bracket" in p.cad_object]
+
+
+def test_a_target_without_the_method_is_not_proposed():
+    """The STEP node carries no material, so its catalogue entry does not offer
+    `mass` -- and no proposal may invent it."""
+    assert not [
+        p for p in _proposals()
+        if p.cad_object == STEP_NODE.reference and p.method == "mass"
+    ]
+
+
+# --------------------------------------------------------------------------
+# Ranking and the run
+# --------------------------------------------------------------------------
+
+def test_candidates_come_back_ranked():
+    confidences = [p.confidence for p in _proposals()]
+    assert confidences == sorted(confidences, reverse=True)
+
+
+def test_every_proposal_explains_itself():
+    """FREQ-4: a candidate carries a confidence value and a short rationale."""
+    for proposal in _proposals():
+        assert 0.0 < proposal.confidence <= 1.0
+        assert len(proposal.rationale) > 20
+        assert proposal.proposed_by == "baseline:difflib"
+
+
+def test_an_already_confirmed_attribute_is_not_proposed_again():
+    mapping = Mapping(
+        parts={"motorHousing": PartMapping("motorHousing", "build123d", "motor_housing",
+                                           status="confirmed")},
+        attributes=[AttributeMapping("motorHousing", "length", "bbox_size",
+                                     requirement="MaxLength", args={"axis": "X"},
+                                     status="confirmed")],
+        digest="test",
+    )
+    kept, _dropped = run(top=3, catalog=CATALOG, mapping=mapping)
+    assert not [p for p in kept if p.attribute == "length"]
+
+
+def test_top_limits_what_reaches_the_review_queue():
+    empty = Mapping(parts={}, attributes=[], digest="empty")
+    one, _ = run(top=1, catalog=CATALOG, mapping=empty)
+    three, _ = run(top=3, catalog=CATALOG, mapping=empty)
+    per_attribute = {}
+    for proposal in one:
+        per_attribute[proposal.attribute] = per_attribute.get(proposal.attribute, 0) + 1
+    assert max(per_attribute.values()) == 1
+    assert len(three) >= len(one)
+
+
+def test_proposing_writes_nothing_to_the_mapping():
+    """The store separation, checked rather than assumed: a proposer that could
+    reach mapping.yaml would make FREQ-5 a matter of discipline."""
+    from sysmlcad.mapping import MAPPING
+
+    before = MAPPING.read_text(encoding="utf-8")
+    run(top=3, catalog=CATALOG, mapping=Mapping(parts={}, attributes=[], digest="e"))
+    assert MAPPING.read_text(encoding="utf-8") == before

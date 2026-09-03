@@ -20,6 +20,9 @@ never a substituted value. SRS FREQ-2: "Where a property cannot be computed,
                           object's material unless overridden in `args`
     face_count()          topological count, for geometry regression tests
 
+METHODS is that vocabulary as data, so a catalogue can list what an adapter
+offers without every caller repeating the four names.
+
 `bbox_size` is deliberately not called "length". A bounding-box extent and a
 named feature dimension are different things, and the difference only shows up
 at the first draft angle. The mapping entry has to say which one it means.
@@ -27,10 +30,15 @@ at the first draft angle. The mapping entry has to say which one it means.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 from ..units import Q
+
+#: The measurement vocabulary, as data. Adapter-independent by design; an
+#: adapter that cannot do one of these raises `Unsupported` rather than
+#: quietly offering fewer.
+METHODS = ("bbox_size", "volume", "mass", "face_count")
 
 
 class Unsupported(Exception):
@@ -44,6 +52,42 @@ class Unsupported(Exception):
 class Material:
     name: str
     density: Q | None = None
+
+
+@dataclass(frozen=True)
+class CadTarget:
+    """One addressable thing on the CAD side, as a mapping proposal would see it.
+
+    This is the CAD half of the "structural excerpt of both models" SRS FREQ-4
+    hands to a proposer. It is deliberately descriptive, not measured: listing
+    a catalogue must not cost a full geometry build of every object.
+
+    `reference` is exactly the string a mapping entry's `cad_object:` takes, so
+    a proposal is copy-and-paste rather than reconstruction. `name` is the same
+    thing stripped of its address -- `Housing`, not
+    `fixtures/step/gearbox.step#Housing` -- because a name is what a proposal
+    can compare against a SysML part, and a file path is not.
+
+    `methods` are the ones this target actually supports -- `mass` is absent
+    when the object carries no material, because proposing it would only
+    produce a gap.
+    """
+
+    adapter: str
+    reference: str
+    kind: str                                  # part | assembly | module
+    name: str = ""                             # what it is called, not where it is
+    methods: tuple[str, ...] = METHODS
+    parameters: dict[str, Q] = field(default_factory=dict)
+    note: str = ""
+    depth: int = 0                             # nesting in the assembly tree
+
+    @property
+    def addressable(self) -> bool:
+        """False when nothing can be measured here -- an ambiguous name, say.
+        Listed rather than dropped, because "this exists but you cannot point at
+        it" is information a proposer and a human both need."""
+        return bool(self.methods)
 
 
 @runtime_checkable
@@ -80,4 +124,14 @@ class CadAdapter(Protocol):
 
     def material(self, obj: str) -> Material | None:
         """The assigned material, or None when the object has none."""
+        ...
+
+    def catalog(self, objects: list[str] | None = None) -> list[CadTarget]:
+        """What this adapter offers, as `CadTarget`s.
+
+        `objects` names what to describe -- module names, file paths -- because
+        where a project keeps its CAD files is not the adapter's business.
+        Passing None means "whatever you already know about", which is what the
+        adapter has loaded so far.
+        """
         ...

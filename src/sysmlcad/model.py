@@ -23,6 +23,17 @@ from .units import Q, ureg
 
 Operator = Literal["<=", ">=", "==", "<", ">"]
 
+
+class DimensionMismatch(TypeError):
+    """The measurement is not the kind of quantity the requirement is about.
+
+    Raised rather than coerced: comparing a length against a mass limit has no
+    right answer, and picking one would be the worst kind of wrong. A TypeError
+    subclass, so callers that simply refuse bad types still catch it, while
+    `verify.run()` can single it out and record a gap instead of losing every
+    other verdict in the run to one bad mapping entry.
+    """
+
 #: `compliant` and `within_tolerance` both leave the pipeline green; only
 #: `violated` turns it red. Reporting keeps them apart because "we used up the
 #: tolerance" is information, not noise.
@@ -93,7 +104,7 @@ class Requirement:
         way for every operator: positive means "over the number in the model".
         """
         if measured.dimensionality != self.limit.dimensionality:
-            raise TypeError(
+            raise DimensionMismatch(
                 f"{self.requirement_id}: dimension {measured.dimensionality} "
                 f"does not match {self.limit.dimensionality}"
             )

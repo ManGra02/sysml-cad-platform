@@ -15,7 +15,14 @@ from .adapters.build123d_adapter import Build123dAdapter
 from .adapters.step_adapter import StepAdapter
 from .extract import load_with_context
 from .mapping import AttributeMapping, Mapping, load_mapping
-from .model import Requirement, Run, RunContext, Verdict, parse_tolerance
+from .model import (
+    DimensionMismatch,
+    Requirement,
+    Run,
+    RunContext,
+    Verdict,
+    parse_tolerance,
+)
 
 #: Adapter registry. A new backend joins this table; nothing else changes.
 ADAPTERS: dict[str, type] = {
@@ -69,6 +76,13 @@ def _evaluate(
     part = mapping.part_for(entry)
     if part is None:
         raise Unsupported(f"no CAD object mapped for part {entry.sysml_part!r}")
+    if not part.usable:
+        # FREQ-5 applies to both halves of the mapping: an unconfirmed part
+        # entry is not a weaker mapping, it is no mapping at all.
+        raise Unsupported(
+            f"part {entry.sysml_part!r} is mapped to {part.cad_object!r} with "
+            f"status {part.status}, not confirmed -- not used in this run"
+        )
 
     adapter = pool.get(part.adapter)
     measured = adapter.measure(part.cad_object, entry.method, entry.args)
@@ -116,6 +130,13 @@ def run(source: str | None = None) -> Run:
         except Unsupported as exc:
             # FREQ-2: report the gap, never substitute a value.
             gaps.append(f"{req.requirement_id}: {exc}")
+        except DimensionMismatch as exc:
+            # A mapping entry pointing at the wrong kind of measurement is a
+            # bad mapping, and `make gates` is where it gets diagnosed. Here it
+            # is simply one requirement that could not be checked -- letting it
+            # escape would take every other verdict in the run down with it.
+            # The message already names the requirement.
+            gaps.append(f"{exc} -- a mapping fault, diagnosed by `make gates`")
 
     context = RunContext(
         source="api" if source == "api" else "fixture",

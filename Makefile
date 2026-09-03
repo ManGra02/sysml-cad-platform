@@ -17,10 +17,13 @@ COMPOSE := docker compose --env-file docker/.env \
              -f .devcontainer/docker-compose.dev.yml
 
 .PHONY: help venv secret vendor up api jupyter down logs api-docs \
-        cad verify verify-api test clean step-fixtures
+        cad verify verify-api test clean step-fixtures explore-cad catalog gates \
+        propose proposals confirm propose-score
 
 help:
-	@echo "In the devcontainer:  cad  verify  verify-api  test  clean  step-fixtures"
+	@echo "In the devcontainer:  cad  verify  verify-api  gates  test  clean"
+	@echo "                      catalog  explore-cad  step-fixtures"
+	@echo "Mapping proposals:    propose  proposals  confirm ID=p-01  propose-score"
 	@echo "On the host:          secret  vendor  api  jupyter  logs  down  up"
 
 # ---------------------------------------------------------------- devcontainer
@@ -39,6 +42,38 @@ step-fixtures:
 #   make explore-cad FILE=fixtures/step/gearbox.step
 explore-cad:
 	$(PY) -m sysmlcad.explore_cad $(or $(FILE),fixtures/step/gearbox.step)
+
+# What exists on each side: SysML parts and attributes, CAD objects and the
+# measurements they support. Reads the captured payload in fixtures/, so it
+# needs no server; `make catalog SOURCE=api` reads the live one.
+catalog:
+	$(PY) -m sysmlcad.catalog $(SOURCE)
+
+# Is the MAPPING sound: dimension, existence, uniqueness, plausibility.
+# A different question from `verify` -- a correctly mapped part that is too long
+# passes here and fails there.
+gates:
+	$(PY) -m sysmlcad.gates
+
+# Suggest mapping entries. Nothing is applied: candidates land in
+# mapping/proposals.yaml with status `proposed` and reach mapping.yaml only
+# through `confirm`. `make propose AI=1` asks Claude instead of the stdlib
+# baseline -- that needs `pip install anthropic` and credentials.
+propose:
+	$(PY) -m sysmlcad.propose $(if $(AI),--ai,) $(if $(TOP),--top $(TOP),)
+
+proposals:
+	$(PY) -m sysmlcad.propose --list
+
+# Confirm one: re-gates it, then writes it into mapping.yaml with your name and
+# the date.   make confirm ID=p-01
+confirm:
+	$(PY) -m sysmlcad.confirm $(ID)
+
+# How good is a proposer, against fixtures/gold_mapping.yaml. The number to
+# watch is wrong@1, not hit rate.
+propose-score:
+	$(PY) -m sysmlcad.score $(if $(AI),--ai,)
 
 verify:
 	$(PY) -m sysmlcad.verify
