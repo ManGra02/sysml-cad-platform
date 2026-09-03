@@ -3,7 +3,12 @@
 One continuous thread from a SysML v2 requirement to a red CI pipeline.
 Deliberately narrow: one part, two requirements, a hardcoded mapping.
 
-**Status:** Stage A complete, verified end to end.
+**Status:** Stages A and A2 complete, verified end to end — 38 tests green, and
+the failure case below reproduces exactly (last checked 2026-09-03; CLAUDE.md
+has the same runs with their provenance digests).
+Requirements are read from the live SysML v2 API or from a fixture; geometry is
+measured either from a build123d script or from a STEP file any CAD system
+exported.
 
 ## Quick start
 
@@ -16,21 +21,28 @@ code .        # then "Reopen in Container"
 Then, **inside the devcontainer**:
 
 ```bash
-make cad      # run the CAD script, write STEP to out/
-make verify   # verify against fixtures/requirements.json
-make test     # pytest, JUnit XML to out/
+make cad            # run the CAD scripts, write STEP to out/
+make verify         # verify against fixtures/requirements.json
+make test           # pytest, JUnit XML to out/ (38 tests)
+make explore-cad FILE=fixtures/step/gearbox.step   # what is in a STEP file
+make step-fixtures  # regenerate fixtures/step/ after changing a CAD script
 ```
 
-None of these three need the SysML server or Jupyter. Do **not** run `make venv`
+None of these need the SysML server or Jupyter. Do **not** run `make venv`
 in the devcontainer — the virtualenv already ships in the image at `/opt/venv`.
 
 For the full stack, run this **on the host** (the devcontainer has no Docker access):
 
 ```bash
-make secret               # generates PLAY_SECRET in docker/.env, see below
+make secret               # PLAY_SECRET into docker/.env, if not there yet
+make vendor               # clone the hni-ase API fork, patch hbm2ddl.auto
 make api                  # SysML v2 API server; first build takes ~6 min
 make jupyter              # JupyterLab at http://localhost:8888/?token=sysmlcad
 ```
+
+`make api` runs `secret` and `vendor` for you, and opening the devcontainer
+creates `docker/.env` by itself (`initializeCommand` in `devcontainer.json`), so
+a fresh clone opens without any preparation.
 
 The server is ready once `Listening for HTTP` appears in the log:
 
@@ -49,7 +61,7 @@ The first output line must read `http://sysml-api:9000`. If it says
 Then verify against the real server from inside the devcontainer:
 
 ```bash
-python -m sysmlcad.verify api
+make verify-api                         # or: python -m sysmlcad.verify api
 python -m sysmlcad.explore              # element dump to out/elements.json
 python -m sysmlcad.explore MaxLength    # tree of a single requirement
 ```
@@ -109,12 +121,16 @@ docker/
 ├── jupyter.Dockerfile        conda, SysML kernel, standard library
 └── .env                      PLAY_SECRET (not in git), see below
 vendor/                       hni-ase/SysML-v2-API-Services (clone, not in git)
-models/motor_housing.sysml    the system model, textual
+models/motor_housing.sysml    the system model, textual -- kept in step with
+                              the notebook, which is what reaches the server
 notebooks/                    01_publish_motor_housing.ipynb
-cad/motor_housing.py          the part as a build123d script
+cad/
+├── motor_housing.py          the reference part as a build123d script
+├── gearbox.py                two-part assembly, Housing + Cover, shared bore
+└── export_fixtures.py        writes fixtures/step/, `make step-fixtures`
 fixtures/requirements.json    stand-in + regression test
-mapping/mapping.yaml          parts ↔ CAD objects, attributes ↔ measurements
 fixtures/step/                committed STEP fixtures for the step adapter
+mapping/mapping.yaml          parts ↔ CAD objects, attributes ↔ measurements
 src/sysmlcad/
 ├── config.py                 SYSML_API_URL from the environment
 ├── units.py                  exactly one pint registry
@@ -130,15 +146,25 @@ src/sysmlcad/
     ├── measurements.py       the four methods, over a shape
     ├── build123d_adapter.py  code-CAD: scripts with named parameters
     └── step_adapter.py       CAD files any system exported
-tests/                        test_extract.py, test_requirements.py, test_verify.py
+tests/
+├── test_extract.py           the element graph, rebuilt from a real %publish
+├── test_requirements.py      the rule runner -- runs verify() at collection
+├── test_verify.py            evaluation semantics, no geometry, no server
+└── test_step_adapter.py      STEP reading, and both adapters agreeing
+out/                          STEP, JUnit XML, dumps. *.step and *.xml are
+                              ignored; elements.json is a committed capture
 .github/workflows/verify.yml  CI, runs against the fixture
 CLAUDE.md                     project context for Claude Code
+ROADMAP.md                    stages, rationale, open questions
+goal_spec.txt                 the target system's SRS v0.1
 ```
 
 ## docker/.env
 
 In production mode, Play refuses to start without a sufficiently long secret
-key. Generate one once with `make secret`, or by hand:
+key. Opening the devcontainer generates one automatically — `initializeCommand`
+in `devcontainer.json` runs on the host before Compose and writes the file if it
+is missing. On the host, `make secret` does the same, or by hand:
 
 ```bash
 echo "PLAY_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n')" > docker/.env
@@ -197,6 +223,10 @@ Gearbox                            assembly        239151.15    90.00 /  60.00 /
 reference strings for mapping.yaml:
     cad_object: fixtures/step/gearbox.step#Housing
     cad_object: fixtures/step/gearbox.step#Cover
+
+no material in the file for: Gearbox, Housing, Cover
+  -> `mass` needs `args: {density_g_per_cm3: ...}` in the mapping,
+     otherwise the run reports a gap instead of inventing a density.
 ```
 
 Then point a mapping at it. `#` selects one node; without it the whole file is
@@ -228,6 +258,11 @@ exporter wrote one — the step adapter already covers.
 Two things it refuses rather than guesses: a node name matching more than one
 node, and `mass` on a part with no material and no density override. Both are
 reported as gaps.
+
+The swap is a real one, not a claim: point `motorHousing` at
+`fixtures/step/motor_housing.step` instead of the script and the same two
+verdicts come out — 118 mm and 0.7429 kg — with only the recorded `cad state`
+changing. That is the adapter seam doing its job.
 
 ## Next steps
 

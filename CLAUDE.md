@@ -1,19 +1,21 @@
 # CLAUDE.md — SysML v2 ↔ CAD verification PoC
 
-*German original: [CLAUDE_de.md](CLAUDE_de.md).*
-
 ## Goal
 Check SysML v2 requirements automatically against CAD geometry. CI turns red when
 the CAD model violates a system requirement. Later: a mapping store, AI-assisted
 mapping proposals, bidirectional sync, SMT-based verification.
 
-**Status: stage A complete and verified.** The full chain runs end to end:
-SysML v2 API → extractor → CAD adapter → verdict → exit code. The server side
-runs on the `hni-ase/SysML-v2-API-Services` fork.
+**Status: stages A and A2 complete, re-verified against the code on
+2026-09-03.** The full chain runs end to end: SysML v2 API → extractor → CAD
+adapter → verdict → exit code. The server side runs on the
+`hni-ase/SysML-v2-API-Services` fork. 38 tests pass, and all three reference
+runs at the bottom of this file reproduce exactly, digests included.
 
 Stage A re-anchored the mapping on *parts* (resolved through the model's own
 `satisfy` link), put a `CadAdapter` seam under the CAD side, made verdicts
-three-valued, and made every run record the model states it came from.
+three-valued, and made every run record the model states it came from. Stage A2
+put a STEP adapter under the same seam, so a file exported by any CAD system is
+measurable — with no new dependency, because build123d already brings OCCT.
 
 ## Architecture
 
@@ -40,10 +42,11 @@ Compose files: `docker/docker-compose.yml` + `.devcontainer/docker-compose.dev.y
 ```bash
 make cad                        # CAD scripts, writes out/motor_housing.step
 make verify                     # verify against fixtures/requirements.json
+make verify-api                 # verify against the live API server
 make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
 make step-fixtures              # regenerate fixtures/step/ (they are committed)
-python -m sysmlcad.verify api   # verify against the live API server
-make test                       # pytest, JUnit XML to out/
+python -m sysmlcad.verify api   # same as make verify-api
+make test                       # pytest, JUnit XML to out/ (38 tests)
 python -m sysmlcad.explore      # element dump to out/elements.json
 python -m sysmlcad.explore MaxLength   # tree of one requirement
 python -m sysmlcad.explore_cad fixtures/step/gearbox.step   # the CAD side
@@ -51,7 +54,9 @@ python -m sysmlcad.explore_cad fixtures/step/gearbox.step   # the CAD side
 
 **On the host (needs Docker access):**
 ```bash
-make api        # build/start sysml-api
+make secret     # PLAY_SECRET into docker/.env, if it is not there yet
+make vendor     # clone the hni-ase fork into vendor/ and patch hbm2ddl.auto
+make api        # build/start sysml-api (runs secret + vendor first)
 make jupyter    # Jupyter container, http://localhost:8888/?token=sysmlcad
 make logs
 make down
@@ -60,6 +65,10 @@ make up         # CAUTION: starts EVERYTHING including dev and jupyter. Not
 ```
 NEVER run `make venv` in the devcontainer — the virtualenv already exists in the
 image at `/opt/venv`.
+
+Opening the devcontainer no longer needs `make secret` first: `initializeCommand`
+in `devcontainer.json` runs on the host before Compose and writes a fresh
+`PLAY_SECRET` into `docker/.env` when the file is missing.
 
 ## File tree
 
@@ -88,7 +97,10 @@ src/sysmlcad/explore_cad.py   what is inside a STEP file
 tests/             test_extract.py, test_requirements.py, test_verify.py,
                    test_step_adapter.py
 pyproject.toml     package metadata + pytest config (pytest.ini is gone)
-out/               STEP, JUnit XML, dumps (gitignored)
+out/               STEP, JUnit XML, dumps. Only *.step and *.xml are
+                   gitignored; out/elements.json and out/relevant.txt are
+                   committed captures of a real API response, kept as
+                   reference payloads for extractor work
 ```
 
 ## Data flow
@@ -114,18 +126,27 @@ run. FREQ-2: report the gap, never substitute a value.
 ## Solved pitfalls — DO NOT undo these
 
 **SysML v2 API Services**
-- There is no official image. We build our own on `sbtscala/scala-sbt` with JDK 11.
-- The JDBC URL is **hardcoded** to `localhost:5432` in
-  `conf/META-INF/persistence.xml` and cannot be overridden via a system property.
-  The Dockerfile patches it to `postgres:5432` with `sed`.
-- `hbm2ddl.auto` is patched from `create-drop` to `update` with `sed` — otherwise
-  the schema is dropped on every stop.
-- `sbt run` (dev mode) dies on EOF on stdin, even with `stdin_open`/`tty`.
-  Fix: `sbt stage`, and CMD starts
-  `/app/target/universal/stage/bin/sysml-v2-api-services` (spelled out, because a
-  glob would also match the `.bat` file).
-- Play's `AllowedHostsFilter` rejects `Host: sysml-api:9000` with a 400.
-  Flag: `-Dplay.filters.hosts.allowed.0='.'`
+- There is no official image. The `hni-ase` fork ships its own Dockerfile
+  (`eclipse-temurin:11-jdk-jammy` plus sbt 1.2.8), which is why this repo has no
+  `docker/api-services.Dockerfile` any more. `make vendor` clones the fork into
+  `vendor/`; Compose builds from there.
+- The JDBC connection now comes from the fork's environment variables —
+  `SYSML_JDBC_URL`, `SYSML_JDBC_USER`, `SYSML_JDBC_PASSWORD`, set in
+  `docker/docker-compose.yml`. The hardcoded `localhost:5432` in
+  `conf/META-INF/persistence.xml` only applies when they are unset, so the old
+  `sed` patch for the URL is gone.
+- `hbm2ddl.auto` is the one setting the fork does **not** expose. `make vendor`
+  patches it from `create-drop` to `update` with `sed` immediately after
+  cloning — otherwise the whole schema is dropped on every clean stop. Re-run
+  `make vendor` after deleting and re-cloning `vendor/`.
+- `sbt run` (dev mode) dies on EOF on stdin, even with `stdin_open`/`tty`. The
+  fork's Dockerfile therefore runs `sbt stage` at build time and symlinks the
+  launcher to `/app/start-sysml` — its `find` filters out the `.bat` sibling,
+  which is the same trap we used to spell our way around.
+- Play's `AllowedHostsFilter` rejects `Host: sysml-api:9000` with a 400, and the
+  fork's own CMD does not account for it. Compose overrides the command with
+  `/app/start-sysml -Dhttp.address=0.0.0.0 -Dhttp.port=9000
+  -Dplay.filters.hosts.allowed.0=. -Dplay.http.secret.key=${PLAY_SECRET}`.
 - The first start takes minutes (schema creation, ~8200 tables). It is ready once
   `Listening for HTTP` appears in the log and `curl localhost:9000/projects`
   returns 200.
@@ -148,6 +169,10 @@ run. FREQ-2: report the gap, never substitute a value.
   `docker compose config` with `required variable PLAY_SECRET is missing a value`
   — even though `runServices` is only `dev` + `postgres`, because `config`
   interpolates the whole merged file, `sysml-api` included.
+- That failure is now prevented on a fresh clone: `initializeCommand` in
+  `devcontainer.json` runs **on the host, before Compose**, and writes a random
+  `PLAY_SECRET` into `docker/.env` if the file does not exist. `make secret`
+  does the same thing by hand.
 - Python 3.14: `ezdxf` has no cp314 wheels and runs pure-Python. That affects DXF
   only, not STEP. `lib3mf` DeprecationWarnings are expected and harmless.
 - **build123d 0.11:** `export_step(part, path)` is a MODULE FUNCTION, not a method
@@ -213,8 +238,10 @@ run. FREQ-2: report the gap, never substitute a value.
   `AttributeUsage` with `declaredShortName: "mm"`.
 
 **API details**
-- `/projects/{id}/commits/{cid}/elements` paginates at 100. The next page is in
-  the Link header. `SysMLClient.all_elements()` follows it; `elements()` does not.
+- `/projects/{id}/commits/{cid}/elements` paginates — 100 per page by default,
+  and the client asks for `page[size]=200`. The next page is in the Link header.
+  `SysMLClient.all_elements()` follows it; `elements()` returns the first page
+  only and exists for probing.
 - `explore.py` has a `depth > 8` limit in `walk()`, which truncates the path to
   the unit. Raise it when debugging.
 
@@ -229,11 +256,17 @@ run. FREQ-2: report the gap, never substitute a value.
   server. A wrong verdict is the one bug this system cannot tolerate.
 - `tests/test_extract.py` reconstructs the element graph synthetically from a real
   `%publish` dump. It runs without network access.
-- `make clean` uses `**/__pycache__`, which `sh` does not expand. To clean up
-  manually, use:
-  `find . -name __pycache__ -type d -exec rm -rf {} +`
+- `tests/test_step_adapter.py` is what holds the two measurement vocabularies
+  together: `test_both_adapters_measure_the_same` measures the same part once
+  from the script and once from its STEP export. It also pins the refusals —
+  ambiguous node name, missing material, inch-authored file — because each of
+  those is a case where a plausible wrong number would be worse than a gap.
+- `make clean` removes caches with
+  `find . -name __pycache__ -type d -prune -exec rm -rf {} +`. Do not put the
+  `**/__pycache__` glob back: `sh` does not expand it, so the rule quietly
+  cleaned nothing.
 
-## Deliberate simplifications (documented at the top of extract.py)
+## Deliberate simplifications (1–5 are documented at the top of extract.py)
 
 1. **The measured quantity comes from `mapping.yaml`, not from the constraint
    expression.** `housing.length <= maxLength` is not parsed; the mapping's
@@ -253,6 +286,13 @@ run. FREQ-2: report the gap, never substitute a value.
    `mapping.yaml` and the fixture use the same keys (`MaxLength`, `MaxMass`).
    Note `models/motor_housing.sysml` deliberately carries **no** short names:
    `<'REQ001'>` would make the id `REQ001` and match nothing in the mapping.
+6. **The confirmation gate covers `attributes:` only.** `AttributeMapping.usable`
+   demands `status: confirmed`, and `load_mapping()` validates `direction` and
+   `status` for attribute entries. A `parts:` entry is used no matter what its
+   own status says, and that status is never validated — set the motorHousing
+   part entry to `status: proposed` and the run still produces two verdicts.
+   That is a hole in FREQ-5; closing it belongs to stage E (gates and
+   confirmation), which is where the confirmation record is designed anyway.
 
 **No longer a simplification:** the requirement's *subject* is now resolved
 through the model's `satisfy` link rather than guessed from the first
@@ -267,12 +307,18 @@ through the model's `satisfy` link rather than guessed from the first
   quantities that cannot be compared.
 - **Explicit measurement semantics:** `bbox_size(axis="X")` is not the same thing
   as a named feature dimension. This is spelled out in `mapping.yaml` under `note`.
-- `Requirement` is frozen; extend it via `dataclasses.replace`.
+- `Requirement` is frozen. Never mutate one — build a new instance instead.
+  `verify.run()` does that when it stamps the mapped attribute name onto the
+  requirement it is about to evaluate.
 - **One CAD seam:** nothing outside `src/sysmlcad/adapters/` may import
   build123d, FreeCAD, or any other geometry kernel. Everything above the seam
-  speaks `CadAdapter` and pint quantities. Proven, not asserted: swapping a
-  mapping from `adapter: build123d` to `adapter: step` yields identical
-  verdicts and changes only the recorded `cad state`.
+  speaks `CadAdapter` and pint quantities. Proven, not asserted: pointing the
+  `motorHousing` entry at `fixtures/step/motor_housing.step` with
+  `adapter: step` gives the same two verdicts (118 mm, 0.7429 kg) and changes
+  only the recorded `cad state`, to `step:2381653212890c49`. One honest
+  difference: the mass entry then needs `args: {density_g_per_cm3: 2.70}`,
+  because the STEP export carries no material and the adapter reports a gap
+  rather than assuming aluminium.
 - **The measurement vocabulary exists twice, on purpose.** `measurements.py`
   serves the step adapter; `Build123dAdapter` keeps its own copy because adding
   STEP support was an add-on and rewiring working code is how add-ons lose
@@ -322,13 +368,14 @@ MaxLength  length                123 mm            120 mm             +3 mm  TOL
   TOLERANCE MaxLength: ... inside the agreed tolerance of 5 mm   → exit 0
 ```
 
-The `cad state` and `mapping` digests change when the geometry or the mapping
-changes. That is what makes a verdict citable rather than merely printed.
+All three reproduced on 2026-09-03, digests included. The `cad state` and
+`mapping` digests change when the geometry or the mapping changes. That is what
+makes a verdict citable rather than merely printed.
 
 ## Roadmap
 
 Stages, rationale, and open architectural questions are in
-**[ROADMAP.md](ROADMAP.md)**. In short: phases 0–3 and stage A are done;
+**[ROADMAP.md](ROADMAP.md)**. In short: phases 0–3 and stages A and A2 are done;
 stage B (change-impact analysis) is next, then C (evidence log and reports),
 D (MCP server), E (gates and confirmation), F (FreeCAD adapter),
 G (ownership-gated writes), H (AI mapping proposals).

@@ -106,7 +106,12 @@ rather than a schema migration.
 **Still open from Stage A** (both need a running API server):
 - Extend the reference model to a two-part assembly with an interface
   dimension and an assembly-level mass budget. A single part cannot exercise
-  part-anchored mapping properly.
+  part-anchored mapping properly. *The CAD half of this exists already*:
+  `cad/gearbox.py` builds Housing + Cover around a shared `BORE_RADIUS_MM`, and
+  `fixtures/step/gearbox.step` is its export. What is missing is the SysML side
+  — `models/motor_housing.sysml` is still one part, one `satisfy` per
+  requirement — and a `mapping.yaml` with more than one `parts:` entry. Until
+  that exists, "one requirement, one part" is untested by anything but design.
 - Publish `airbus/apollo-11-sysml-v2` and run `explore.py` over it. Expect the
   "one comparison per requirement" assumption to break first. Cheap, hard
   evidence for which extractor simplification to fix next.
@@ -198,6 +203,14 @@ deterministic answer.
 
 Result: *mapping valid / invalid*, reported separately from *pass / fail*.
 Required before any write and before any AI proposal.
+
+**One concrete hole to close here first.** The confirmation gate that already
+exists covers `attributes:` only: `AttributeMapping.usable` demands
+`status: confirmed`, but a `parts:` entry is used whatever its status says, and
+that status is never validated on load. Setting the motorHousing part entry to
+`status: proposed` still yields two verdicts. Small fix, but it is exactly the
+FREQ-5 rule the rest of the design leans on, so it belongs at the front of this
+stage rather than in a later cleanup.
 
 ## Stage F — FreeCAD adapter
 
