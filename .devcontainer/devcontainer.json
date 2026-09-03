@@ -8,6 +8,17 @@
   "workspaceFolder": "/workspaces/sysml-cad-poc",
   "remoteUser": "vscode",
 
+  // docker/.env is gitignored, so it is absent on a fresh clone. Compose
+  // interpolates the WHOLE merged file for `config` -- sysml-api included,
+  // even though runServices is only dev + postgres -- and PLAY_SECRET uses the
+  // :? error operator, so the devcontainer dies before anything is built.
+  // This runs on the host before Compose and creates the file if missing;
+  // same value as `make secret`.
+  "initializeCommand": [
+    "sh", "-c",
+    "test -f '${localWorkspaceFolder}/docker/.env' || printf 'PLAY_SECRET=%s\\n' \"$(head -c 48 /dev/urandom | base64 | tr -d '\\n')\" > '${localWorkspaceFolder}/docker/.env'"
+  ],
+
   "remoteEnv": {
     "PATH": "/opt/venv/bin:${containerEnv:PATH}"
   },
