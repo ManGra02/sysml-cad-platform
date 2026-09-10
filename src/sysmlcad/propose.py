@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import re
+from importlib import import_module
 from dataclasses import replace
 from difflib import SequenceMatcher
 from typing import Protocol
@@ -68,6 +69,34 @@ class Proposer(Protocol):
 
     def propose(self, catalog: Catalog) -> list[Proposal]:
         ...
+
+
+#: LLM backends, imported lazily -- each needs an SDK that `requirements.txt`
+#: deliberately does not carry, and naming one here must not make CI need a key.
+#: Adding a backend is one row plus one `_ask`; see `propose_ai.LlmProposer`.
+AI_PROPOSERS: dict[str, tuple[str, str]] = {
+    "claude": (".propose_ai", "ClaudeProposer"),
+    "openai": (".propose_openai", "OpenAIProposer"),
+}
+
+
+def build_proposer(which: str | None = None) -> Proposer:
+    """`None` -> the stdlib baseline; a name from `AI_PROPOSERS` -> that model.
+
+    The baseline is the default everywhere on purpose: it needs no key, no
+    server and no network, so every path through this module stays runnable
+    without credentials.
+    """
+    if not which:
+        return DifflibProposer()
+    if which not in AI_PROPOSERS:
+        raise SystemExit(
+            f"unknown AI backend {which!r}. Available: "
+            f"{', '.join(sorted(AI_PROPOSERS))}"
+        )
+    module_name, class_name = AI_PROPOSERS[which]
+    module = import_module(module_name, __package__)
+    return getattr(module, class_name)()
 
 
 # --------------------------------------------------------------------------
@@ -414,9 +443,10 @@ def main(argv: list[str] | None = None) -> int:
                     "confirm with `python -m sysmlcad.confirm`.",
     )
     parser.add_argument("--list", action="store_true", help="show the stored proposals")
-    parser.add_argument("--ai", action="store_true",
-                        help="ask Claude instead of the stdlib baseline "
-                             "(needs `pip install anthropic` and credentials)")
+    parser.add_argument("--ai", nargs="?", const="claude", metavar="BACKEND",
+                        help="ask a language model instead of the stdlib "
+                             "baseline: claude (default) or openai. Needs that "
+                             "backend's SDK and credentials")
     parser.add_argument("--top", type=int, default=1,
                         help="how many candidates to keep per attribute (default 1)")
     parser.add_argument("--dry-run", action="store_true",
@@ -426,10 +456,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.list:
         return list_report()
 
-    proposer: Proposer = DifflibProposer()
-    if args.ai:
-        from .propose_ai import ClaudeProposer
-        proposer = ClaudeProposer()
+    proposer = build_proposer(args.ai)
 
     kept, dropped = run(proposer=proposer, top=args.top)
     if getattr(proposer, "dropped", None):

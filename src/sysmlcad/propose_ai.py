@@ -1,4 +1,4 @@
-"""The AI proposer: Claude suggests mappings, and nothing else.
+"""LLM proposers: a language model suggests mappings, and nothing else.
 
 SRS FREQ-4: "the system passes a structural excerpt of both models to the AI
 service, which returns candidate correspondences [...] Each candidate carries a
@@ -27,9 +27,15 @@ FOUR THINGS THAT KEEP IT HONEST
    response id, stored with the proposal. A suggestion nobody can trace back to
    the thing that made it is not evidence of anything.
 
-CI never calls this. The tests drive it with a recorded response, and
-`requirements.txt` does not carry the SDK -- `pip install anthropic` is a
-deliberate step for whoever wants the AI path.
+Those four hold for *any* model, which is why they live in `LlmProposer` and a
+backend only implements `_ask`. `ClaudeProposer` is here; `propose_openai.py`
+holds the OpenAI-compatible one, which reaches OpenAI, Azure, vLLM, Ollama, LM
+Studio and anything else speaking that protocol. Swapping the model changes the
+scoreboard, never the safety properties.
+
+CI never calls any of them. The tests drive them with a recorded response, and
+`requirements.txt` carries no SDK -- installing one is a deliberate step for
+whoever wants the AI path.
 """
 
 from __future__ import annotations
@@ -104,6 +110,35 @@ def _schema():
     return ProposalSet
 
 
+def json_schema() -> dict:
+    """The same schema as plain JSON Schema, in the strict dialect.
+
+    The Anthropic SDK takes the pydantic model directly; an OpenAI-compatible
+    server wants JSON Schema with `additionalProperties: false` and every
+    property listed in `required`. Deriving it from the one pydantic model keeps
+    a single definition -- two hand-written schemas would drift, and the drift
+    would show up as a model that suddenly cannot answer.
+    """
+    return _strictify(_schema().model_json_schema())
+
+
+def _strictify(node):
+    """Recursively make a pydantic-generated schema strict-mode acceptable."""
+    if isinstance(node, list):
+        return [_strictify(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+
+    out = {key: _strictify(value) for key, value in node.items() if key != "default"}
+    if out.get("type") == "object" and "properties" in out:
+        out["additionalProperties"] = False
+        # Strict mode has no notion of an optional property: a field that may be
+        # absent is expressed as a nullable type instead, which pydantic has
+        # already done for `axis` and `density_g_per_cm3`.
+        out["required"] = list(out["properties"])
+    return out
+
+
 # --------------------------------------------------------------------------
 # The excerpt
 # --------------------------------------------------------------------------
@@ -148,18 +183,30 @@ def prompt_digest(text: str) -> str:
 # The proposer
 # --------------------------------------------------------------------------
 
-class ClaudeProposer:
-    """Asks Claude for candidates, then throws away everything it cannot verify."""
+class LlmProposer:
+    """Everything about asking a language model that does not depend on which one.
+
+    A backend supplies `_ask`; this class supplies the parts that keep the
+    answer honest -- the excerpt, the provenance, and the verification against
+    the catalogue. That split is deliberate: those checks are the reason a model
+    can be swapped at all, so they must not live in a backend where a second
+    implementation could quietly do them differently.
+
+    Subclasses set `provider` and `default_model`.
+    """
+
+    provider: str = "llm"
+    default_model: str = ""
 
     def __init__(
         self,
-        model: str = MODEL,
+        model: str | None = None,
         client=None,
         recorded: str | None = None,
     ):
         """`recorded` is a saved JSON response, so tests and CI exercise every
         line of the validation below without a network or a key."""
-        self.model = model
+        self.model = model or self.default_model
         self._client = client
         self._recorded = recorded
         self.dropped: list[str] = []
@@ -168,56 +215,23 @@ class ClaudeProposer:
     def name(self) -> str:
         return f"ai:{self.model}"
 
-    def client(self):
-        if self._client is None:
-            try:
-                import anthropic
-            except ImportError as exc:  # pragma: no cover - depends on the env
-                raise RuntimeError(
-                    "the AI proposer needs the Anthropic SDK: pip install anthropic"
-                ) from exc
-            # Credentials resolve the SDK's own way -- ANTHROPIC_API_KEY, or a
-            # profile from `ant auth login`. No bespoke key handling here.
-            self._client = anthropic.Anthropic()
-        return self._client
-
-    # -- the call ----------------------------------------------------------
+    def client(self):  # pragma: no cover - overridden by every backend
+        raise NotImplementedError
 
     def _ask(self, excerpt: str) -> tuple[dict, str]:
-        """Returns the parsed response and its id."""
-        if self._recorded is not None:
-            return json.loads(self._recorded), "recorded"
+        """Ask the model. Returns the parsed candidate set and a response id.
 
-        response = self.client().messages.parse(
-            model=self.model,
-            max_tokens=MAX_TOKENS,
-            system=[{
-                "type": "text",
-                "text": SYSTEM,
-                # The system prompt and the excerpt are the stable prefix; only
-                # the closing instruction varies between runs.
-                "cache_control": {"type": "ephemeral"},
-            }],
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"{excerpt}\n\n"
-                    f"Propose the mappings you are confident about. Use only "
-                    f"names that appear above."
-                ),
-            }],
-            output_format=_schema(),
-        )
+        The only method a new backend has to write. It must return the shape
+        `_schema()` describes; anything else is caught by `_verify`, which is
+        where a backend's mistakes and a model's mistakes are treated alike.
+        """
+        raise NotImplementedError
 
-        if getattr(response, "stop_reason", None) == "refusal":
-            details = getattr(response, "stop_details", None)
-            self.dropped.append(
-                f"the model declined to answer "
-                f"({getattr(details, 'category', 'no category given')})"
-            )
-            return {"candidates": []}, getattr(response, "id", "")
-
-        return response.parsed_output.model_dump(), getattr(response, "id", "")
+    def _replay(self) -> tuple[dict, str] | None:
+        """The recorded path, shared so every backend is testable the same way."""
+        if self._recorded is None:
+            return None
+        return json.loads(self._recorded), "recorded"
 
     # -- Proposer ----------------------------------------------------------
 
@@ -228,6 +242,7 @@ class ClaudeProposer:
         parsed, response_id = self._ask(excerpt)
 
         provenance = {
+            "provider": self.provider,
             "model": self.model,
             "prompt_digest": digest,
             "response_id": response_id,
@@ -302,6 +317,62 @@ class ClaudeProposer:
             proposed_by=self.name,
             provenance=provenance,
         )
+
+
+class ClaudeProposer(LlmProposer):
+    """Asks Claude for candidates, then throws away everything it cannot verify."""
+
+    provider = "anthropic"
+    default_model = MODEL
+
+    def client(self):
+        if self._client is None:
+            try:
+                import anthropic
+            except ImportError as exc:  # pragma: no cover - depends on the env
+                raise RuntimeError(
+                    "the Claude proposer needs the Anthropic SDK: pip install anthropic"
+                ) from exc
+            # Credentials resolve the SDK's own way -- ANTHROPIC_API_KEY, or a
+            # profile from `ant auth login`. No bespoke key handling here.
+            self._client = anthropic.Anthropic()
+        return self._client
+
+    def _ask(self, excerpt: str) -> tuple[dict, str]:
+        replayed = self._replay()
+        if replayed is not None:
+            return replayed
+
+        response = self.client().messages.parse(
+            model=self.model,
+            max_tokens=MAX_TOKENS,
+            system=[{
+                "type": "text",
+                "text": SYSTEM,
+                # The system prompt and the excerpt are the stable prefix; only
+                # the closing instruction varies between runs.
+                "cache_control": {"type": "ephemeral"},
+            }],
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"{excerpt}\n\n"
+                    f"Propose the mappings you are confident about. Use only "
+                    f"names that appear above."
+                ),
+            }],
+            output_format=_schema(),
+        )
+
+        if getattr(response, "stop_reason", None) == "refusal":
+            details = getattr(response, "stop_details", None)
+            self.dropped.append(
+                f"the model declined to answer "
+                f"({getattr(details, 'category', 'no category given')})"
+            )
+            return {"candidates": []}, getattr(response, "id", "")
+
+        return response.parsed_output.model_dump(), getattr(response, "id", "")
 
 
 def main() -> int:  # pragma: no cover - needs credentials

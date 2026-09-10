@@ -5,7 +5,7 @@ Check SysML v2 requirements automatically against CAD geometry. CI turns red whe
 the CAD model violates a system requirement. Later: a mapping store, AI-assisted
 mapping proposals, bidirectional sync, SMT-based verification.
 
-**Status: stages A, A2, E and H complete; 127 tests pass.** The verification
+**Status: stages A, A2, E and H complete; 156 tests pass.** The verification
 chain runs end to end (SysML v2 API → extractor → CAD adapter → verdict → exit
 code), and on top of it the mapping can now be *proposed*: a catalogue of both
 sides, four gates over any proposed entry, a proposal store, a human
@@ -67,11 +67,12 @@ make catalog                    # what exists on each side, as data
 make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
 make step-fixtures              # regenerate fixtures/step/ (they are committed)
 python -m sysmlcad.verify api   # same as make verify-api
-make test                       # pytest, JUnit XML to out/ (127 tests)
+make test                       # pytest, JUnit XML to out/ (156 tests)
 
 # Mapping proposals -- nothing here can change a verdict
 make propose                    # baseline proposer -> mapping/proposals.yaml
-make propose AI=1               # ask Claude instead (needs the SDK + a key)
+make propose AI=claude          # ask Claude instead (needs the SDK + a key)
+make propose AI=openai          # ...or any OpenAI-protocol server, local too
 make proposals                  # what is waiting for a decision
 make confirm ID=p-01            # gate it again, then write it into mapping.yaml
 make propose-score              # hit rate against fixtures/gold_mapping.yaml
@@ -133,8 +134,11 @@ src/sysmlcad/      config, units, model, sysml_client, extract, mapping,
                    catalog.py     what exists on each side, as data
                    gates.py       is the mapping sound (≠ is the design ok)
                    proposals.py   the proposal store
-                   propose.py     Proposer protocol + the difflib baseline
-                   propose_ai.py  the Claude proposer (optional dependency)
+                   propose.py     Proposer protocol, difflib baseline,
+                                  AI_PROPOSERS registry + build_proposer()
+                   propose_ai.py  LlmProposer base (prompt, schema, excerpt,
+                                  verification) + the Claude backend
+                   propose_openai.py  any OpenAI-protocol server
                    confirm.py     human confirmation -> mapping.yaml
                    score.py       hit rate against the gold set
 src/sysmlcad/adapters/   __init__.py (CadAdapter protocol, CadTarget),
@@ -143,7 +147,8 @@ src/sysmlcad/adapters/   __init__.py (CadAdapter protocol, CadTarget),
 src/sysmlcad/explore_cad.py   what is inside a STEP file
 tests/             test_extract.py, test_requirements.py, test_verify.py,
                    test_step_adapter.py, test_catalog.py, test_gates.py,
-                   test_confirm.py, test_propose.py, test_propose_ai.py
+                   test_confirm.py, test_propose.py, test_propose_ai.py,
+                   test_propose_openai.py
 pyproject.toml     package metadata + pytest config (pytest.ini is gone)
 out/               STEP, JUnit XML, dumps. Only *.step and *.xml are
                    gitignored; out/elements.json and out/relevant.txt are
@@ -364,8 +369,35 @@ first:
   against the library, and `catalog._VALUE_TYPES` maps that name to a pint unit.
   An unknown type name yields `None` — "cannot check", which the dimension gate
   reports as `unknown` and never as valid.
-- **The AI proposer is an optional extra, on purpose.** `anthropic` is in
-  `[project.optional-dependencies] ai`, not in `requirements.txt`: CI verifies
+- **A backend implements `_ask` and nothing else.** The prompt, the excerpt,
+  the schema, the provenance and every verification live in
+  `propose_ai.LlmProposer`; `ClaudeProposer` and `OpenAIProposer` add only the
+  call. That is not tidiness — those checks are the reason an arbitrary model
+  can be pointed at this system at all, so a second copy of them in a backend
+  would be a second chance to get them subtly wrong. Enforced by
+  `test_every_backend_shares_the_verification`, which fails if a backend
+  defines `propose` or `_verify` of its own. Adding a backend: one row in
+  `propose.AI_PROPOSERS`, one `_ask`, one entry in `pyproject`'s extras.
+- **Every validation test runs against every backend.** The `proposer` fixture
+  in `tests/test_propose_ai.py` is parametrised over `BACKENDS`, so a new one
+  inherits all sixteen the moment it is added.
+- **There is no default OpenAI model.** `SYSMLCAD_OPENAI_MODEL` is required and
+  the error names it. Guessing one would run — and bill — a model the user did
+  not choose. Base URL and key resolve the SDK's own way, with one exception: a
+  local server (Ollama, LM Studio) ignores the key but the SDK insists on one,
+  so a placeholder is supplied when `OPENAI_BASE_URL` is set and no key is.
+- **No token cap on the OpenAI call.** `max_tokens` and `max_completion_tokens`
+  are accepted by different servers and model generations, and sending the wrong
+  one is a hard error. The schema bounds the answer, and a truncated body fails
+  to parse rather than passing silently.
+- **`json_schema()` is derived from the pydantic model, never hand-written.**
+  The Anthropic SDK takes the model directly; OpenAI-compatible strict mode
+  wants JSON Schema with `additionalProperties: false` and every property in
+  `required`. Two hand-maintained schemas would drift, and the drift would
+  surface as a model that suddenly cannot answer.
+- **The AI proposers are optional extras, on purpose.** `anthropic` is in
+  `[project.optional-dependencies] ai` (and `openai` in `openai`), not in
+  `requirements.txt`: CI verifies
   geometry and must go green without an API key. `tests/test_propose_ai.py`
   drives the proposer from `fixtures/ai_response.json`, so every line of its
   validation runs offline. Model id `claude-opus-5`, structured output through

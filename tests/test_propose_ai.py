@@ -1,4 +1,4 @@
-"""The AI proposer, driven by a recorded response.
+"""The LLM proposers, driven by a recorded response.
 
 No network, no API key, no cost -- and every line of the validation runs. That
 is deliberate beyond convenience: the tests that matter here are about what
@@ -14,6 +14,12 @@ well-formed answer can still be fiction:
 
 A schema guarantees the shape of an answer, not its truth. These tests are what
 stands between a confidently-typed hallucination and `mapping.yaml`.
+
+EVERY VALIDATION TEST RUNS AGAINST EVERY BACKEND. That parametrisation is the
+point of the shared `LlmProposer`, made checkable: a new backend inherits all of
+these the moment it appears in `AI_PROPOSERS`, and if someone re-implements the
+verification inside one of them, the suite says so. Which model answered is the
+one thing that may differ between backends; what happens to the answer is not.
 """
 
 import json
@@ -23,7 +29,9 @@ import pytest
 
 from sysmlcad.adapters import CadTarget
 from sysmlcad.catalog import Catalog, CatalogAttribute, CatalogPart
-from sysmlcad.propose_ai import ClaudeProposer, prompt_digest, render_catalog
+from sysmlcad.propose import AI_PROPOSERS
+from sysmlcad.propose_ai import ClaudeProposer, json_schema, prompt_digest, render_catalog
+from sysmlcad.propose_openai import OpenAIProposer
 from sysmlcad.units import ureg
 
 RESPONSE = (Path(__file__).resolve().parents[1] / "fixtures" / "ai_response.json")
@@ -48,9 +56,15 @@ STEP_NODE = CadTarget(
 CATALOG = Catalog(parts=(PART,), targets=(SCRIPT, STEP_NODE), source="test")
 
 
-@pytest.fixture
-def proposer():
-    return ClaudeProposer(recorded=RESPONSE.read_text(encoding="utf-8"))
+#: Every backend, driven the same way. `recorded` short-circuits the network
+#: call each one would otherwise make, leaving exactly the shared half under
+#: test -- which is the half that decides whether a candidate is safe.
+BACKENDS = [ClaudeProposer, OpenAIProposer]
+
+
+@pytest.fixture(params=BACKENDS, ids=lambda c: c.provider)
+def proposer(request):
+    return request.param(recorded=RESPONSE.read_text(encoding="utf-8"))
 
 
 @pytest.fixture
@@ -130,7 +144,7 @@ def test_every_rejection_is_recorded(proposer, proposals):
 
 
 def test_an_empty_answer_is_not_an_error(proposer):
-    empty = ClaudeProposer(recorded='{"candidates": []}')
+    empty = type(proposer)(recorded='{"candidates": []}')
     assert empty.propose(CATALOG) == []
 
 
@@ -138,12 +152,15 @@ def test_an_empty_answer_is_not_an_error(proposer):
 # Provenance
 # --------------------------------------------------------------------------
 
-def test_every_proposal_records_what_produced_it(proposals):
+def test_every_proposal_records_what_produced_it(proposer, proposals):
     """NFREQ-1: a suggestion nobody can trace back to its source is not
-    evidence, and "the AI proposed it" is not a source."""
+    evidence, and "the AI proposed it" is not a source. With more than one
+    backend the provider has to be recorded too -- two servers can serve the
+    same model name and answer differently."""
     for proposal in proposals:
-        assert proposal.proposed_by == "ai:claude-opus-5"
-        assert proposal.provenance["model"] == "claude-opus-5"
+        assert proposal.proposed_by == proposer.name
+        assert proposal.provenance["model"] == proposer.model
+        assert proposal.provenance["provider"] == proposer.provider
         assert proposal.provenance["prompt_digest"]
 
 
@@ -189,3 +206,63 @@ def test_the_ai_proposer_needs_no_credentials_to_be_tested(proposer):
     assert proposer._client is None
     proposer.propose(CATALOG)
     assert proposer._client is None
+
+
+# --------------------------------------------------------------------------
+# One prompt, one schema, several backends
+# --------------------------------------------------------------------------
+
+def test_every_backend_shares_the_verification():
+    """The safety properties live in the base class, not in the backends.
+
+    Stated as a test because it is the whole argument for pointing an arbitrary
+    model at this system: a backend supplies `_ask` and nothing else, so no
+    backend can weaken the checks that make an arbitrary answer safe to store.
+    """
+    from sysmlcad.propose_ai import LlmProposer
+
+    for backend in BACKENDS:
+        assert issubclass(backend, LlmProposer)
+        assert "_verify" not in vars(backend), f"{backend.__name__} re-implements _verify"
+        assert "propose" not in vars(backend), f"{backend.__name__} re-implements propose"
+        assert "_ask" in vars(backend), f"{backend.__name__} must implement _ask"
+
+
+def test_the_registry_lists_every_backend():
+    """A backend nobody can select is a backend nobody will maintain."""
+    assert set(AI_PROPOSERS) == {"claude", "openai"}
+
+
+def test_the_baseline_is_still_the_default():
+    """No credential, no network, no cost unless somebody explicitly asks for a
+    model. This is what keeps CI green without a key."""
+    from sysmlcad.propose import build_proposer
+
+    assert build_proposer().name == "baseline:difflib"
+    assert build_proposer(None).name == "baseline:difflib"
+
+
+def test_the_json_schema_is_strict_enough_for_structured_outputs():
+    """OpenAI-compatible strict mode rejects a schema that allows extra keys or
+    leaves a property optional. Derived from the one pydantic model, so the two
+    representations cannot drift apart."""
+    schema = json_schema()
+    candidate = schema["$defs"]["AiCandidate"]
+
+    assert candidate["additionalProperties"] is False
+    assert set(candidate["required"]) == set(candidate["properties"])
+    assert "default" not in json.dumps(schema), "strict mode rejects defaults"
+
+
+def test_a_model_without_a_name_is_refused_rather_than_guessed():
+    """Picking a default model would run -- and bill -- something the user never
+    chose. The error says which variable to set."""
+    import os
+
+    saved = os.environ.pop("SYSMLCAD_OPENAI_MODEL", None)
+    try:
+        with pytest.raises(RuntimeError, match="SYSMLCAD_OPENAI_MODEL"):
+            OpenAIProposer()
+    finally:
+        if saved is not None:
+            os.environ["SYSMLCAD_OPENAI_MODEL"] = saved

@@ -59,8 +59,11 @@ gates:
 # mapping/proposals.yaml with status `proposed` and reach mapping.yaml only
 # through `confirm`. `make propose AI=1` asks Claude instead of the stdlib
 # baseline -- that needs `pip install anthropic` and credentials.
+# AI=1 or AI=claude asks Claude; AI=openai asks whatever OPENAI_BASE_URL and
+# SYSMLCAD_OPENAI_MODEL point at. `filter-out 1` keeps `AI=1` meaning the
+# default backend rather than a model literally named "1".
 propose:
-	$(PY) -m sysmlcad.propose $(if $(AI),--ai,) $(if $(TOP),--top $(TOP),)
+	$(PY) -m sysmlcad.propose $(if $(AI),--ai $(filter-out 1,$(AI)),) $(if $(TOP),--top $(TOP),)
 
 proposals:
 	$(PY) -m sysmlcad.propose --list
@@ -73,7 +76,7 @@ confirm:
 # How good is a proposer, against fixtures/gold_mapping.yaml. The number to
 # watch is wrong@1, not hit rate.
 propose-score:
-	$(PY) -m sysmlcad.score $(if $(AI),--ai,)
+	$(PY) -m sysmlcad.score $(if $(AI),--ai $(filter-out 1,$(AI)),)
 
 verify:
 	$(PY) -m sysmlcad.verify

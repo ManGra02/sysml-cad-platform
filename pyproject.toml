@@ -20,6 +20,9 @@ dev = ["pytest==8.3.4"]
 # against requirements and must never need an API key to go green, and the
 # baseline proposer in propose.py uses nothing but the standard library.
 ai = ["anthropic>=1.3.0"]
+# Any server speaking the OpenAI chat protocol: OpenAI, Azure, vLLM, LM Studio,
+# Groq, OpenRouter, Ollama's compatible endpoint. One SDK, many models.
+openai = ["openai>=1.60.0"]
 
 [project.scripts]
 sysmlcad-verify = "sysmlcad.verify:main"

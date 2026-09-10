@@ -29,7 +29,7 @@ import yaml
 
 from .catalog import Catalog, load_catalog
 from .mapping import Mapping
-from .propose import DifflibProposer, Proposer, run
+from .propose import AI_PROPOSERS, DifflibProposer, Proposer, build_proposer, run
 from .proposals import Proposal
 from .verify import AdapterPool
 
@@ -206,17 +206,20 @@ def main(argv: list[str] | None = None) -> int:
         prog="python -m sysmlcad.score",
         description="Score mapping proposers against the hand-mapped gold set.",
     )
-    parser.add_argument("--ai", action="store_true",
-                        help="include the AI proposer (needs credentials)")
+    parser.add_argument("--ai", nargs="?", const="claude", metavar="BACKEND",
+                        help=f"also score a language model: "
+                             f"{', '.join(sorted(AI_PROPOSERS))}. Needs that "
+                             f"backend's SDK and credentials")
     args = parser.parse_args(argv)
 
     gold = load_gold()
     catalog = load_catalog(pool=AdapterPool())
 
+    # The baseline always runs: a model's number means nothing on its own, and
+    # showing them side by side is the entire point of this command.
     proposers: list[Proposer] = [DifflibProposer()]
     if args.ai:
-        from .propose_ai import ClaudeProposer
-        proposers.append(ClaudeProposer())
+        proposers.append(build_proposer(args.ai))
 
     return report([score(p, gold, catalog) for p in proposers], gold)
 

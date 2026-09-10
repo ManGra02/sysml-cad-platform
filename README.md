@@ -8,7 +8,8 @@ published and verified against CAD: `MotorHousing` (one part) and `Gearbox`
 (three parts, an interface dimension, an assembly mass budget). Requirements are
 read from the live SysML v2 API or from a fixture; geometry is measured either
 from a build123d script or from a STEP file any CAD system exported. The mapping
-itself can be proposed — by a string matcher or by Claude — gated by machine, and
+itself can be proposed — by a string matcher or by a language model of your
+choice — gated by machine, and
 confirmed by a human before anything uses it.
 
 ## Quick start
@@ -154,7 +155,8 @@ src/sysmlcad/
 ├── gates.py                  is the mapping sound (≠ is the design ok)
 ├── proposals.py              the proposal store
 ├── propose.py                Proposer protocol + the stdlib baseline
-├── propose_ai.py             the Claude proposer (optional dependency)
+├── propose_ai.py             LlmProposer base + the Claude backend
+├── propose_openai.py         any OpenAI-protocol server (local included)
 ├── confirm.py                human confirmation → mapping.yaml
 ├── score.py                  hit rate against the gold set
 ├── explore.py                debugging tool for API payloads
@@ -297,7 +299,8 @@ only through an explicit confirmation.
 ```bash
 make catalog            # what is on each side: parts, attributes, CAD targets
 make propose            # stdlib name matching -> mapping/proposals.yaml
-make propose AI=1       # ask Claude instead (pip install anthropic, plus a key)
+make propose AI=claude   # ask Claude instead  (pip install anthropic)
+make propose AI=openai   # ...or any OpenAI-protocol server, local included
 make proposals          # what is waiting for a decision
 make confirm ID=p-01    # gate it again, then write it into mapping.yaml
 ```
@@ -333,8 +336,26 @@ a part, attribute or CAD object it names but that does not exist is dropped and
 the reason recorded — and then through the same four gates as any other
 proposal. Once confirmed, an entry is an ordinary deterministic rule and nothing
 behaves differently because a model suggested it (FREQ-5, NFREQ-1). CI never
-calls it: `anthropic` is an optional extra and the tests drive it from a
-recorded response.
+calls it: every SDK is an optional extra and the tests drive the proposers from
+a recorded response.
+
+**Bringing your own model.** A backend supplies one method, `_ask`; the prompt,
+the excerpt, the schema, the provenance and all of the verification above live
+in `LlmProposer` and are shared. Two ship today:
+
+```bash
+pip install openai                                 # optional extra, not in CI
+export OPENAI_BASE_URL=http://localhost:11434/v1   # Ollama, vLLM, LM Studio…
+export OPENAI_API_KEY=whatever                     # local servers ignore it
+export SYSMLCAD_OPENAI_MODEL=qwen2.5-coder:32b     # no default, on purpose
+make propose-score AI=openai                       # how does it do?
+```
+
+That covers OpenAI, Azure, vLLM, LM Studio, Groq, OpenRouter, together.ai and
+Ollama. A weaker model does not become dangerous here, only less useful: its
+answer is checked field by field against the catalogue, then gated, then shown
+to a human. What changes with model quality is the scoreboard, not the safety
+properties — which is exactly what `make propose-score AI=openai` measures.
 
 **Is it any good?** `make propose-score` answers that against
 `fixtures/gold_mapping.yaml` — thirteen attributes across both models, two of
