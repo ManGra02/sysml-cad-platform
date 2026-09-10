@@ -5,7 +5,7 @@ Check SysML v2 requirements automatically against CAD geometry. CI turns red whe
 the CAD model violates a system requirement. Later: a mapping store, AI-assisted
 mapping proposals, bidirectional sync, SMT-based verification.
 
-**Status: stages A, A2, E and H complete; 156 tests pass.** The verification
+**Status: stages A, A2, E and H complete; 162 tests pass.** The verification
 chain runs end to end (SysML v2 API → extractor → CAD adapter → verdict → exit
 code), and on top of it the mapping can now be *proposed*: a catalogue of both
 sides, four gates over any proposed entry, a proposal store, a human
@@ -19,9 +19,45 @@ Two models are published and captured: `MotorHousing` (one part) and `Gearbox`
 budget). The baseline proposer scores **11/13 hit@1 with 2 false positives**
 against `fixtures/gold_mapping.yaml`.
 
-One caveat stated plainly: the AI proposer has never been run for real -- there
-are no credentials in this environment -- so its column on the scoreboard is
-empty. It is wired, tested against a recorded response, and unmeasured.
+The AI path has now been run for real, against the University of Paderborn
+gateway (`https://ai-gateway.uni-paderborn.de/v1/`, OpenAI protocol, 74 models).
+Two models measured against the same gold set:
+
+| proposer | hit@1 | wrong@1 | missed | gateway |
+|---|---|---|---|---|
+| `baseline:difflib` | **11/13** | 2 | 0 | — |
+| `gwdg.gemma-4-31b-it` | 4/13 | 1 | 8 | UPB |
+| `gwdg.qwen3.5-397b-a17b` | 3/13 | **5** | 5 | UPB |
+| `gemini-3.8-flash` | 4/13 | **0** | 9 | AI Studio |
+
+Two gateways, one backend, no code difference: Google AI Studio speaks the same
+protocol at `https://generativelanguage.googleapis.com/v1beta/openai/` and
+accepts the project's real proposal schema unchanged.
+
+**Three models, three different failure modes, and the interesting axis is not
+hit rate.** Gemini 3.8 Flash returned exactly two candidates for thirteen
+attributes -- and both were right, with nothing invented and nothing dropped.
+Perfect precision, poor recall: it takes the prompt's "a gap a human fills is
+cheaper than a wrong mapping a human has to detect" literally, where
+qwen3.5-397b ignored it entirely. By `wrong@1`, the column that actually costs
+review time, Gemini is the best model tested and the largest one is the worst.
+Whether the prompt is now *too* conservative is an open question and a
+prompt-tuning experiment, not a code change.
+
+**Model size predicted nothing.** The largest model scored worst and in the
+dangerous direction -- five confident wrong answers against Gemma's one and
+Gemini's none. Its systematic error is the same
+one the difflib baseline made before identity scoring was added: it proposes the
+`gearbox` module (the whole assembly) for `housing.length`, `housing.width` and
+`housing.height`. The assembly's X extent happens to equal the housing's, so
+three of those would have produced *plausible numbers from the wrong object*.
+
+In a live `make propose` run, Gemma's five candidates were **all rejected by the
+gates**, four for proposing a *volume* where the model asks for a length.
+Nothing reached the proposal store. That is the ordering constraint paying off
+in production rather than in a test: a weak model here is useless, not
+dangerous -- and "bigger model" is not a synonym for "better proposer", which
+is precisely why the scoreboard was built before the AI was.
 
 Stage A re-anchored the mapping on *parts* (resolved through the model's own
 `satisfy` link), put a `CadAdapter` seam under the CAD side, made verdicts
@@ -67,7 +103,7 @@ make catalog                    # what exists on each side, as data
 make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
 make step-fixtures              # regenerate fixtures/step/ (they are committed)
 python -m sysmlcad.verify api   # same as make verify-api
-make test                       # pytest, JUnit XML to out/ (156 tests)
+make test                       # pytest, JUnit XML to out/ (162 tests)
 
 # Mapping proposals -- nothing here can change a verdict
 make propose                    # baseline proposer -> mapping/proposals.yaml
@@ -381,6 +417,16 @@ first:
 - **Every validation test runs against every backend.** The `proposer` fixture
   in `tests/test_propose_ai.py` is parametrised over `BACKENDS`, so a new one
   inherits all sixteen the moment it is added.
+- **A key in a file beats a key in the environment.** `SYSMLCAD_OPENAI_API_KEY_FILE`
+  points at a file whose first line is the key; it wins over `OPENAI_API_KEY`
+  when set, because naming a file is the more specific instruction and it lets
+  the key live outside the repository where no `git add -A` can reach it.
+  **The strip after `readline` is load-bearing** -- every editor ends a file
+  with a newline, and a trailing `\n` in an Authorization header comes back as
+  a 401 that reads exactly like a wrong key, sending you to look in the wrong
+  place. Guarded by `test_the_trailing_newline_is_stripped`, and no error
+  message or dropped-candidate reason in that module may carry the key
+  (`test_a_key_never_reaches_a_log_line`).
 - **There is no default OpenAI model.** `SYSMLCAD_OPENAI_MODEL` is required and
   the error names it. Guessing one would run — and bill — a model the user did
   not choose. Base URL and key resolve the SDK's own way, with one exception: a

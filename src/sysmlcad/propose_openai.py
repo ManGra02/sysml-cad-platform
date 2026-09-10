@@ -11,6 +11,16 @@ rather than a change of code.
     make propose AI=openai
     make propose-score AI=openai
 
+A key in a file rather than the environment is often the safer arrangement --
+it can live outside the repository, where no `git add -A` can reach it, and it
+never shows up in a process listing or a shell history:
+
+    export SYSMLCAD_OPENAI_API_KEY_FILE=/workspaces/conf/upb_ai_api_key.txt
+
+The first line is used, stripped. That strip is load-bearing: every editor ends
+a file with a newline, and a trailing "\n" in an Authorization header comes
+back as a 401 that reads exactly like a wrong key.
+
 WHAT THIS MODULE IS, AND WHAT IT DELIBERATELY IS NOT
 ----------------------------------------------------
 It is `_ask` and nothing else. The excerpt, the prompt, the schema, the
@@ -41,8 +51,20 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 
 from .propose_ai import SYSTEM, LlmProposer, json_schema
+
+#: Failures worth continuing past: the server was busy, slow or briefly gone.
+#: A wrong key, a wrong model name or a malformed request is NOT in here on
+#: purpose -- those are the caller's to fix, and swallowing them would show up
+#: as "the model proposed nothing", sending the search in the wrong direction.
+def _transient_errors():
+    try:
+        from openai import APIConnectionError, APITimeoutError, InternalServerError, RateLimitError
+    except ImportError:  # pragma: no cover - the SDK is an optional extra
+        return ()
+    return (APIConnectionError, APITimeoutError, InternalServerError, RateLimitError)
 
 #: Read by the SDK itself; listed here because they are what a user actually
 #: sets, and naming them in one place beats hunting through a traceback.
@@ -53,6 +75,32 @@ API_KEY_ENV = "OPENAI_API_KEY"
 #: silently bill a model the user did not choose.
 MODEL_ENV = "SYSMLCAD_OPENAI_MODEL"
 FORMAT_ENV = "SYSMLCAD_OPENAI_RESPONSE_FORMAT"
+
+#: A file holding the key, so it can live outside the repository. Preferred over
+#: `OPENAI_API_KEY` when set: naming a file is a more specific instruction than
+#: whatever happens to be in the environment.
+KEY_FILE_ENV = "SYSMLCAD_OPENAI_API_KEY_FILE"
+
+
+def read_key_file(path: str | Path) -> str:
+    """The first line of a key file, stripped.
+
+    The strip is not cosmetic. Editors end files with a newline, and a trailing
+    "\n" in an Authorization header produces a 401 -- which reads exactly like
+    a wrong key and sends you looking in the wrong place for an hour.
+    """
+    path = Path(path)
+    if not path.is_file():
+        raise RuntimeError(f"no API key file at {path}")
+
+    first = path.read_text(encoding="utf-8").splitlines()
+    key = first[0].strip() if first else ""
+    if not key:
+        raise RuntimeError(f"{path} has no key on its first line")
+    return key
+
+
+_TRANSIENT = _transient_errors() or ()
 
 
 class OpenAIProposer(LlmProposer):
@@ -83,12 +131,18 @@ class OpenAIProposer(LlmProposer):
                     "the OpenAI-compatible proposer needs the SDK: pip install openai"
                 ) from exc
 
-            # Base URL and key resolve the SDK's own way. The one exception is a
-            # local server: it ignores the key entirely, but the SDK refuses to
-            # start without one, and telling somebody running Ollama to invent
-            # an API key is a poor first experience.
+            # Base URL and key resolve the SDK's own way, with two exceptions.
+            # A key file wins when named: it is the more specific instruction,
+            # and it is the arrangement that keeps the key out of the repository
+            # and out of the environment. And a local server ignores the key
+            # entirely while the SDK still refuses to start without one --
+            # telling somebody running Ollama to invent an API key is a poor
+            # first experience.
             kwargs = {}
-            if not os.environ.get(API_KEY_ENV) and os.environ.get(BASE_URL_ENV):
+            key_file = os.environ.get(KEY_FILE_ENV)
+            if key_file:
+                kwargs["api_key"] = read_key_file(key_file)
+            elif not os.environ.get(API_KEY_ENV) and os.environ.get(BASE_URL_ENV):
                 kwargs["api_key"] = "not-required-by-this-server"
             self._client = OpenAI(**kwargs)
         return self._client
@@ -115,18 +169,15 @@ class OpenAIProposer(LlmProposer):
             "",
         )
 
-    def _ask(self, excerpt: str) -> tuple[dict, str]:
-        replayed = self._replay()
-        if replayed is not None:
-            return replayed
+    def _call(self, excerpt: str, response_format: dict, schema_note: str):
+        """The request itself.
 
-        response_format, schema_note = self._response_format()
-
-        # No token cap on purpose: `max_tokens` and `max_completion_tokens` are
-        # accepted by different servers and different model generations, and
-        # sending the wrong one is a hard error. The schema bounds the answer,
-        # and a truncated body fails to parse rather than passing silently.
-        response = self.client().chat.completions.create(
+        No token cap on purpose: `max_tokens` and `max_completion_tokens` are
+        accepted by different servers and different model generations, and
+        sending the wrong one is a hard error. The schema bounds the answer, and
+        a truncated body fails to parse rather than passing silently.
+        """
+        return self.client().chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": SYSTEM},
@@ -142,8 +193,27 @@ class OpenAIProposer(LlmProposer):
             response_format=response_format,
         )
 
-        choice = response.choices[0]
+    def _ask(self, excerpt: str) -> tuple[dict, str]:
+        replayed = self._replay()
+        if replayed is not None:
+            return replayed
 
+        response_format, schema_note = self._response_format()
+
+        try:
+            response = self._call(excerpt, response_format, schema_note)
+        except _TRANSIENT as exc:
+            # An outage is a fact about this run, not a broken pipeline -- the
+            # same treatment a refusal gets. Crashing here would also throw away
+            # the baseline's result, which was computed before this call and is
+            # the number the model was going to be compared against.
+            self.dropped.append(
+                f"the server could not be reached ({type(exc).__name__}: "
+                f"{str(exc)[:120]}) -- no candidates from this run"
+            )
+            return {"candidates": []}, "unavailable"
+
+        choice = response.choices[0]
         # Structured outputs can come back as an explicit refusal instead of
         # content. Recorded as a dropped candidate, not raised: one model
         # declining is a fact about that run, not a broken pipeline.

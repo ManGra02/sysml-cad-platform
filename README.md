@@ -345,9 +345,9 @@ in `LlmProposer` and are shared. Two ship today:
 
 ```bash
 pip install openai                                 # optional extra, not in CI
-export OPENAI_BASE_URL=http://localhost:11434/v1   # Ollama, vLLM, LM Studio…
-export OPENAI_API_KEY=whatever                     # local servers ignore it
-export SYSMLCAD_OPENAI_MODEL=qwen2.5-coder:32b     # no default, on purpose
+export OPENAI_BASE_URL=https://ai-gateway.uni-paderborn.de/v1/
+export SYSMLCAD_OPENAI_MODEL=gwdg.qwen3.5-397b-a17b        # no default, on purpose
+export SYSMLCAD_OPENAI_API_KEY_FILE=/workspaces/conf/upb_ai_api_key.txt
 make propose-score AI=openai                       # how does it do?
 ```
 
@@ -373,9 +373,42 @@ correct mapping needs a density nobody wrote down, the proposer must not invent
 one, so the right behaviour is silence and it proposes the whole assembly
 instead.
 
-Two honest caveats: the baseline was tuned *after* seeing this gold set, so 85%
-is a training score; and the AI column is empty, because `propose_ai.py` has
-never been run for real — only against a recorded response.
+Two real models have been measured through this, on the Paderborn gateway:
+
+```
+baseline:difflib          11/13 (85%)   wrong@1 2   missed 0
+gwdg.gemma-4-31b-it        4/13 (31%)   wrong@1 1   missed 8
+gwdg.qwen3.5-397b-a17b     3/13 (23%)   wrong@1 5   missed 5
+gemini-3.8-flash           4/13 (31%)   wrong@1 0   missed 9
+```
+
+Model size predicted nothing. The largest is worst, and worst in the column that
+costs the most: it proposes the whole `gearbox` assembly for the housing's
+length, width and height — and since the assembly's X extent equals the
+housing's, that is a plausible number from the wrong object, which is the
+failure this project exists to prevent.
+
+Gemini 3.8 Flash failed the other way: two candidates for thirteen attributes,
+both correct, nothing invented. Perfect precision, poor recall. By `wrong@1` it
+is the best model tested; by usefulness it barely dents the work. Which of those
+two failure modes you prefer is a real decision, and the scoreboard is what lets
+you make it deliberately.
+
+More telling still is what happened in a live `make propose` run with Gemma:
+every one of its five candidates was rejected by a gate, four for proposing a
+*volume* where the model asks for a length:
+
+```
+0 candidate(s) past the gates, 5 rejected by them, 0 new to the store
+  housing.width -> gearbox via volume: volume yields [length] ** 3,
+                   but width : LengthValue is [length]
+```
+
+That is the whole design in one line of output. A weak model is useless here,
+not dangerous — and the scoreboard is how you tell which model you have.
+
+One honest caveat: the baseline was tuned *after* seeing this gold set, so its
+85% is a training score.
 
 ## Next steps
 

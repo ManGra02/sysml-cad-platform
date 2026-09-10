@@ -4,7 +4,7 @@ API_CHAT_MODEL="gwdg.gemma-4-31b-it"
 
 API_BASE="https://ai-gateway.uni-paderborn.de/v1/"
 
-with open('/workspaces/conf/apikey.txt', 'r') as f:
+with open('/workspaces/conf/upb_ai_api_key.txt', 'r') as f:
     API_KEY=f.readline().strip()
 
 
