@@ -1,19 +1,37 @@
 """CAD side backed by build123d scripts under `cad/`.
 
-This is code-CAD: there is no document, no assembly tree and no material
-database. One "object" is one importable module exposing `build() -> Part`,
-and its named module-level constants are its parameters. That is a real
-limitation, not a modelling choice -- `material()` returns whatever the script
-declares and None otherwise, and the caller reports the gap.
+This is code-CAD: there is no document and no material database. One "object"
+is one importable module exposing `build() -> Part`, and its named module-level
+constants are its parameters. `material()` returns whatever the script declares
+and None otherwise, and the caller reports the gap.
 
-Kept as the reference implementation because it needs no external
-application, which is what lets CI verify geometry offline.
+ADDRESSING
+----------
+    motor_housing            the module's build()
+    gearbox#Housing          the module's build_housing()
+
+The `#` form mirrors the STEP adapter's, and it exists to fix a real hole. An
+assembly script's `build()` returns the whole assembly, so without it a
+component could only be measured through the STEP export -- which carries no
+material, which meant a density had to be written into `mapping.yaml`. That put
+a *fact about the part* into the file that is supposed to hold only the
+*correspondence between the two models*, and made the mapping a third source of
+truth that neither model owns. Changing the script's material then left the
+mapping silently stale: the check would keep using the old density and report a
+confident, wrong mass.
+
+With `#`, a component is addressable in the script that declares its material,
+and the density comes from there. See `test_a_component_inherits_the_script_material`.
+
+Kept as the reference implementation because it needs no external application,
+which is what lets CI verify geometry offline.
 """
 
 from __future__ import annotations
 
 import hashlib
 import inspect
+import re
 from importlib import import_module
 from pathlib import Path
 from types import ModuleType
@@ -27,6 +45,17 @@ from . import METHODS, CadTarget, Material, Unsupported
 #: import name; this path only answers "which names exist".
 CAD_DIR = Path(__file__).resolve().parents[3] / "cad"
 
+#: A component is built by `build_<snake_case(name)>`. One convention, spelled
+#: out, so a mapping entry can be read without opening the script.
+BUILDER_PREFIX = "build_"
+
+
+def _snake(name: str) -> str:
+    """`Housing` -> `housing`, `GearRing` -> `gear_ring`."""
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", name)
+    return re.sub(r"[^0-9a-zA-Z]+", "_", spaced).strip("_").lower()
+
+
 #: Suffix conventions in the CAD scripts, so a parameter comes back with units
 #: instead of as a bare float. Explicit table rather than guesswork.
 _SUFFIX_UNITS = {
@@ -38,7 +67,7 @@ _SUFFIX_UNITS = {
 
 
 class Build123dAdapter:
-    """Addresses build123d scripts by module name."""
+    """Addresses build123d scripts by module name, optionally `module#Component`."""
 
     name = "build123d"
 
@@ -47,25 +76,58 @@ class Build123dAdapter:
         self._modules: dict[str, ModuleType] = {}
         self._parts: dict[str, Part] = {}
 
+    # -- addressing ---------------------------------------------------------
+
+    @staticmethod
+    def _resolve(obj: str) -> tuple[str, str | None]:
+        """`gearbox#Housing` -> `("gearbox", "Housing")`."""
+        module_name, _, component = obj.partition("#")
+        return module_name, (component or None)
+
     # -- loading ------------------------------------------------------------
 
     def _module(self, obj: str) -> ModuleType:
-        if obj not in self._modules:
+        module_name, _ = self._resolve(obj)
+        if module_name not in self._modules:
             try:
-                self._modules[obj] = import_module(obj)
+                self._modules[module_name] = import_module(module_name)
             except ImportError as exc:
-                raise Unsupported(f"no CAD module named {obj!r}: {exc}") from exc
-            if obj not in self._declared:
-                self._declared.append(obj)
-        return self._modules[obj]
+                raise Unsupported(f"no CAD module named {module_name!r}: {exc}") from exc
+        if obj not in self._declared:
+            self._declared.append(obj)
+        return self._modules[module_name]
+
+    def _builders(self, module: ModuleType) -> dict[str, str]:
+        """Component name -> builder function name, for one module."""
+        return {
+            attr[len(BUILDER_PREFIX):].title().replace("_", ""): attr
+            for attr in dir(module)
+            if attr.startswith(BUILDER_PREFIX) and callable(getattr(module, attr, None))
+        }
 
     def _part(self, obj: str) -> Part:
         """Build once per run. Geometry is expensive and does not change mid-run."""
-        if obj not in self._parts:
-            module = self._module(obj)
+        if obj in self._parts:
+            return self._parts[obj]
+
+        module_name, component = self._resolve(obj)
+        module = self._module(obj)
+
+        if component is None:
             if not hasattr(module, "build"):
-                raise Unsupported(f"CAD module {obj!r} has no build()")
+                raise Unsupported(f"CAD module {module_name!r} has no build()")
             self._parts[obj] = module.build()
+            return self._parts[obj]
+
+        builder = getattr(module, BUILDER_PREFIX + _snake(component), None)
+        if not callable(builder):
+            available = ", ".join(sorted(self._builders(module))) or "none"
+            raise Unsupported(
+                f"{module_name} has no component {component!r} "
+                f"(expected a {BUILDER_PREFIX}{_snake(component)}() function). "
+                f"Available: {available}"
+            )
+        self._parts[obj] = builder()
         return self._parts[obj]
 
     # -- CadAdapter ---------------------------------------------------------
@@ -77,12 +139,15 @@ class Build123dAdapter:
         exact rather than approximate.
         """
         digest = hashlib.sha256()
-        for obj in sorted(self._declared):
+        # By module, not by reference: two components of one script share a
+        # design state, and hashing the source twice would say otherwise.
+        modules = sorted({self._resolve(obj)[0] for obj in self._declared})
+        for module_name in modules:
             try:
-                source = inspect.getsource(self._module(obj))
+                source = inspect.getsource(self._module(module_name))
             except (OSError, TypeError, Unsupported):
                 source = ""
-            digest.update(obj.encode())
+            digest.update(module_name.encode())
             digest.update(source.encode())
         return digest.hexdigest()[:16]
 
@@ -90,6 +155,9 @@ class Build123dAdapter:
         return list(self._declared)
 
     def parameter(self, obj: str, name: str) -> Q | None:
+        """Module-level, so every component of a script shares its parameters --
+        which is correct: `DENSITY_G_PER_CM3` describes the material the whole
+        script is made of."""
         module = self._module(obj)
         if not hasattr(module, name):
             return None
@@ -150,6 +218,7 @@ class Build123dAdapter:
                 m for m in METHODS
                 if m != "mass" or (material is not None and material.density is not None)
             )
+            note = f"material {material.name}" if material else "no material declared"
             out.append(CadTarget(
                 adapter=self.name,
                 reference=name,
@@ -157,8 +226,22 @@ class Build123dAdapter:
                 name=name,
                 methods=methods,
                 parameters=parameters,
-                note=f"material {material.name}" if material else "no material declared",
+                note=note,
             ))
+
+            # Components, where the script builds them separately. They share
+            # the module's material, which is the whole point: a component
+            # addressed here needs no density written into the mapping.
+            for component in sorted(self._builders(module)):
+                out.append(CadTarget(
+                    adapter=self.name,
+                    reference=f"{name}#{component}",
+                    kind="part",
+                    name=component,
+                    methods=methods,
+                    parameters=parameters,
+                    note=f"{note}, component of {name}",
+                ))
         return out
 
     def _known_modules(self) -> list[str]:

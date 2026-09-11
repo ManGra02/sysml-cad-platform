@@ -1,0 +1,233 @@
+==============================================================================
+WAS DAS SPRACHMODELL BEKOMMT
+Aufgezeichnet aus dem echten Aufruf von OpenAIProposer._call(),
+gegen den aktuellen Katalog (fixtures/*elements*.json + cad/).
+==============================================================================
+
+model            : gwdg.gemma-4-31b-it
+response_format  : json_schema, strict=True
+
+==============================================================================
+NACHRICHT  role = system   (1296 Zeichen)
+==============================================================================
+You map systems-engineering model attributes onto CAD measurements.
+
+You are one half of a two-part process. You propose; a human confirms. Every
+candidate you return is checked by machine afterwards -- dimensional
+compatibility, whether the measurement is possible at all, uniqueness, order of
+magnitude -- and then reviewed by an engineer. So a wrong suggestion is not
+caught by you being confident; it is caught by those checks, and it costs a
+person time either way.
+
+Two rules that matter more than coverage:
+
+* Only ever name a `sysml_part`, `attribute` and `cad_object` that appear
+  verbatim in the excerpt. Never invent, complete or correct a name.
+* If nothing in the CAD model plausibly corresponds to an attribute, return no
+  candidate for it. A gap a human fills is cheaper than a wrong mapping a human
+  has to detect. Low confidence is not a substitute for silence.
+
+`bbox_size` measures the bounding box along one axis, which is not the same
+thing as a named feature dimension -- say so in the rationale when you use it.
+`mass` needs a density: the object's material if the excerpt lists one,
+otherwise `density_g_per_cm3`.
+
+Keep each rationale to one sentence naming the actual evidence -- the names that
+matched, the parameter you relied on. "Seems related" is not a rationale.
+
+==============================================================================
+NACHRICHT  role = user   (3175 Zeichen)
+==============================================================================
+# SYSTEM MODEL
+
+part motorHousing : Housing
+    attribute length : LengthValue  [dimension: [length]]
+    attribute mass : MassValue  [dimension: [mass]]
+
+part cover : Cover
+    attribute length : LengthValue  [dimension: [length]]
+    attribute width : LengthValue  [dimension: [length]]
+    attribute thickness : LengthValue  [dimension: [length]]
+    attribute boreRadius : LengthValue  [dimension: [length]]
+    attribute mass : MassValue  [dimension: [mass]]
+
+part housing : Housing
+    attribute length : LengthValue  [dimension: [length]]
+    attribute width : LengthValue  [dimension: [length]]
+    attribute height : LengthValue  [dimension: [length]]
+    attribute boreRadius : LengthValue  [dimension: [length]]
+    attribute mass : MassValue  [dimension: [mass]]
+
+part gearbox : GearboxAssembly
+    attribute mass : MassValue  [dimension: [mass]]
+
+# CAD MODEL
+
+cad_object gearbox
+    name gearbox   kind module   material AlSi10Mg
+    measurable: bbox_size, volume, mass, face_count
+    parameter BORE_RADIUS_MM = 8.0 mm
+    parameter COVER_THICKNESS_MM = 6.0 mm
+    parameter DENSITY_G_PER_CM3 = 2.7 g/cm³
+    parameter HOUSING_HEIGHT_MM = 40.0 mm
+    parameter HOUSING_LENGTH_MM = 90.0 mm
+    parameter HOUSING_WIDTH_MM = 60.0 mm
+
+cad_object gearbox#Cover
+    name Cover   kind part   material AlSi10Mg, component of gearbox
+    measurable: bbox_size, volume, mass, face_count
+    parameter BORE_RADIUS_MM = 8.0 mm
+    parameter COVER_THICKNESS_MM = 6.0 mm
+    parameter DENSITY_G_PER_CM3 = 2.7 g/cm³
+    parameter HOUSING_HEIGHT_MM = 40.0 mm
+    parameter HOUSING_LENGTH_MM = 90.0 mm
+    parameter HOUSING_WIDTH_MM = 60.0 mm
+
+cad_object gearbox#Housing
+    name Housing   kind part   material AlSi10Mg, component of gearbox
+    measurable: bbox_size, volume, mass, face_count
+    parameter BORE_RADIUS_MM = 8.0 mm
+    parameter COVER_THICKNESS_MM = 6.0 mm
+    parameter DENSITY_G_PER_CM3 = 2.7 g/cm³
+    parameter HOUSING_HEIGHT_MM = 40.0 mm
+    parameter HOUSING_LENGTH_MM = 90.0 mm
+    parameter HOUSING_WIDTH_MM = 60.0 mm
+
+cad_object motor_housing
+    name motor_housing   kind module   material AlSi10Mg
+    measurable: bbox_size, volume, mass, face_count
+    parameter BORE_RADIUS_MM = 8.0 mm
+    parameter DENSITY_G_PER_CM3 = 2.7 g/cm³
+    parameter HEIGHT_MM = 40.0 mm
+    parameter LENGTH_MM = 118.0 mm
+    parameter WIDTH_MM = 60.0 mm
+
+cad_object fixtures/step/gearbox.step
+    name Gearbox   kind assembly   no material in the file
+    measurable: bbox_size, volume, face_count
+
+cad_object fixtures/step/gearbox.step#Housing
+    name Housing   kind part   no material in the file
+    measurable: bbox_size, volume, face_count
+
+cad_object fixtures/step/gearbox.step#Cover
+    name Cover   kind part   no material in the file
+    measurable: bbox_size, volume, face_count
+
+cad_object fixtures/step/motor_housing.step
+    name COMPOUND   kind part   no material in the file
+    measurable: bbox_size, volume, face_count
+
+cad_object fixtures/step/motor_housing_inch.step
+    name COMPOUND   kind part   no material in the file
+    measurable: bbox_size, volume, face_count
+
+
+Propose the mappings you are confident about. Use only names that appear above.
+
+==============================================================================
+ANTWORTSCHEMA  (response_format.json_schema.schema)
+Erzwingt die FORM der Antwort. Die INHALTE werden danach gegen den
+Katalog geprueft -- ein Schema garantiert Typen, keine Wahrheit.
+==============================================================================
+{
+  "$defs": {
+    "AiCandidate": {
+      "properties": {
+        "sysml_part": {
+          "description": "part name, verbatim from the excerpt",
+          "title": "Sysml Part",
+          "type": "string"
+        },
+        "attribute": {
+          "description": "attribute name, verbatim from the excerpt",
+          "title": "Attribute",
+          "type": "string"
+        },
+        "cad_object": {
+          "description": "cad_object reference, verbatim from the excerpt",
+          "title": "Cad Object",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "bbox_size",
+            "volume",
+            "mass",
+            "face_count"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "axis": {
+          "anyOf": [
+            {
+              "enum": [
+                "X",
+                "Y",
+                "Z"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "required for bbox_size, omit otherwise",
+          "title": "Axis"
+        },
+        "density_g_per_cm3": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "only for mass on an object with no material listed",
+          "title": "Density G Per Cm3"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "rationale": {
+          "description": "one sentence naming the actual evidence",
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sysml_part",
+        "attribute",
+        "cad_object",
+        "method",
+        "axis",
+        "density_g_per_cm3",
+        "confidence",
+        "rationale"
+      ],
+      "title": "AiCandidate",
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/AiCandidate"
+      },
+      "title": "Candidates",
+      "type": "array"
+    }
+  },
+  "required": [
+    "candidates"
+  ],
+  "title": "ProposalSet",
+  "type": "object",
+  "additionalProperties": false
+}

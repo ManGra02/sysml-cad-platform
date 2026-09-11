@@ -50,28 +50,32 @@ gold:
   - sysml_part: housing
     attribute: length
     accept:
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: bbox_size, args: {axis: X}}
       - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: bbox_size, args: {axis: X}}
 
   - sysml_part: housing
     attribute: width
     accept:
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: bbox_size, args: {axis: Y}}
       - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: bbox_size, args: {axis: Y}}
 
   - sysml_part: housing
     attribute: height
     accept:
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: bbox_size, args: {axis: Z}}
       - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: bbox_size, args: {axis: Z}}
 
   - sysml_part: housing
     attribute: mass
     note: >-
-      Correct, and out of a proposer's reach. The STEP file carries no material,
-      so this needs `density_g_per_cm3` -- a number neither model states, and one
-      no proposer may invent. The right behaviour here is silence; proposing the
-      whole assembly's mass instead would be confidently wrong and would pass
-      every gate, which is exactly what this entry is here to catch.
+      Through the SCRIPT, which declares its own material -- and only through it.
+      The STEP route measures the same geometry but carries no material, so it
+      would need `density_g_per_cm3` written into mapping.yaml. That is a fact
+      about the part living in the file that holds the correspondence between
+      the two models, and it goes stale in silence the moment somebody changes
+      the material in the script. Same measurement, worse mapping.
     accept:
-      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: mass, args: {density_g_per_cm3: 2.7}}
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: mass, args: {}}
 
   - sysml_part: housing
     attribute: boreRadius
@@ -85,11 +89,13 @@ gold:
   - sysml_part: cover
     attribute: length
     accept:
+      - {adapter: build123d, cad_object: "gearbox#Cover", method: bbox_size, args: {axis: X}}
       - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: bbox_size, args: {axis: X}}
 
   - sysml_part: cover
     attribute: width
     accept:
+      - {adapter: build123d, cad_object: "gearbox#Cover", method: bbox_size, args: {axis: Y}}
       - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: bbox_size, args: {axis: Y}}
 
   - sysml_part: cover
@@ -99,13 +105,14 @@ gold:
       quietly wrong -- the cost of a bounding box standing in for a named
       feature dimension.
     accept:
+      - {adapter: build123d, cad_object: "gearbox#Cover", method: bbox_size, args: {axis: Z}}
       - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: bbox_size, args: {axis: Z}}
 
   - sysml_part: cover
     attribute: mass
-    note: Same as the housing mass -- correct, and not reachable without a density.
+    note: Same as the housing mass -- through the script that declares the material.
     accept:
-      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: mass, args: {density_g_per_cm3: 2.7}}
+      - {adapter: build123d, cad_object: "gearbox#Cover", method: mass, args: {}}
 
   - sysml_part: cover
     attribute: boreRadius
@@ -118,9 +125,8 @@ gold:
       The whole file, so the mass aggregates over both components -- this is the
       assembly-level budget, not a component's mass.
     accept:
-      - {adapter: step, cad_object: fixtures/step/gearbox.step, method: mass, args: {density_g_per_cm3: 2.7}}
-      # Equally correct, and measured to prove it: the build123d module builds
-      # the same assembly and declares its own material, so both routes give
-      # 0.6457 kg. Penalising the second would be penalising the adapter seam
-      # for working.
+      # The module builds the assembly and declares its material, so no density
+      # has to be written down anywhere. The STEP route measures the identical
+      # 0.6457 kg but only with an override in mapping.yaml, which is a fact
+      # about the part in the wrong file -- same number, worse mapping.
       - {adapter: build123d, cad_object: gearbox, method: mass, args: {}}

@@ -26,30 +26,36 @@ parts:
     confirmed_at: "2026-08-21"
 
   # --- the gearbox assembly, published from models/gearbox.sysml -------------
-  # Addressed through the STEP export rather than the build123d module: the
-  # script's build() returns the whole assembly, so it cannot name one component.
-  # The STEP file can, and the node names are the addresses.
+  # Addressed as `module#Component`, which reaches the script's build_housing()
+  # and build_cover(). The STEP export can name the same components and measures
+  # them identically -- but it carries no material, so a mass through that route
+  # needed a density written into this file. A density is a fact about the part,
+  # not a correspondence between the two models: putting it here made this file
+  # a third source of truth that neither model owns, and left the check silently
+  # stale when the script's material changed. The script declares its own
+  # material; addressing the script is what lets it stay the only place that does.
   - sysml_part: housing              # gearbox.housing, via the satisfy chain
-    adapter: step
-    cad_object: fixtures/step/gearbox.step#Housing
+    adapter: build123d
+    cad_object: gearbox#Housing
     status: confirmed
     author: hardcoded
-    confirmed_at: "2026-09-03"
+    confirmed_at: "2026-09-10"
 
   - sysml_part: cover
-    adapter: step
-    cad_object: fixtures/step/gearbox.step#Cover
+    adapter: build123d
+    cad_object: gearbox#Cover
     status: confirmed
     author: hardcoded
-    confirmed_at: "2026-09-03"
+    confirmed_at: "2026-09-10"
 
   - sysml_part: gearbox
-    adapter: step
-    cad_object: fixtures/step/gearbox.step
+    adapter: build123d
+    cad_object: gearbox
     status: confirmed
     author: hardcoded
-    confirmed_at: "2026-09-03"
-    note: "The whole file, so mass and bounding box aggregate over the components."
+    confirmed_at: "2026-09-10"
+    note: "The module's build(), so mass and bounding box aggregate over both
+           components."
 
 # --- which measurement stands for which attribute ---------------------------
 attributes:
@@ -111,14 +117,14 @@ attributes:
     attribute: mass
     requirement: MaxAssemblyMass
     method: mass
-    args: {density_g_per_cm3: 2.70}   # STEP carries no material; see the note
+    args: {}                          # density comes from the script's MATERIAL
     direction: cad_owns
     tolerance: null
     status: confirmed
     author: hardcoded
-    confirmed_at: "2026-09-03"
-    note: "The density is an override, not a fact from the file. Without it the
-           adapter reports a gap rather than assuming aluminium."
+    confirmed_at: "2026-09-10"
+    note: "No density here on purpose. Change the material in cad/gearbox.py and
+           this check follows; freeze it here and it would not."
 
   # DELIBERATELY UNMAPPED: housing.boreRadius, checked by MinBoreRadius.
   # No measurement in the vocabulary can express a bore radius -- a bounding box

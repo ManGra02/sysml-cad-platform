@@ -5,7 +5,7 @@ Check SysML v2 requirements automatically against CAD geometry. CI turns red whe
 the CAD model violates a system requirement. Later: a mapping store, AI-assisted
 mapping proposals, bidirectional sync, SMT-based verification.
 
-**Status: stages A, A2, E and H complete; 162 tests pass.** The verification
+**Status: stages A, A2, E and H complete; 180 tests pass.** The verification
 chain runs end to end (SysML v2 API → extractor → CAD adapter → verdict → exit
 code), and on top of it the mapping can now be *proposed*: a catalogue of both
 sides, four gates over any proposed entry, a proposal store, a human
@@ -103,7 +103,7 @@ make catalog                    # what exists on each side, as data
 make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
 make step-fixtures              # regenerate fixtures/step/ (they are committed)
 python -m sysmlcad.verify api   # same as make verify-api
-make test                       # pytest, JUnit XML to out/ (162 tests)
+make test                       # pytest, JUnit XML to out/ (180 tests)
 
 # Mapping proposals -- nothing here can change a verdict
 make propose                    # baseline proposer -> mapping/proposals.yaml
@@ -508,6 +508,15 @@ first:
 through the model's `satisfy` link rather than guessed from the first
 `ReferenceUsage` in the subtree. See `extract.resolve_satisfies`.
 
+**No longer a hole:** an assembly script's components were unaddressable, so a
+component's mass could only be had by writing a density into `mapping.yaml`.
+`gearbox#Housing` now calls `build_housing()` and the density comes from the
+script. Side effect worth knowing: two gold-set entries that no proposer could
+ever reach — their only correct answer required inventing a density — became
+reachable, and the baseline went from 11/13 to **13/13 with zero false
+positives**. Read that against a set the baseline was tuned on: the remaining
+misses were an artefact of the mapping, not of the matcher.
+
 **No longer a hole:** the confirmation gate used to cover `attributes:` only —
 a `parts:` entry was used whatever its status said, and that status was never
 validated. Both are fixed: `PartMapping.usable` exists, `load_mapping()`
@@ -517,6 +526,18 @@ Set the motorHousing part entry to `status: proposed` and the run now says
 
 ## Conventions
 
+- **A value in `mapping.yaml` is a design error, not a convenience.** The
+  mapping holds the *correspondence between two models*; a density is a *fact
+  about a part* and belongs in one of the models. The gearbox mass used to carry
+  `args: {density_g_per_cm3: 2.70}`, because a component was only reachable
+  through the STEP export and STEP carries no material. Measured consequence:
+  switch `cad/gearbox.py` to plastic (1.36) and the check kept reporting the
+  aluminium mass -- 0.6457 kg instead of 0.3252 kg, a factor of two, passing
+  every gate, because dimension, existence, uniqueness and magnitude were all
+  fine. `Build123dAdapter` now addresses `module#Component` (mirroring the STEP
+  adapter's `#`), reaching `build_housing()` in the script that declares the
+  material. No mapping entry carries a density any more, and
+  `test_the_committed_mapping_carries_no_density` keeps it that way.
 - **Stable identity:** CAD mappings point at named module parameters
   (`LENGTH_MM`) or named measurement methods, NEVER at face or edge indices (the
   topological naming problem).

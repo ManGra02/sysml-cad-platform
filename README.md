@@ -26,7 +26,7 @@ Then, **inside the devcontainer**:
 make cad            # run the CAD scripts, write STEP to out/
 make verify         # verify against fixtures/requirements.json
 make gates          # is the MAPPING sound? (a different question)
-make test           # pytest, JUnit XML to out/ (127 tests)
+make test           # pytest, JUnit XML to out/ (180 tests)
 make catalog        # what exists on each side, as data
 make explore-cad FILE=fixtures/step/gearbox.step   # what is in a STEP file
 make step-fixtures  # regenerate fixtures/step/ after changing a CAD script
@@ -376,7 +376,7 @@ instead.
 Two real models have been measured through this, on the Paderborn gateway:
 
 ```
-baseline:difflib          11/13 (85%)   wrong@1 2   missed 0
+baseline:difflib          13/13 (100%)  wrong@1 0   missed 0
 gwdg.gemma-4-31b-it        4/13 (31%)   wrong@1 1   missed 8
 gwdg.qwen3.5-397b-a17b     3/13 (23%)   wrong@1 5   missed 5
 gemini-3.8-flash           4/13 (31%)   wrong@1 0   missed 9
