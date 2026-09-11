@@ -16,8 +16,11 @@ import pytest
 from sysmlcad.adapters import CadTarget
 from sysmlcad.catalog import Catalog, CatalogAttribute, CatalogPart
 from sysmlcad.mapping import AttributeMapping, Mapping, PartMapping
+from sysmlcad.project import list_projects, load_project
 from sysmlcad.propose import DifflibProposer, normalise, run, similarity
 from sysmlcad.units import ureg
+
+MOTOR = load_project("motor_housing")
 
 PART = CatalogPart(
     name="motorHousing",
@@ -181,14 +184,14 @@ def test_an_already_confirmed_attribute_is_not_proposed_again():
                                      status="confirmed")],
         digest="test",
     )
-    kept, _dropped = run(top=3, catalog=CATALOG, mapping=mapping)
+    kept, _dropped = run(MOTOR, top=3, catalog=CATALOG, mapping=mapping)
     assert not [p for p in kept if p.attribute == "length"]
 
 
 def test_top_limits_what_reaches_the_review_queue():
     empty = Mapping(parts={}, attributes=[], digest="empty")
-    one, _ = run(top=1, catalog=CATALOG, mapping=empty)
-    three, _ = run(top=3, catalog=CATALOG, mapping=empty)
+    one, _ = run(MOTOR, top=1, catalog=CATALOG, mapping=empty)
+    three, _ = run(MOTOR, top=3, catalog=CATALOG, mapping=empty)
     per_attribute = {}
     for proposal in one:
         per_attribute[proposal.attribute] = per_attribute.get(proposal.attribute, 0) + 1
@@ -199,31 +202,32 @@ def test_top_limits_what_reaches_the_review_queue():
 def test_proposing_writes_nothing_to_the_mapping():
     """The store separation, checked rather than assumed: a proposer that could
     reach mapping.yaml would make FREQ-5 a matter of discipline."""
-    from sysmlcad.mapping import MAPPING
-
-    before = MAPPING.read_text(encoding="utf-8")
-    run(top=3, catalog=CATALOG, mapping=Mapping(parts={}, attributes=[], digest="e"))
-    assert MAPPING.read_text(encoding="utf-8") == before
+    path = MOTOR.mapping_path
+    before = path.read_text(encoding="utf-8")
+    run(MOTOR, top=3, catalog=CATALOG, mapping=Mapping(parts={}, attributes=[], digest="e"))
+    assert path.read_text(encoding="utf-8") == before
 
 
 # --------------------------------------------------------------------------
 # The scoreboard -- a floor, not a target
 # --------------------------------------------------------------------------
 
-def test_the_baseline_does_not_regress():
-    """Pins the number the AI has to beat.
+@pytest.mark.parametrize("name, floor", [("motor_housing", 2), ("gearbox", 11)])
+def test_the_baseline_does_not_regress(name, floor):
+    """Pins the number the AI has to beat, per project.
 
-    Honest about what it is: the baseline was tuned *after* seeing this gold
-    set, so 11/13 is a training score, not a held-out one. Its job is to stop a
-    later change quietly making the baseline worse -- and to stop anyone
-    claiming the AI helps without beating it.
+    Honest about what it is: the baseline was tuned *after* seeing these gold
+    sets, so a full score is a training score, not a held-out one. Its job is
+    to stop a later change quietly making the baseline worse -- and to stop
+    anyone claiming the AI helps without beating it.
     """
     from sysmlcad.catalog import load_catalog
     from sysmlcad.score import load_gold, score
 
-    result = score(DifflibProposer(), load_gold(), load_catalog())
-    assert result.hit_at_1 >= 11, f"baseline regressed: {result.false_positives}"
-    assert len(result.false_positives) <= 2
+    project = load_project(name)
+    result = score(project, DifflibProposer(), load_gold(project), load_catalog(project))
+    assert result.hit_at_1 >= floor, f"{name}: baseline regressed: {result.false_positives}"
+    assert not result.false_positives, f"{name}: {result.false_positives}"
 
 
 def test_the_proposer_does_not_invent_a_density():
@@ -232,6 +236,7 @@ def test_the_proposer_does_not_invent_a_density():
     the proposer must not offer it -- even though it makes the score worse."""
     from sysmlcad.catalog import load_catalog
 
-    for proposal in DifflibProposer().propose(load_catalog()):
-        if proposal.method == "mass":
-            assert "density_g_per_cm3" not in proposal.args
+    for name in list_projects():
+        for proposal in DifflibProposer().propose(load_catalog(load_project(name))):
+            if proposal.method == "mass":
+                assert "density_g_per_cm3" not in proposal.args

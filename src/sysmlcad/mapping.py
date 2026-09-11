@@ -15,8 +15,8 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[2]
-MAPPING = ROOT / "mapping" / "mapping.yaml"
+#: No default path. A mapping belongs to a project (`Project.mapping_path`);
+#: a module-level default was how two models ended up sharing one file.
 
 #: Who owns a value. The authority rule, not a merge algorithm: if SysML owns
 #: limits and CAD owns actual values, the two sides cannot collide, and all
@@ -96,7 +96,7 @@ class Mapping:
         return self.parts.get(entry.sysml_part)
 
 
-def load_mapping(path: Path = MAPPING) -> Mapping:
+def load_mapping(path: Path) -> Mapping:
     raw = path.read_text(encoding="utf-8")
     data = yaml.safe_load(raw)
 

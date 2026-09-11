@@ -45,10 +45,9 @@ from collections import deque
 from pathlib import Path
 
 from .model import Requirement
+from .project import Project
 from .sysml_client import SysMLClient
 from .units import ureg
-
-FIXTURE = Path(__file__).resolve().parents[2] / "fixtures" / "requirements.json"
 
 COMPARISON_OPERATORS = {"<=", ">=", "<", ">", "=="}
 
@@ -358,16 +357,22 @@ def elements_to_requirements(elements: list[dict]) -> list[Requirement]:
 # Sources
 # --------------------------------------------------------------------------
 
-def from_fixture(path: Path = FIXTURE) -> list[Requirement]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return [Requirement.from_dict(d) for d in data["requirements"]]
+def from_capture(project: Project) -> list[Requirement]:
+    """Requirements from the project's offline capture -- the real extractor
+    over a real API response, with no server in the room."""
+    return elements_to_requirements(project.elements())
 
 
 def from_api(
-    project_id: str | None = None,
+    project_name: str,
     base_url: str | None = None,
 ) -> tuple[list[Requirement], dict[str, str]]:
     """Requirements plus the model state they came from.
+
+    The server project is found BY NAME. It used to be "whichever was published
+    most recently", which meant that publishing a second model silently changed
+    what `verify api` verified. Which model is checked is stated by the project,
+    never inferred from a timestamp.
 
     SRS FREQ-1 requires the commit id to be recorded so that every later result
     can be attributed to an exact state of the system model. Fetching it and
@@ -375,11 +380,23 @@ def from_api(
     """
     client = SysMLClient(base_url)
     try:
-        if project_id is None:
-            projects = client.projects()
-            if not projects:
-                raise RuntimeError("no projects on the API server")
-            project_id = sorted(projects, key=lambda p: p.get("created", ""))[-1]["@id"]
+        projects = client.projects()
+        matching = [p for p in projects if p.get("name") == project_name]
+        if not matching:
+            available = ", ".join(sorted(p.get("name", "?") for p in projects)) or "none"
+            raise RuntimeError(
+                f"no project named {project_name!r} on the API server. "
+                f"Available: {available}"
+            )
+        if len(matching) > 1:
+            # Publishing the same package twice leaves two projects with one
+            # name. Take the newest of THOSE -- same-named, so the same model --
+            # and say so, because a silent choice here is a silent choice of
+            # commit.
+            matching.sort(key=lambda p: p.get("created", ""))
+            print(f"[warn] {len(matching)} server projects named {project_name!r}; "
+                  f"using the most recently created")
+        project_id = matching[-1]["@id"]
         commit_id = client.head_commit(project_id)
         elements = client.all_elements(project_id, commit_id)
     finally:
@@ -390,14 +407,15 @@ def from_api(
     }
 
 
-def load(source: str | None = None) -> list[Requirement]:
-    """source="api" reads from the server, anything else from the fixture."""
-    return load_with_context(source)[0]
+def load(project: Project, source: str | None = None) -> list[Requirement]:
+    """source="api" reads from the server, anything else from the capture."""
+    return load_with_context(project, source)[0]
 
 
 def load_with_context(
+    project: Project,
     source: str | None = None,
 ) -> tuple[list[Requirement], dict[str, str]]:
     if source == "api":
-        return from_api()
-    return from_fixture(), {}
+        return from_api(project.sysml_project)
+    return from_capture(project), {}

@@ -1,0 +1,117 @@
+# The hand-mapped answer key: which CAD measurement a SysML attribute really is.
+#
+# Its only job is to give a proposer a number. Without it, "the AI suggests good
+# mappings" is an impression; with it, it is a hit rate that a stdlib string
+# matcher can be held up against.
+#
+# THREE THINGS TO UNDERSTAND BEFORE READING THE SCORE
+#
+# 1. AN ANSWER MAY BE RIGHT IN MORE THAN ONE WAY. The same part is measurable
+#    through the build123d script and through its STEP export, and the two give
+#    identical verdicts -- that is the adapter seam working, not a mistake to
+#    penalise. So each entry lists every accepted answer, preferred one first.
+#
+# 2. SOMETIMES THE RIGHT ANSWER IS NOTHING. `boreRadius` is a real attribute of
+#    a real part, and no measurement in the vocabulary can express it: a bounding
+#    box cannot, and the parameter that does know it lives in a script that
+#    cannot address a single component. An entry with an empty `accept:` scores
+#    a hit when the proposer stays silent, and a false positive when it does not.
+#    A proposer that fills every gap with something plausible is worse than one
+#    that leaves gaps, because a human has to check all of them either way.
+#
+# 3. TWO PARTS HAVE THE SAME SHAPE IN X AND Y. Housing and Cover are both
+#    90 x 60, so length and width alone cannot tell them apart -- only the name
+#    can. That is the ambiguity this set exists to measure.
+#
+# One answer key per project. The proposer is scored against this model's
+# attributes only -- a second model's parts are not distractors here, because
+# a run never sees two projects at once.
+version: 1
+
+gold:
+  # --- Gearbox: two components under an assembly ----------------------------
+  # Addressed through the STEP export: the build123d script's build() returns
+  # the whole assembly and cannot name one component.
+  - sysml_part: housing
+    attribute: length
+    accept:
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: bbox_size, args: {axis: X}}
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: bbox_size, args: {axis: X}}
+
+  - sysml_part: housing
+    attribute: width
+    accept:
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: bbox_size, args: {axis: Y}}
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: bbox_size, args: {axis: Y}}
+
+  - sysml_part: housing
+    attribute: height
+    accept:
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: bbox_size, args: {axis: Z}}
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: bbox_size, args: {axis: Z}}
+
+  - sysml_part: housing
+    attribute: mass
+    note: >-
+      Through the SCRIPT, which declares its own material -- and only through it.
+      The STEP route measures the same geometry but carries no material, so it
+      would need `density_g_per_cm3` written into mapping.yaml. That is a fact
+      about the part living in the file that holds the correspondence between
+      the two models, and it goes stale in silence the moment somebody changes
+      the material in the script. Same measurement, worse mapping.
+    accept:
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: mass, args: {}}
+
+  - sysml_part: housing
+    attribute: boreRadius
+    note: >-
+      NOTHING is the right answer. No measurement in the vocabulary yields a
+      bore radius. Suggesting a bounding box extent here would be dimensionally
+      valid, plausible, and wrong -- the exact failure the gates cannot catch,
+      because the mistake is in the meaning rather than in the arithmetic.
+    accept: []
+
+  - sysml_part: cover
+    attribute: length
+    accept:
+      - {adapter: build123d, cad_object: "gearbox#Cover", method: bbox_size, args: {axis: X}}
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: bbox_size, args: {axis: X}}
+
+  - sysml_part: cover
+    attribute: width
+    accept:
+      - {adapter: build123d, cad_object: "gearbox#Cover", method: bbox_size, args: {axis: Y}}
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: bbox_size, args: {axis: Y}}
+
+  - sysml_part: cover
+    attribute: thickness
+    note: >-
+      Z, because the cover is modelled lying flat. Rotate it and this becomes
+      quietly wrong -- the cost of a bounding box standing in for a named
+      feature dimension.
+    accept:
+      - {adapter: build123d, cad_object: "gearbox#Cover", method: bbox_size, args: {axis: Z}}
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: bbox_size, args: {axis: Z}}
+
+  - sysml_part: cover
+    attribute: mass
+    note: Same as the housing mass -- through the script that declares the material.
+    accept:
+      - {adapter: build123d, cad_object: "gearbox#Cover", method: mass, args: {}}
+
+  - sysml_part: cover
+    attribute: boreRadius
+    note: Nothing, for the same reason as the housing bore.
+    accept: []
+
+  - sysml_part: gearbox
+    attribute: mass
+    note: >-
+      The whole file, so the mass aggregates over both components -- this is the
+      assembly-level budget, not a component's mass.
+    accept:
+      # The module builds the assembly and declares its material, so no density
+      # has to be written down anywhere. The STEP route measures the identical
+      # 0.6457 kg but only with an override in mapping.yaml, which is a fact
+      # about the part in the wrong file -- same number, worse mapping.
+      - {adapter: build123d, cad_object: gearbox, method: mass, args: {}}

@@ -1,0 +1,103 @@
+# Mapping, schema v2.
+#
+# Anchored on PARTS, not on requirements -- matching SRS FREQ-3 ("the
+# identifier of the system model element and the name of its attribute, the
+# CAD object and its parameter") and the architecture slide's table
+# partdef -> component, attribute -> parameter.
+#
+# Why this shape: which requirement constrains a part is already in the SysML
+# model, in the `satisfy` link. Repeating it here was duplicating the model.
+# Anchoring on the part means a new requirement on an already-mapped part
+# needs no new mapping entry.
+#
+# This file stays YAML and stays in git on purpose. FREQ-3 asks for a mapping
+# that is human-readable and can be placed under version control -- it is
+# design intent and belongs in review. The append-only EVIDENCE log is the
+# thing that wants a database; the two are not the same store.
+#
+# One mapping per project. Every `sysml_part` below must exist in this
+# project's model -- a part from another model is an error, not a neighbour.
+version: 2
+
+# --- which CAD object is which SysML part -----------------------------------
+# Addressed as `module#Component`, which reaches the script's build_housing()
+# and build_cover(). The STEP export can name the same components and measures
+# them identically -- but it carries no material, so a mass through that route
+# needed a density written into this file. A density is a fact about the part,
+# not a correspondence between the two models: putting it here made this file
+# a third source of truth that neither model owns, and left the check silently
+# stale when the script's material changed. The script declares its own
+# material; addressing the script is what lets it stay the only place that does.
+parts:
+  - sysml_part: housing              # gearbox.housing, via the satisfy chain
+    adapter: build123d
+    cad_object: gearbox#Housing
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-10"
+
+  - sysml_part: cover
+    adapter: build123d
+    cad_object: gearbox#Cover
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-10"
+
+  - sysml_part: gearbox
+    adapter: build123d
+    cad_object: gearbox
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-10"
+    note: "The module's build(), so mass and bounding box aggregate over both
+           components."
+
+# --- which measurement stands for which attribute ---------------------------
+attributes:
+  - sysml_part: housing
+    attribute: length
+    requirement: MaxHousingLength
+    method: bbox_size
+    args:
+      axis: X
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-03"
+
+  - sysml_part: cover
+    attribute: thickness
+    requirement: MaxCoverThickness
+    method: bbox_size
+    args:
+      axis: Z
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-03"
+    note: "Thickness is the Z extent because the cover is modelled lying flat.
+           Rotate it in CAD and this entry becomes quietly wrong -- which is the
+           cost of a bounding box standing in for a named feature dimension."
+
+  - sysml_part: gearbox
+    attribute: mass
+    requirement: MaxAssemblyMass
+    method: mass
+    args: {}                          # density comes from the script's MATERIAL
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-10"
+    note: "No density here on purpose. Change the material in cad/gearbox.py and
+           this check follows; freeze it here and it would not."
+
+  # DELIBERATELY UNMAPPED: housing.boreRadius, checked by MinBoreRadius.
+  # No measurement in the vocabulary can express a bore radius -- a bounding box
+  # cannot, and the parameter that does know it (BORE_RADIUS_MM) lives in the
+  # build123d script, which cannot address a single component. So the run reports
+  # MinBoreRadius as NOT CHECKED, which is the honest answer. Mapping it to
+  # something merely dimensionally plausible would be the exact failure this
+  # project exists to prevent.

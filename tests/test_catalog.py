@@ -21,20 +21,28 @@ from sysmlcad.catalog import (
     load_elements,
     sysml_catalog,
 )
+from sysmlcad.project import load_project
 from sysmlcad.units import ureg
+
+MOTOR = load_project("motor_housing")
+GEARBOX = load_project("gearbox")
 
 
 @pytest.fixture(scope="module")
 def parts():
-    elements, _source = load_elements()
+    """The motor housing project's parts. One project, one capture."""
+    elements, _source = load_elements(MOTOR)
+    return sysml_catalog(elements)
+
+
+@pytest.fixture(scope="module")
+def gearbox_parts():
+    elements, _source = load_elements(GEARBOX)
     return sysml_catalog(elements)
 
 
 @pytest.fixture(scope="module")
 def housing(parts):
-    """The motor housing, looked up by name rather than by position -- the
-    catalogue merges every capture in fixtures/, so what else is in it depends
-    on which models have been published."""
     return next(p for p in parts if p.name == "motorHousing")
 
 
@@ -52,11 +60,17 @@ def test_finds_the_part_and_its_definition(housing):
     assert housing.element_id
 
 
-def test_every_published_model_is_catalogued(parts):
-    """Two models are published, and the catalogue merges every capture. One
-    showing only the other's parts would make its mapping entries look like
-    mistakes to the existence gate."""
-    assert {"motorHousing", "housing", "cover", "gearbox"} <= {p.name for p in parts}
+def test_a_project_sees_only_its_own_model(parts, gearbox_parts):
+    """The inverse of what this test used to assert. The catalogue once merged
+    every capture, so a proposer saw two unrelated `Housing`s side by side and
+    could -- did -- map one model's attributes onto the other's part. A project
+    is one model; the other one is not a neighbour, it is absent."""
+    assert {p.name for p in parts} == {"motorHousing"}
+    assert {p.name for p in gearbox_parts} == {"housing", "cover", "gearbox"}
+
+
+def test_the_two_projects_share_no_parts(parts, gearbox_parts):
+    assert {p.name for p in parts}.isdisjoint({p.name for p in gearbox_parts})
 
 
 def test_lists_the_attributes_of_the_definition(housing):
@@ -72,11 +86,11 @@ def test_each_attribute_appears_once(parts):
         assert len(names) == len(set(names)), f"{part.name} has duplicates"
 
 
-def test_a_nested_part_carries_its_own_attributes(parts):
+def test_a_nested_part_carries_its_own_attributes(gearbox_parts):
     """`gearbox` owns `housing` and `cover`, and each definition's attributes
     must stay with it -- collecting the whole reachable subgraph would give the
     assembly its components' attributes as well."""
-    gearbox = next(p for p in parts if p.name == "gearbox")
+    gearbox = next(p for p in gearbox_parts if p.name == "gearbox")
     assert [a.name for a in gearbox.attributes] == ["mass"]
 
 
@@ -184,7 +198,7 @@ def test_an_ambiguous_node_is_listed_but_not_addressable(tmp_path):
 # --------------------------------------------------------------------------
 
 def test_the_catalogue_can_be_looked_up_by_name():
-    catalog = load_catalog()
+    catalog = load_catalog(MOTOR)
     assert catalog.part("motorHousing") is not None
     assert catalog.attribute("motorHousing", "length").type_name == "LengthValue"
     assert catalog.attribute("motorHousing", "nonsense") is None

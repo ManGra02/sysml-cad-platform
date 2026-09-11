@@ -7,6 +7,14 @@ export PYTHONPATH := src:cad
 # In the devcontainer the Compose overlay sets SYSML_API_URL to http://sysml-api:9000
 API_URL := $(or $(SYSML_API_URL),http://localhost:9000)
 
+# Which project -- one SysML model and its mapping under projects/<name>/. Every
+# verification, gate, catalogue and proposal command works on exactly one.
+#   make verify                     the default project
+#   make verify PROJECT=gearbox     another one
+#   make projects                   what exists
+PROJECT ?= motor_housing
+P := --project $(PROJECT)
+
 # Compose looks for the env file in the directory of the FIRST -f file (docker/),
 # not in the project root. That is why the file lives at docker/.env: the VS Code
 # Dev Containers extension builds its own compose command and cannot pass
@@ -18,12 +26,14 @@ COMPOSE := docker compose --env-file docker/.env \
 
 .PHONY: help venv secret vendor up api jupyter down logs api-docs \
         cad verify verify-api test clean step-fixtures explore-cad catalog gates \
-        propose proposals confirm propose-score
+        propose proposals confirm propose-score projects
 
 help:
 	@echo "In the devcontainer:  cad  verify  verify-api  gates  test  clean"
 	@echo "                      catalog  explore-cad  step-fixtures"
 	@echo "Mapping proposals:    propose  proposals  confirm ID=p-01  propose-score"
+	@echo "Projects:             projects        every command takes PROJECT=<name>"
+	@echo "                      (default: $(PROJECT))"
 	@echo "On the host:          secret  vendor  api  jupyter  logs  down  up"
 
 # ---------------------------------------------------------------- devcontainer
@@ -47,13 +57,16 @@ explore-cad:
 # measurements they support. Reads the captured payload in fixtures/, so it
 # needs no server; `make catalog SOURCE=api` reads the live one.
 catalog:
-	$(PY) -m sysmlcad.catalog $(SOURCE)
+	$(PY) -m sysmlcad.catalog $(P) $(SOURCE)
+
+projects:
+	$(PY) -m sysmlcad.project
 
 # Is the MAPPING sound: dimension, existence, uniqueness, plausibility.
 # A different question from `verify` -- a correctly mapped part that is too long
 # passes here and fails there.
 gates:
-	$(PY) -m sysmlcad.gates
+	$(PY) -m sysmlcad.gates $(P)
 
 # Suggest mapping entries. Nothing is applied: candidates land in
 # mapping/proposals.yaml with status `proposed` and reach mapping.yaml only
@@ -63,26 +76,26 @@ gates:
 # SYSMLCAD_OPENAI_MODEL point at. `filter-out 1` keeps `AI=1` meaning the
 # default backend rather than a model literally named "1".
 propose:
-	$(PY) -m sysmlcad.propose $(if $(AI),--ai $(filter-out 1,$(AI)),) $(if $(TOP),--top $(TOP),)
+	$(PY) -m sysmlcad.propose $(P) $(if $(AI),--ai $(filter-out 1,$(AI)),) $(if $(TOP),--top $(TOP),)
 
 proposals:
-	$(PY) -m sysmlcad.propose --list
+	$(PY) -m sysmlcad.propose $(P) --list
 
 # Confirm one: re-gates it, then writes it into mapping.yaml with your name and
 # the date.   make confirm ID=p-01
 confirm:
-	$(PY) -m sysmlcad.confirm $(ID)
+	$(PY) -m sysmlcad.confirm $(P) $(ID)
 
 # How good is a proposer, against fixtures/gold_mapping.yaml. The number to
 # watch is wrong@1, not hit rate.
 propose-score:
-	$(PY) -m sysmlcad.score $(if $(AI),--ai $(filter-out 1,$(AI)),)
+	$(PY) -m sysmlcad.score $(P) $(if $(AI),--ai $(filter-out 1,$(AI)),)
 
 verify:
-	$(PY) -m sysmlcad.verify
+	$(PY) -m sysmlcad.verify $(P)
 
 verify-api:
-	$(PY) -m sysmlcad.verify api
+	$(PY) -m sysmlcad.verify $(P) api
 
 test:
 	$(PYTEST)

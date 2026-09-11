@@ -25,6 +25,7 @@ cannot pass a machine check has no business taking up a human's attention.
 from __future__ import annotations
 
 import argparse
+import sys
 import re
 from importlib import import_module
 from dataclasses import replace
@@ -32,7 +33,8 @@ from difflib import SequenceMatcher
 from typing import Protocol
 
 from .catalog import Catalog, CatalogAttribute, CatalogPart, load_catalog
-from .extract import load as load_requirements
+from .extract import from_capture
+from .project import Project, UnknownProject, add_project_argument, load_project
 from .gates import MappingCheck, check_entry
 from .mapping import Mapping, load_mapping
 from .model import Requirement
@@ -352,18 +354,19 @@ def already_mapped(mapping: Mapping) -> set[tuple[str, str]]:
 
 
 def run(
+    project: Project,
     proposer: Proposer | None = None,
     top: int = 1,
     catalog: Catalog | None = None,
     mapping: Mapping | None = None,
 ) -> tuple[list[Proposal], list[tuple[Proposal, MappingCheck]]]:
-    """Propose, gate, and rank -- without storing anything."""
+    """Propose, gate, and rank for one project -- without storing anything."""
     proposer = proposer or DifflibProposer()
     pool = AdapterPool()
-    catalog = catalog or load_catalog(pool=pool)
-    mapping = mapping or load_mapping()
+    catalog = catalog or load_catalog(project, pool=pool)
+    mapping = mapping or load_mapping(project.mapping_path)
     requirements = {
-        (r.requirement_id, _leaf(r.subject)): r for r in load_requirements()
+        (r.requirement_id, _leaf(r.subject)): r for r in from_capture(project)
     }
 
     mapped = already_mapped(mapping)
@@ -391,8 +394,8 @@ def run(
 # The commands
 # --------------------------------------------------------------------------
 
-def list_report() -> int:
-    proposals = load_proposals()
+def list_report(project: Project) -> int:
+    proposals = load_proposals(project.proposals_path)
     if not proposals:
         print("\nno proposals yet -- `python -m sysmlcad.propose` makes some.\n")
         return 0
@@ -442,6 +445,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Suggest mapping entries (SRS FREQ-4). Nothing is applied; "
                     "confirm with `python -m sysmlcad.confirm`.",
     )
+    add_project_argument(parser)
     parser.add_argument("--list", action="store_true", help="show the stored proposals")
     parser.add_argument("--ai", nargs="?", const="claude", metavar="BACKEND",
                         help="ask a language model instead of the stdlib "
@@ -453,12 +457,18 @@ def main(argv: list[str] | None = None) -> int:
                         help="print candidates without storing them")
     args = parser.parse_args(argv)
 
+    try:
+        project = load_project(args.project)
+    except UnknownProject as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
     if args.list:
-        return list_report()
+        return list_report(project)
 
     proposer = build_proposer(args.ai)
 
-    kept, dropped = run(proposer=proposer, top=args.top)
+    kept, dropped = run(project, proposer=proposer, top=args.top)
     if getattr(proposer, "dropped", None):
         print("\n  the proposer named things that do not exist "
               "(dropped before gating):")
@@ -466,8 +476,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"    {reason}")
     stored = 0
     if not args.dry_run and kept:
-        proposals, stored = add(load_proposals(), kept)
-        save_proposals(proposals)
+        proposals, stored = add(load_proposals(project.proposals_path), kept)
+        save_proposals(proposals, project.proposals_path)
     return report(kept, dropped, stored)
 
 

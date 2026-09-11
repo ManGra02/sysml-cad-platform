@@ -17,6 +17,7 @@ import yaml
 
 from sysmlcad.confirm import confirm, insert_into_section, reject, render_entry
 from sysmlcad.mapping import load_mapping
+from sysmlcad.project import load_project
 from sysmlcad.proposals import (
     Proposal,
     add,
@@ -28,7 +29,8 @@ from sysmlcad.proposals import (
     save_proposals,
 )
 
-MAPPING_SRC = Path(__file__).resolve().parents[1] / "mapping" / "mapping.yaml"
+MOTOR = load_project("motor_housing")
+MAPPING_SRC = MOTOR.mapping_path
 
 
 def _proposal(**kwargs) -> Proposal:
@@ -109,14 +111,14 @@ def test_a_proposal_is_gated_as_if_it_were_confirmed():
     """"Would this be sound if it were used?" is the question before a
     confirmation -- so the merged entry must not carry `proposed`, or the
     uniqueness gate would ignore it."""
-    mapping = load_mapping()
+    mapping = load_mapping(MAPPING_SRC)
     merged = merged_mapping(mapping, _proposal(sysml_part="newPart"))
     assert merged.attributes[-1].status == "confirmed"
     assert merged.parts["newPart"].status == "confirmed"
 
 
 def test_merging_does_not_overwrite_an_existing_part_entry():
-    mapping = load_mapping()
+    mapping = load_mapping(MAPPING_SRC)
     merged = merged_mapping(mapping, _proposal(cad_object="something_else"))
     assert merged.parts["motorHousing"].cad_object == "motor_housing"
 
@@ -160,7 +162,7 @@ def test_confirming_appends_the_entry_and_records_the_person(workspace, capsys):
     before = mapping.read_text(encoding="utf-8")
     save_proposals([_proposal()], store)
 
-    assert confirm("p-01", user="Vincent Hey", path=mapping, proposals_path=store) == 0
+    assert confirm(MOTOR, "p-01", user="Vincent Hey", path=mapping, proposals_path=store) == 0
 
     after = mapping.read_text(encoding="utf-8")
     assert after.startswith(before.rstrip("\n")), "existing content was modified"
@@ -181,7 +183,7 @@ def test_the_note_records_where_the_entry_came_from(workspace):
     readable, because "why is this here" is the first question in review."""
     mapping, store = workspace
     save_proposals([_proposal()], store)
-    confirm("p-01", user="vh", path=mapping, proposals_path=store)
+    confirm(MOTOR, "p-01", user="vh", path=mapping, proposals_path=store)
 
     entry = next(e for e in load_mapping(mapping).attributes if e.attribute == "mass")
     assert "baseline:difflib" in entry.note
@@ -196,7 +198,7 @@ def test_an_invalid_proposal_is_refused_and_the_file_untouched(workspace, capsys
     before = mapping.read_text(encoding="utf-8")
     save_proposals([_proposal(attribute="wheelbase")], store)
 
-    assert confirm("p-01", user="vh", path=mapping, proposals_path=store) == 1
+    assert confirm(MOTOR, "p-01", user="vh", path=mapping, proposals_path=store) == 1
     assert mapping.read_text(encoding="utf-8") == before
     assert find(load_proposals(store), "p-01").status == "proposed"
     assert "gate says" in capsys.readouterr().out
@@ -205,14 +207,14 @@ def test_an_invalid_proposal_is_refused_and_the_file_untouched(workspace, capsys
 def test_confirming_twice_is_refused(workspace):
     mapping, store = workspace
     save_proposals([_proposal()], store)
-    assert confirm("p-01", user="vh", path=mapping, proposals_path=store) == 0
-    assert confirm("p-01", user="vh", path=mapping, proposals_path=store) == 2
+    assert confirm(MOTOR, "p-01", user="vh", path=mapping, proposals_path=store) == 0
+    assert confirm(MOTOR, "p-01", user="vh", path=mapping, proposals_path=store) == 2
 
 
 def test_an_unknown_id_is_an_error_not_a_crash(workspace):
     mapping, store = workspace
     save_proposals([_proposal()], store)
-    assert confirm("p-99", path=mapping, proposals_path=store) == 2
+    assert confirm(MOTOR, "p-99", path=mapping, proposals_path=store) == 2
 
 
 def test_rejecting_records_the_reason_and_writes_nothing_to_the_mapping(workspace):
@@ -220,7 +222,7 @@ def test_rejecting_records_the_reason_and_writes_nothing_to_the_mapping(workspac
     before = mapping.read_text(encoding="utf-8")
     save_proposals([_proposal()], store)
 
-    assert reject("p-01", "that bore belongs to the cover", "vh", store) == 0
+    assert reject(MOTOR, "p-01", "that bore belongs to the cover", "vh", store) == 0
     assert mapping.read_text(encoding="utf-8") == before
 
     decided = find(load_proposals(store), "p-01")
@@ -233,7 +235,7 @@ def test_a_confirmed_entry_is_what_a_run_would_use(workspace):
     deterministic rule, indistinguishable from a hand-written one."""
     mapping, store = workspace
     save_proposals([_proposal()], store)
-    confirm("p-01", user="vh", path=mapping, proposals_path=store)
+    confirm(MOTOR, "p-01", user="vh", path=mapping, proposals_path=store)
 
     entry = load_mapping(mapping).for_requirement("MaxMass", "motorHousing")
     assert entry is not None and entry.usable

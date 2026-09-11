@@ -1,0 +1,4 @@
+# One project = one SysML model and the mapping that ties it to CAD.
+# See projects/motor_housing/project.yaml for the reasoning; it is the same.
+name: gearbox
+sysml_project: Gearbox

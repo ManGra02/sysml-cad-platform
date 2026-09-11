@@ -159,6 +159,7 @@ class RunContext:
     """
 
     source: str
+    project: str = ""
     sysml_project_id: str = ""
     sysml_commit_id: str = ""
     cad_adapter: str = ""

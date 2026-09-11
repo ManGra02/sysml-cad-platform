@@ -10,6 +10,7 @@ rules these gates do not have.
 import pytest
 
 from sysmlcad.catalog import Catalog, CatalogAttribute, CatalogPart
+from sysmlcad.project import list_projects, load_project
 from sysmlcad.gates import (
     check_mapping,
     gate_dimension,
@@ -66,30 +67,34 @@ def _requirement(limit="120 mm") -> Requirement:
         prop="length", operator="<=", limit=ureg.Quantity(limit),
     )
 
+MOTOR = load_project("motor_housing")
+
 
 # --------------------------------------------------------------------------
 # The real mapping, end to end
 # --------------------------------------------------------------------------
 
-def test_the_committed_mapping_passes_every_gate():
-    checks = check_mapping()
-    assert checks, "no entries checked -- the mapping or the fixture moved"
+@pytest.mark.parametrize("name", list_projects())
+def test_the_committed_mapping_passes_every_gate(name):
+    """Every project's committed mapping, against its own capture."""
+    checks = check_mapping(load_project(name))
+    assert checks, f"{name}: no entries checked -- the mapping or the capture moved"
     for check in checks:
-        assert check.verdict == "valid", f"{check.sysml_part}.{check.attribute}: {check.problems}"
+        assert check.verdict == "valid", f"{name} {check.sysml_part}.{check.attribute}: {check.problems}"
 
 
 def test_a_disabled_entry_is_not_gated():
     """Disabling an entry is a decision, not an oversight. Reporting problems
     with it would be reporting work nobody intends to do."""
     mapping = _mapping(_entry(status="disabled"))
-    assert check_mapping(mapping, CATALOG, [_requirement()], AdapterPool()) == []
+    assert check_mapping(MOTOR, mapping, CATALOG, [_requirement()], AdapterPool()) == []
 
 
 def test_an_unconfirmed_entry_is_still_gated():
     """Checking a proposal before a human confirms it is what the gates are
     for, so `status: proposed` must not exempt an entry from them."""
     mapping = _mapping(_entry(status="proposed"))
-    checks = check_mapping(mapping, CATALOG, [_requirement()], AdapterPool())
+    checks = check_mapping(MOTOR, mapping, CATALOG, [_requirement()], AdapterPool())
     assert len(checks) == 1
     assert checks[0].verdict == "valid"
 
@@ -132,7 +137,7 @@ def test_the_matching_dimension_is_valid():
 
 def test_an_attribute_the_model_does_not_have_is_invalid():
     mapping = _mapping(_entry(attribute="wheelbase"))
-    check = check_mapping(mapping, CATALOG, [_requirement()], AdapterPool())[0]
+    check = check_mapping(MOTOR, mapping, CATALOG, [_requirement()], AdapterPool())[0]
     assert check.verdict == "invalid"
     problem = next(p for p in check.problems if p.gate == "existence")
     assert "wheelbase" in problem.detail
@@ -150,7 +155,7 @@ def test_a_measurement_the_adapter_cannot_make_is_invalid():
         attributes=[_entry(attribute="mass", requirement="MaxMass", method="mass", args={})],
         digest="test",
     )
-    check = check_mapping(mapping, CATALOG, [], AdapterPool())[0]
+    check = check_mapping(MOTOR, mapping, CATALOG, [], AdapterPool())[0]
     assert check.verdict == "invalid"
     assert any("material" in p.detail for p in check.problems)
 

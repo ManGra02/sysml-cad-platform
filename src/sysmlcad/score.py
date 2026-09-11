@@ -22,19 +22,18 @@ the proposer actually exists for: a new project, nothing mapped yet.
 from __future__ import annotations
 
 import argparse
+import sys
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import yaml
 
 from .catalog import Catalog, load_catalog
 from .mapping import Mapping
+from .project import Project, UnknownProject, add_project_argument, load_project
 from .propose import AI_PROPOSERS, DifflibProposer, Proposer, build_proposer, run
 from .proposals import Proposal
 from .verify import AdapterPool
 
-ROOT = Path(__file__).resolve().parents[2]
-GOLD = ROOT / "fixtures" / "gold_mapping.yaml"
 
 
 @dataclass(frozen=True)
@@ -94,8 +93,10 @@ class Score:
         return self.hit_at_3 / self.gold_entries if self.gold_entries else 0.0
 
 
-def load_gold(path: Path = GOLD) -> list[GoldEntry]:
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+def load_gold(project: Project) -> list[GoldEntry]:
+    """This project's answer key. Scoring against another model's parts would
+    measure the proposer against distractors a real run never shows it."""
+    data = yaml.safe_load(project.gold_path.read_text(encoding="utf-8")) or {}
     return [
         GoldEntry(
             sysml_part=item["sysml_part"],
@@ -107,7 +108,7 @@ def load_gold(path: Path = GOLD) -> list[GoldEntry]:
     ]
 
 
-def score(proposer: Proposer, gold: list[GoldEntry], catalog: Catalog) -> Score:
+def score(project: Project, proposer: Proposer, gold: list[GoldEntry], catalog: Catalog) -> Score:
     """Rank the proposer's suggestions against the answer key.
 
     Deliberately run from an empty mapping: the question is what this proposer
@@ -115,6 +116,7 @@ def score(proposer: Proposer, gold: list[GoldEntry], catalog: Catalog) -> Score:
     situation in which anybody reaches for one.
     """
     ranked, _dropped = run(
+        project,
         proposer=proposer,
         top=3,
         catalog=catalog,
@@ -171,13 +173,16 @@ def score(proposer: Proposer, gold: list[GoldEntry], catalog: Catalog) -> Score:
     return result
 
 
-def report(scores: list[Score], gold: list[GoldEntry]) -> int:
-    print(f"\ngold set     : {len(gold)} attribute(s), "
+def report(scores: list[Score], gold: list[GoldEntry], project: Project | None = None) -> int:
+    if project is not None:
+        print(f"\nproject      : {project.name}")
+    print(f"{'' if project else chr(10)}gold set     : {len(gold)} attribute(s), "
           f"{sum(len(g.accept) for g in gold)} accepted answer(s)")
     if len(gold) < 8:
-        print("               TOO SMALL TO SEPARATE PROPOSERS -- publish "
-              "models/gearbox.sysml\n               and extend the set before "
-              "reading anything into a difference.")
+        print("               too small to separate proposers -- a model this "
+              "size cannot\n               tell a language model from a string "
+              "matcher; read the number as\n               a smoke test, not a "
+              "measurement.")
 
     header = f"\n{'proposer':<22} {'hit@1':>10} {'hit@3':>10} {'wrong@1':>9} {'missed':>8}"
     print(header)
@@ -206,14 +211,21 @@ def main(argv: list[str] | None = None) -> int:
         prog="python -m sysmlcad.score",
         description="Score mapping proposers against the hand-mapped gold set.",
     )
+    add_project_argument(parser)
     parser.add_argument("--ai", nargs="?", const="claude", metavar="BACKEND",
                         help=f"also score a language model: "
                              f"{', '.join(sorted(AI_PROPOSERS))}. Needs that "
                              f"backend's SDK and credentials")
     args = parser.parse_args(argv)
 
-    gold = load_gold()
-    catalog = load_catalog(pool=AdapterPool())
+    try:
+        project = load_project(args.project)
+    except UnknownProject as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    gold = load_gold(project)
+    catalog = load_catalog(project, pool=AdapterPool())
 
     # The baseline always runs: a model's number means nothing on its own, and
     # showing them side by side is the entire point of this command.
@@ -221,7 +233,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.ai:
         proposers.append(build_proposer(args.ai))
 
-    return report([score(p, gold, catalog) for p in proposers], gold)
+    return report([score(project, p, gold, catalog) for p in proposers], gold, project)
 
 
 if __name__ == "__main__":

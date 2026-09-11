@@ -23,11 +23,13 @@ code .        # then "Reopen in Container"
 Then, **inside the devcontainer**:
 
 ```bash
-make cad            # run the CAD scripts, write STEP to out/
-make verify         # verify against fixtures/requirements.json
-make gates          # is the MAPPING sound? (a different question)
-make test           # pytest, JUnit XML to out/ (180 tests)
-make catalog        # what exists on each side, as data
+make projects              # the SysML models this repo knows: one dir each
+make cad                   # run the CAD scripts, write STEP to out/
+make verify                # verify the default project (motor_housing)
+make verify PROJECT=gearbox   # ...or another one, against ITS mapping
+make gates                 # is the MAPPING sound? (a different question)
+make test                  # pytest, JUnit XML to out/ (201 tests)
+make catalog               # what exists on each side, as data
 make explore-cad FILE=fixtures/step/gearbox.step   # what is in a STEP file
 make step-fixtures  # regenerate fixtures/step/ after changing a CAD script
 ```
@@ -128,21 +130,23 @@ vendor/                       hni-ase/SysML-v2-API-Services (clone, not in git)
 models/
 ├── motor_housing.sysml       the system model, textual -- kept in step with
                               the notebook, which is what reaches the server
-└── gearbox.sysml             the two-part assembly; written, not yet published
-notebooks/                    01_publish_motor_housing.ipynb
+└── gearbox.sysml             the two-part assembly
+notebooks/                    01_publish_motor_housing.ipynb, 02_publish_gearbox.ipynb
 cad/
 ├── motor_housing.py          the reference part as a build123d script
 ├── gearbox.py                two-part assembly, Housing + Cover, shared bore
 └── export_fixtures.py        writes fixtures/step/, `make step-fixtures`
+projects/                     ONE DIRECTORY PER SYSML MODEL -- nothing shared
+├── motor_housing/
+│   ├── project.yaml          name + the model's Package / server project name
+│   ├── mapping.yaml          parts ↔ CAD objects, attributes ↔ measurements
+│   ├── elements.json         a captured API response -- the offline source
+│   ├── gold_mapping.yaml     the answer key for scoring proposers on this model
+│   └── proposals.yaml        machine-written; no verification run reads it
+└── gearbox/                  the same five files for the gearbox
 fixtures/
-├── requirements.json         stand-in + regression test
-├── elements.json             a captured API response -- the offline source
-├── gold_mapping.yaml         the answer key for scoring proposers
 ├── ai_response.json          a constructed model response, for offline tests
 └── step/                     committed STEP fixtures for the step adapter
-mapping/
-├── mapping.yaml              parts ↔ CAD objects, attributes ↔ measurements
-└── proposals.yaml            machine-written; no verification run reads it
 src/sysmlcad/
 ├── config.py                 SYSML_API_URL from the environment
 ├── units.py                  exactly one pint registry
@@ -298,7 +302,7 @@ only through an explicit confirmation.
 
 ```bash
 make catalog            # what is on each side: parts, attributes, CAD targets
-make propose            # stdlib name matching -> mapping/proposals.yaml
+make propose            # stdlib name matching -> projects/<name>/proposals.yaml
 make propose AI=claude   # ask Claude instead  (pip install anthropic)
 make propose AI=openai   # ...or any OpenAI-protocol server, local included
 make proposals          # what is waiting for a decision
@@ -357,30 +361,35 @@ answer is checked field by field against the catalogue, then gated, then shown
 to a human. What changes with model quality is the scoreboard, not the safety
 properties — which is exactly what `make propose-score AI=openai` measures.
 
-**Is it any good?** `make propose-score` answers that against
-`fixtures/gold_mapping.yaml` — thirteen attributes across both models, two of
-which have *no* correct mapping, so silence is the right answer:
+**Is it any good?** `make propose-score PROJECT=gearbox` answers that against
+the project's own `gold_mapping.yaml` — eleven attributes, two of which have
+*no* correct mapping, so silence is the right answer:
 
 ```
+project      : gearbox
 proposer                    hit@1      hit@3   wrong@1   missed
-baseline:difflib      11/13 (85%) 11/13 (85%)         2        0
+baseline:difflib      11/11 (100%) 11/11 (100%)         0        0
 ```
 
 Watch `wrong@1`, not the hit rate: a confident wrong answer costs more than a
-missing one, because it looks exactly like a right one. Both remaining failures
-are the same case — the mass of a component in a STEP file with no material. The
-correct mapping needs a density nobody wrote down, the proposer must not invent
-one, so the right behaviour is silence and it proposes the whole assembly
-instead.
+missing one, because it looks exactly like a right one.
 
-Two real models have been measured through this, on the Paderborn gateway:
+Three real models have been measured through this — against the **former
+merged gold set** of thirteen attributes across both projects, before each
+model got its own. The numbers are kept because the finding is what matters,
+and they are not directly comparable to the per-project baseline above:
 
 ```
-baseline:difflib          13/13 (100%)  wrong@1 0   missed 0
+baseline:difflib (then)   11/13 (85%)   wrong@1 2   missed 0
 gwdg.gemma-4-31b-it        4/13 (31%)   wrong@1 1   missed 8
 gwdg.qwen3.5-397b-a17b     3/13 (23%)   wrong@1 5   missed 5
 gemini-3.8-flash           4/13 (31%)   wrong@1 0   missed 9
 ```
+
+Part of every model's difficulty was the merged set itself: two unrelated
+`Housing`s in one excerpt, with nothing saying they came from different models.
+That is gone — a project's excerpt now contains one model — so re-measuring
+the models is the obvious next run.
 
 Model size predicted nothing. The largest is worst, and worst in the column that
 costs the most: it proposes the whole `gearbox` assembly for the housing's

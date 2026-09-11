@@ -26,26 +26,23 @@ a different answer from "checked and fine".
 
 from __future__ import annotations
 
-import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from .adapters import CadTarget
 from .extract import _of_type, find_first
+from .project import Project, UnknownProject, add_project_argument, load_project
 from .sysml_client import SysMLClient
 from .units import ureg
 from .verify import AdapterPool
 
 ROOT = Path(__file__).resolve().parents[2]
 
-#: Captured API responses, so the catalogue (and its tests) run without a
-#: server. They live in fixtures/ rather than out/ because `make clean` empties
-#: out/. Every capture is read and merged: the repository knows about two
-#: published models, and a catalogue that showed only one would make the other's
-#: mapping entries look like mistakes. Element ids are UUIDs, so merging is safe.
-ELEMENTS_DIR = ROOT / "fixtures"
-ELEMENTS_GLOB = "*elements*.json"
+#: One project, one capture, never merged. The catalogue used to glob every
+#: capture it could find and merge them, which put two unrelated models' parts
+#: side by side -- two `Housing`s from two models, indistinguishable to a
+#: proposer. A catalogue describes ONE model; which one is the project's job.
 
 #: Where to look for STEP files worth cataloguing. Project layout, not adapter
 #: knowledge -- which is why it lives here and not in the adapter.
@@ -230,40 +227,26 @@ def sysml_catalog(elements: list[dict]) -> tuple[CatalogPart, ...]:
     return tuple(out)
 
 
-def load_elements(source: str | None = None) -> tuple[list[dict], str]:
-    """Elements plus a one-word note on where they came from.
+def load_elements(project: Project, source: str | None = None) -> tuple[list[dict], str]:
+    """This project's elements, plus a one-word note on where they came from.
 
-    `source="api"` reads the live server; anything else reads the captured
-    payload, so every consumer of the catalogue works offline by default.
+    `source="api"` reads the server project of the same name; anything else
+    reads the project's capture, so every consumer works offline by default.
     """
     if source == "api":
         client = SysMLClient()
         try:
-            projects = client.projects()
-            if not projects:
-                raise RuntimeError("no projects on the API server")
-            project_id = sorted(projects, key=lambda p: p.get("created", ""))[-1]["@id"]
+            matching = [p for p in client.projects() if p.get("name") == project.sysml_project]
+            if not matching:
+                raise RuntimeError(
+                    f"no project named {project.sysml_project!r} on the API server"
+                )
+            project_id = sorted(matching, key=lambda p: p.get("created", ""))[-1]["@id"]
             return client.all_elements(project_id, client.head_commit(project_id)), "api"
         finally:
             client.close()
 
-    if source:
-        path = Path(source)
-        if not path.is_file():
-            raise FileNotFoundError(f"no element capture at {path}")
-        return json.loads(path.read_text(encoding="utf-8")), str(path)
-
-    captures = sorted(ELEMENTS_DIR.glob(ELEMENTS_GLOB))
-    if not captures:
-        raise FileNotFoundError(
-            f"no element capture in {ELEMENTS_DIR}/{ELEMENTS_GLOB}. Publish a "
-            f"model, then run `python -m sysmlcad.explore` and copy the dump here."
-        )
-
-    merged: list[dict] = []
-    for capture in captures:
-        merged.extend(json.loads(capture.read_text(encoding="utf-8")))
-    return merged, ", ".join(c.name for c in captures)
+    return project.elements(), str(project.elements_path.relative_to(ROOT))
 
 
 # --------------------------------------------------------------------------
@@ -290,8 +273,12 @@ def cad_catalog(pool: AdapterPool | None = None) -> tuple[CadTarget, ...]:
     return tuple(out)
 
 
-def load_catalog(source: str | None = None, pool: AdapterPool | None = None) -> Catalog:
-    elements, origin = load_elements(source)
+def load_catalog(
+    project: Project,
+    source: str | None = None,
+    pool: AdapterPool | None = None,
+) -> Catalog:
+    elements, origin = load_elements(project, source)
     return Catalog(
         parts=sysml_catalog(elements),
         targets=cad_catalog(pool),
@@ -332,9 +319,24 @@ def report(catalog: Catalog) -> int:
     return 0
 
 
-def main() -> int:
-    source = sys.argv[1] if len(sys.argv) > 1 else None
-    return report(load_catalog(source))
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="python -m sysmlcad.catalog",
+        description="What exists on each side of one project, as data.",
+    )
+    add_project_argument(parser)
+    parser.add_argument("source", nargs="?", default=None,
+                        help="'api' for the live server; omit for the project's capture")
+    args = parser.parse_args(argv)
+
+    try:
+        project = load_project(args.project)
+    except UnknownProject as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    return report(load_catalog(project, args.source))
 
 
 if __name__ == "__main__":

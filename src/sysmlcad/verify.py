@@ -15,6 +15,7 @@ from .adapters.build123d_adapter import Build123dAdapter
 from .adapters.step_adapter import StepAdapter
 from .extract import load_with_context
 from .mapping import AttributeMapping, Mapping, load_mapping
+from .project import Project, UnknownProject, add_project_argument, load_project
 from .model import (
     DimensionMismatch,
     Requirement,
@@ -99,15 +100,20 @@ def _evaluate(
     )
 
 
-def run(source: str | None = None) -> Run:
-    requirements, state = load_with_context(source)
-    mapping = load_mapping()
+def run(project: Project, source: str | None = None) -> Run:
+    """One project, one mapping, one model. `source="api"` reads the server
+    project of the same name; anything else reads the project's capture."""
+    requirements, state = load_with_context(project, source)
+    mapping = load_mapping(project.mapping_path)
     pool = AdapterPool()
 
     verdicts: list[Verdict] = []
     gaps: list[str] = []
 
-    for req in requirements:
+    # Sorted, so the same model state gives the same report byte for byte --
+    # the API returns elements in whatever order it likes, and a citable
+    # verdict should not depend on that.
+    for req in sorted(requirements, key=lambda r: r.requirement_id):
         subject = _leaf(req.subject)
         entry = mapping.for_requirement(req.requirement_id, subject)
 
@@ -140,6 +146,7 @@ def run(source: str | None = None) -> Run:
 
     context = RunContext(
         source="api" if source == "api" else "fixture",
+        project=project.name,
         cad_adapter=pool.names,
         cad_state_id=pool.state_id,
         mapping_digest=mapping.digest,
@@ -150,7 +157,8 @@ def run(source: str | None = None) -> Run:
 
 def report(result: Run) -> int:
     ctx = result.context
-    print(f"\nsource       : {ctx.source}")
+    print(f"\nproject      : {ctx.project}")
+    print(f"source       : {ctx.source}")
     if ctx.sysml_commit_id:
         print(f"sysml commit : {ctx.sysml_commit_id}")
     print(f"cad state    : {ctx.cad_state_id or '-'}")
@@ -202,9 +210,24 @@ def report(result: Run) -> int:
     return result.exit_code
 
 
-def main() -> int:
-    source = sys.argv[1] if len(sys.argv) > 1 else None
-    return report(run(source))
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="python -m sysmlcad.verify",
+        description="Verify one project's requirements against its CAD geometry.",
+    )
+    add_project_argument(parser)
+    parser.add_argument("source", nargs="?", default=None,
+                        help="'api' for the live server; omit for the project's capture")
+    args = parser.parse_args(argv)
+
+    try:
+        project = load_project(args.project)
+    except UnknownProject as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    return report(run(project, args.source))
 
 
 if __name__ == "__main__":

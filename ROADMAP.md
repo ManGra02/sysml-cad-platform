@@ -110,7 +110,7 @@ to an exact model state, and the commit id used to be fetched and discarded.
 rather than a schema migration.
 
 **Closed from Stage A:** the two-part assembly. `models/gearbox.sysml` is
-published and captured (`fixtures/gearbox_elements.json`, 370 elements): three
+published and captured (`projects/gearbox/elements.json`, 370 elements): three
 parts, ten attributes, a shared bore as the interface dimension, an
 assembly-level mass budget. `make verify-api` checks three requirements across
 two components and reports the fourth as a gap, because no measurement in the
@@ -315,11 +315,16 @@ guarantees the shape of an answer, not its truth, and an invented-but-well-typed
 dropped rather than defaulted to X: filling that in would be the project's whole
 failure mode in one line.
 
-**Still unmeasured, and honest about it.** `fixtures/gold_mapping.yaml` has two
-entries, so both proposers score 2/2 and the comparison means nothing. The
-report says so itself rather than letting a reader draw the flattering
-conclusion. It becomes a real measurement when `models/gearbox.sysml` is
-published — see the Stage A note above.
+**Measured, and the measurement changed the structure.** Three language models
+were scored against a thirteen-entry gold set — and all three were worse than
+the string matcher, the largest one worst and in the dangerous direction. Part
+of the reason turned out to be the set itself: it merged both models, so every
+proposer saw two unrelated `Housing`s in one excerpt with nothing to tell them
+apart. That is what led to **one project per model** (`projects/<name>/`, see
+CLAUDE.md): one mapping, one capture, one gold set, and no run that ever reads
+two. The per-project baseline is 2/2 and 11/11 with no false positives; the
+models have not been re-measured since, and that re-run is the obvious next
+step for Stage H.
 
 ---
 

@@ -38,9 +38,9 @@ from collections import Counter
 from dataclasses import dataclass
 
 from .adapters import Unsupported
-from .catalog import Catalog, load_catalog, load_elements
-from .extract import elements_to_requirements
-from .extract import load as load_fixture_requirements
+from .catalog import Catalog, load_catalog
+from .extract import from_capture
+from .project import Project, UnknownProject, add_project_argument, load_project
 from .mapping import AttributeMapping, Mapping, load_mapping
 from .model import Requirement
 from .units import Q
@@ -270,21 +270,22 @@ def check_entry(
 
 
 def check_mapping(
+    project: Project,
     mapping: Mapping | None = None,
     catalog: Catalog | None = None,
     requirements: list[Requirement] | None = None,
     pool: AdapterPool | None = None,
 ) -> list[MappingCheck]:
-    """Every attribute entry, disabled ones excluded.
+    """Every attribute entry of one project's mapping, disabled ones excluded.
 
     A disabled entry is a decision, not an oversight -- gating it would report
     problems nobody intends to fix.
     """
-    mapping = mapping or load_mapping()
+    mapping = mapping or load_mapping(project.mapping_path)
     pool = pool or AdapterPool()
-    catalog = catalog or load_catalog(pool=pool)
+    catalog = catalog or load_catalog(project, pool=pool)
     if requirements is None:
-        requirements = _known_requirements()
+        requirements = from_capture(project)
 
     by_key = {
         (r.requirement_id, _leaf(r.subject)): r for r in requirements
@@ -294,22 +295,6 @@ def check_mapping(
         for entry in mapping.attributes
         if entry.status != "disabled"
     ]
-
-
-def _known_requirements() -> list[Requirement]:
-    """Every requirement the repository knows about, from the same captures the
-    catalogue reads.
-
-    Not the fixture: `fixtures/requirements.json` is a hand-written stand-in for
-    one model, and gating a second model's entries against it leaves their
-    limits unknown -- so the plausibility gate would report `unknown` for every
-    one of them and mean nothing by it.
-    """
-    try:
-        elements, _source = load_elements()
-    except FileNotFoundError:
-        return load_fixture_requirements()
-    return elements_to_requirements(elements)
 
 
 def unused_parts(mapping: Mapping) -> list[str]:
@@ -325,9 +310,10 @@ def unused_parts(mapping: Mapping) -> list[str]:
 _MARK = {"valid": "ok", "unknown": "?", "invalid": "FAIL"}
 
 
-def report(checks: list[MappingCheck], mapping: Mapping | None = None) -> int:
-    mapping = mapping or load_mapping()
-    print(f"\nmapping      : {mapping.digest}")
+def report(checks: list[MappingCheck], mapping: Mapping, project: Project | None = None) -> int:
+    if project is not None:
+        print(f"\nproject      : {project.name}")
+    print(f"{'' if project else chr(10)}mapping      : {mapping.digest}")
     print(f"entries      : {len(checks)}")
     print("\nThis checks the MAPPING, not the design. A correctly mapped part")
     print("that is too long passes here and fails `make verify` -- as it should.\n")
@@ -364,9 +350,24 @@ def report(checks: list[MappingCheck], mapping: Mapping | None = None) -> int:
     return 1 if counts["invalid"] else 0
 
 
-def main() -> int:
-    mapping = load_mapping()
-    return report(check_mapping(mapping), mapping)
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(
+        prog="python -m sysmlcad.gates",
+        description="Is one project's MAPPING sound? (Not: is the design compliant.)",
+    )
+    add_project_argument(parser)
+    args = parser.parse_args(argv)
+
+    try:
+        project = load_project(args.project)
+    except UnknownProject as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    mapping = load_mapping(project.mapping_path)
+    return report(check_mapping(project, mapping), mapping, project)
 
 
 if __name__ == "__main__":

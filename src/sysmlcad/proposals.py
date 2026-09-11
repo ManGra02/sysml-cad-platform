@@ -1,6 +1,6 @@
 """The proposal store: candidate mappings, before a human has decided on them.
 
-Two stores, two jobs. `mapping/mapping.yaml` is design intent: hand-written,
+Two stores, two jobs. `projects/<name>/mapping.yaml` is design intent: hand-written,
 commented, reviewed, and the only thing a verification run reads.
 `mapping/proposals.yaml` is a machine's suggestions: appended to by a proposer,
 emptied of nothing, and read by no run at all. Keeping them apart is what makes
@@ -25,8 +25,9 @@ import yaml
 
 from .mapping import AttributeMapping, Mapping, PartMapping
 
-ROOT = Path(__file__).resolve().parents[2]
-PROPOSALS = ROOT / "mapping" / "proposals.yaml"
+#: There is no default path any more. Proposals belong to a project
+#: (`Project.proposals_path`); a proposal without a project would be a
+#: suggestion about nothing in particular.
 
 STATUSES = ("proposed", "confirmed", "rejected")
 
@@ -133,16 +134,14 @@ def merged_mapping(mapping: Mapping, proposal: Proposal) -> Mapping:
 # The file
 # --------------------------------------------------------------------------
 
-def load_proposals(path: Path | None = None) -> list[Proposal]:
-    path = path or PROPOSALS
+def load_proposals(path: Path) -> list[Proposal]:
     if not path.is_file():
         return []
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     return [Proposal(**item) for item in data.get("proposals") or []]
 
 
-def save_proposals(proposals: list[Proposal], path: Path | None = None) -> None:
-    path = path or PROPOSALS
+def save_proposals(proposals: list[Proposal], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     body = yaml.safe_dump(
         {"version": 1, "proposals": [asdict(p) for p in proposals]},

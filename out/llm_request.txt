@@ -1,7 +1,7 @@
 ==============================================================================
 WAS DAS SPRACHMODELL BEKOMMT
-Aufgezeichnet aus dem echten Aufruf von OpenAIProposer._call(),
-gegen den aktuellen Katalog (fixtures/*elements*.json + cad/).
+Aufgezeichnet aus dem echten Aufruf von OpenAIProposer._call(), Projekt 'gearbox'.
+Ein Projekt = ein Modell: der Auszug enthaelt genau dieses eine.
 ==============================================================================
 
 model            : gwdg.gemma-4-31b-it
@@ -36,13 +36,9 @@ Keep each rationale to one sentence naming the actual evidence -- the names that
 matched, the parameter you relied on. "Seems related" is not a rationale.
 
 ==============================================================================
-NACHRICHT  role = user   (3175 Zeichen)
+NACHRICHT  role = user   (3036 Zeichen)
 ==============================================================================
 # SYSTEM MODEL
-
-part motorHousing : Housing
-    attribute length : LengthValue  [dimension: [length]]
-    attribute mass : MassValue  [dimension: [mass]]
 
 part cover : Cover
     attribute length : LengthValue  [dimension: [length]]
@@ -127,8 +123,6 @@ Propose the mappings you are confident about. Use only names that appear above.
 
 ==============================================================================
 ANTWORTSCHEMA  (response_format.json_schema.schema)
-Erzwingt die FORM der Antwort. Die INHALTE werden danach gegen den
-Katalog geprueft -- ein Schema garantiert Typen, keine Wahrheit.
 ==============================================================================
 {
   "$defs": {

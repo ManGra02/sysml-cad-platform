@@ -115,11 +115,13 @@ def test_the_committed_mapping_carries_no_density(adapter):
     the correspondence between two models. There is now a route that does not
     need one, so there should be none left."""
     from sysmlcad.mapping import load_mapping
+    from sysmlcad.project import list_projects, load_project
 
-    for entry in load_mapping().attributes:
-        assert "density_g_per_cm3" not in (entry.args or {}), (
-            f"{entry.sysml_part}.{entry.attribute} freezes a density in the mapping"
-        )
+    for name in list_projects():
+        for entry in load_mapping(load_project(name).mapping_path).attributes:
+            assert "density_g_per_cm3" not in (entry.args or {}), (
+                f"{name}: {entry.sysml_part}.{entry.attribute} freezes a density in the mapping"
+            )
 
 
 # --------------------------------------------------------------------------

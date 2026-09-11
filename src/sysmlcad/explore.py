@@ -69,14 +69,33 @@ def walk(eid: str, by_id: dict[str, dict], depth: int = 0, seen: set | None = No
                 walk(ref["@id"], by_id, depth + 1, seen)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    from .project import UnknownProject, add_project_argument, load_project
+
+    parser = argparse.ArgumentParser(
+        prog="python -m sysmlcad.explore",
+        description="Dump one project's elements from the live server.",
+    )
+    add_project_argument(parser)
+    parser.add_argument("name", nargs="?", default=None,
+                        help="an element name to print the tree of, e.g. MaxLength")
+    args = parser.parse_args(argv)
+
+    try:
+        project = load_project(args.project)
+    except UnknownProject as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
     client = SysMLClient()
     try:
-        projects = client.projects()
+        projects = [p for p in client.projects() if p.get("name") == project.sysml_project]
         if not projects:
-            print("No projects on the server.")
+            print(f"No project named {project.sysml_project!r} on the server.")
             return 1
-        # The most recently created project wins.
+        # Same name published twice: the newest of those, and say so.
         proj = sorted(projects, key=lambda p: p.get("created", ""))[-1]
         print(f"Project: {proj.get('name')} ({proj['@id']})")
 
@@ -94,7 +113,7 @@ def main() -> int:
     print(f"\nFull dump: {OUT}")
 
     by_id = index(elements)
-    wanted = sys.argv[1] if len(sys.argv) > 1 else None
+    wanted = args.name
     if wanted:
         hits = [e for e in elements if (e.get("declaredName") or e.get("name")) == wanted]
         if not hits:
@@ -108,7 +127,7 @@ def main() -> int:
             {e.get("declaredName") for e in elements if e.get("declaredName")}
         )
         print("\nNamed elements:", ", ".join(names[:30]))
-        print("\nNext: python -m sysmlcad.explore MaxLength")
+        print(f"\nNext: python -m sysmlcad.explore --project {project.name} MaxLength")
     return 0
 
 

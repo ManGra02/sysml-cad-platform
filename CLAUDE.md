@@ -5,7 +5,7 @@ Check SysML v2 requirements automatically against CAD geometry. CI turns red whe
 the CAD model violates a system requirement. Later: a mapping store, AI-assisted
 mapping proposals, bidirectional sync, SMT-based verification.
 
-**Status: stages A, A2, E and H complete; 180 tests pass.** The verification
+**Status: stages A, A2, E and H complete; 201 tests pass.** The verification
 chain runs end to end (SysML v2 API → extractor → CAD adapter → verdict → exit
 code), and on top of it the mapping can now be *proposed*: a catalogue of both
 sides, four gates over any proposed entry, a proposal store, a human
@@ -14,18 +14,26 @@ and a Claude one. The server side runs on the `hni-ase/SysML-v2-API-Services`
 fork. All three reference runs at the bottom of this file reproduce exactly,
 digests included.
 
-Two models are published and captured: `MotorHousing` (one part) and `Gearbox`
-(three parts, ten attributes, an interface dimension and an assembly mass
-budget). The baseline proposer scores **11/13 hit@1 with 2 false positives**
-against `fixtures/gold_mapping.yaml`.
+Two models are published and captured, **each as its own project** under
+`projects/<name>/` — `motor_housing` (one part) and `gearbox` (three parts, ten
+attributes, an interface dimension and an assembly mass budget). A project is
+one SysML model plus the mapping that ties it to CAD (FREQ-3: "the mapping is
+stored with the project"); every command works on exactly one, chosen with
+`PROJECT=<name>`, and no run ever merges two. The baseline proposer scores
+**2/2 and 11/11 with zero false positives** against each project's own gold set.
 
 The AI path has now been run for real, against the University of Paderborn
 gateway (`https://ai-gateway.uni-paderborn.de/v1/`, OpenAI protocol, 74 models).
-Two models measured against the same gold set:
+Three models measured — against the **former merged gold set** (13 attributes
+across both models, before projects existed; the baseline row is from the same
+run). Not directly comparable to today's per-project 2/2 and 11/11, and part of
+every model's difficulty was the merged excerpt itself: two `Housing`s from two
+models with nothing to tell them apart. Re-measuring per project is the obvious
+next run.
 
 | proposer | hit@1 | wrong@1 | missed | gateway |
 |---|---|---|---|---|
-| `baseline:difflib` | **11/13** | 2 | 0 | — |
+| `baseline:difflib` (then) | **11/13** | 2 | 0 | — |
 | `gwdg.gemma-4-31b-it` | 4/13 | 1 | 8 | UPB |
 | `gwdg.qwen3.5-397b-a17b` | 3/13 | **5** | 5 | UPB |
 | `gemini-3.8-flash` | 4/13 | **0** | 9 | AI Studio |
@@ -95,23 +103,27 @@ Compose files: `docker/docker-compose.yml` + `.devcontainer/docker-compose.dev.y
 
 **Inside the devcontainer:**
 ```bash
+# Every command below works on ONE project: `PROJECT=<name>`, default
+# motor_housing. `make projects` lists them. There is no "newest" fallback.
+make projects                   # what projects exist under projects/
 make cad                        # CAD scripts, writes out/motor_housing.step
-make verify                     # verify against fixtures/requirements.json
-make verify-api                 # verify against the live API server
+make verify                     # verify the default project from its capture
+make verify PROJECT=gearbox     # ...another project
+make verify-api                 # verify against the live server, matched BY NAME
 make gates                      # is the MAPPING sound? (not: is the design ok)
 make catalog                    # what exists on each side, as data
 make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
 make step-fixtures              # regenerate fixtures/step/ (they are committed)
-python -m sysmlcad.verify api   # same as make verify-api
-make test                       # pytest, JUnit XML to out/ (180 tests)
+python -m sysmlcad.verify -p gearbox api   # same as make verify-api PROJECT=gearbox
+make test                       # pytest, JUnit XML to out/ (201 tests)
 
 # Mapping proposals -- nothing here can change a verdict
-make propose                    # baseline proposer -> mapping/proposals.yaml
+make propose                    # baseline proposer -> projects/<name>/proposals.yaml
 make propose AI=claude          # ask Claude instead (needs the SDK + a key)
 make propose AI=openai          # ...or any OpenAI-protocol server, local too
 make proposals                  # what is waiting for a decision
 make confirm ID=p-01            # gate it again, then write it into mapping.yaml
-make propose-score              # hit rate against fixtures/gold_mapping.yaml
+make propose-score              # hit rate against projects/<name>/gold_mapping.yaml
 python -m sysmlcad.explore      # element dump to out/elements.json
 python -m sysmlcad.explore MaxLength   # tree of one requirement
 python -m sysmlcad.explore_cad fixtures/step/gearbox.step   # the CAD side
@@ -145,28 +157,28 @@ docker/            docker-compose.yml, jupyter.Dockerfile, .env (gitignored),
 vendor/            hni-ase/SysML-v2-API-Services (git clone, not in the repo)
 .github/workflows/ verify.yml -- CI runs against the FIXTURE, not the API
                    (deliberate: CI must be able to go green without a server)
-models/            motor_housing.sysml
-notebooks/         01_publish_motor_housing.ipynb
+models/            motor_housing.sysml, gearbox.sysml
+notebooks/         01_publish_motor_housing.ipynb, 02_publish_gearbox.ipynb
 cad/               motor_housing.py, gearbox.py (two-part assembly),
                    export_fixtures.py (writes fixtures/step/)
-fixtures/          requirements.json  (stand-in + regression test)
-                   elements.json      (captured API response -- the offline
-                                       source for the catalogue and its tests;
-                                       moved out of out/, which `make clean`
-                                       empties)
-                   gold_mapping.yaml  (the answer key for proposer scoring)
-                   ai_response.json   (a CONSTRUCTED model response, so the AI
+projects/          ONE DIRECTORY PER SYSML MODEL. Everything that belongs to a
+                   model lives together, and nothing is shared between two.
+  <name>/
+    project.yaml   name + sysml_project (the Package / server project name)
+    mapping.yaml   schema v2: parts ↔ CAD objects, attributes ↔ measurements
+    elements.json  captured API response -- the offline source for
+                   requirements, catalogue and tests. Checked on load: its
+                   Package must be `sysml_project`, or it is refused
+    gold_mapping.yaml   the answer key for scoring proposers on this model
+    proposals.yaml machine-written; committed, because a rejection is worth
+                   remembering. No verification run opens it
+fixtures/          ai_response.json   (a CONSTRUCTED model response, so the AI
                                        proposer's validation is testable with
                                        no key; says so in its own _comment)
-                   step/*.step        (committed STEP fixtures)
-mapping/           mapping.yaml       (schema v2: parts ↔ CAD objects,
-                                       attributes ↔ measurements)
-                   proposals.yaml     (machine-written; committed, because a
-                                       rejection is worth remembering the next
-                                       time a proposer suggests the same pair.
-                                       No verification run opens it)
+                   step/*.step        (committed STEP fixtures, shared)
 src/sysmlcad/      config, units, model, sysml_client, extract, mapping,
                    verify, explore
+                   project.py     Project: one model, one mapping, no guessing
                    catalog.py     what exists on each side, as data
                    gates.py       is the mapping sound (≠ is the design ok)
                    proposals.py   the proposal store
@@ -225,8 +237,8 @@ first:
    `Proposal`s with a confidence and a rationale (FREQ-4)
 3. `propose.gate()` runs every candidate through `gates.py` **before storing
    it**; the rejects are reported, not silently dropped
-4. survivors go to `mapping/proposals.yaml` with `status: proposed`. No
-   verification run opens that file
+4. survivors go to `projects/<name>/proposals.yaml` with `status: proposed`.
+   No verification run opens that file
 5. `confirm.py` re-gates one, then appends it to `mapping.yaml` with the
    confirming user and date (FREQ-5). Only now can a run use it
 
@@ -386,10 +398,27 @@ first:
   inserts it at the end of its section, leaving every existing byte alone, then
   re-parses the result and restores the original if it does not read back as
   intended. The dependency was tried and dropped; do not reintroduce it.
-- **The catalogue merges every capture in `fixtures/*elements*.json`.** Two
-  models are published; a catalogue showing only one would make the other's
-  mapping entries look like mistakes to the existence gate. Element ids are
-  UUIDs, so merging is safe.
+- **One project, one capture, never merged.** The catalogue used to glob every
+  `fixtures/*elements*.json` and merge them, so that gates could find every
+  mapping entry's part. The price: a proposer — and the LLM excerpt — saw two
+  unrelated models' parts side by side, two `Housing`s with no package to tell
+  them apart, and `verify api` verified whichever project was published last.
+  A `Project` (`project.py`) now binds one capture to one mapping; the server
+  project is matched **by name**, and a capture whose Package is not the
+  project's `sysml_project` is refused on load. Guarded by
+  `test_a_project_sees_only_its_own_model` and
+  `test_a_capture_of_another_model_is_refused`.
+- **There is no default project.** `--project`, `SYSMLCAD_PROJECT`, or an
+  error listing what exists — never "the only one" or "the newest one". Which
+  model gets verified is stated, not inferred; inferring it from publish order
+  is exactly how the wrong one got verified. The Makefile's `PROJECT ?=
+  motor_housing` is a convenience for the documented commands, not a fallback
+  in the library.
+- **`fixtures/requirements.json` is gone.** It was a hand-written stand-in for
+  one model's requirements. Every project has a real capture now, and the
+  extractor reads requirements from it — the same two requirements, verified
+  (120 mm, 0.9 kg, `<=`, `motorHousing`), through the real code path. Only
+  the `element_id` in a VIOLATED line changed, from `fixture-req-001` to a UUID.
 - **Two models can both have a `housing`.** `CatalogPart.qualified` is
   `Gearbox::housing`, and the proposer compares that against the CAD object's
   *file plus node* rather than the bare names. Measured, not assumed: with
@@ -474,7 +503,7 @@ first:
   from the script and once from its STEP export. It also pins the refusals —
   ambiguous node name, missing material, inch-authored file — because each of
   those is a case where a plausible wrong number would be worse than a gap.
-- Several tests read the **committed** `mapping/mapping.yaml` on purpose
+- Several tests read the **committed** `projects/*/mapping.yaml` on purpose
   (`test_the_committed_mapping_passes_every_gate`, `test_requirements.py`).
   That means editing that file while a test run is in flight produces a real
   failure, which is the intended behaviour and not a flake — but it is worth
@@ -599,7 +628,8 @@ Set the motorHousing part entry to `status: proposed` and the run now says
 ## Verified reference run
 
 ```
-$ python -m sysmlcad.verify                # LENGTH_MM = 118.0
+$ make verify                              # PROJECT=motor_housing, LENGTH_MM = 118.0
+project      : motor_housing
 source       : fixture
 cad state    : build123d:bdaee4cff5d3ddfa
 mapping      : a4b11cc20a9634e8
@@ -610,7 +640,7 @@ MaxMass    mass               0.7429 kg            0.9 kg        -0.1571 kg  OK
 2 compliant, 0 within tolerance, 0 violated, 0 not checked   → exit 0
 
 $ sed -i 's/LENGTH_MM = 118.0/LENGTH_MM = 123.0/' cad/motor_housing.py
-$ python -m sysmlcad.verify
+$ make verify
 MaxLength  length                123 mm            120 mm             +3 mm  VIOLATED
   VIOLATED MaxLength: length = 123 mm <= 120 mm is false (over by 3 mm; ...)
                                                              → exit 1
@@ -658,12 +688,6 @@ Ordering that must not be broken: **gates before writes, gates before AI,
 adapter seam before FreeCAD.** The middle one is now satisfied rather than
 merely planned — every proposal passes `gates.py` before it is stored, and a
 human before it is used.
-
-**The one thing left before the proposer means anything:** publish
-`models/gearbox.sysml` (three parts, ten attributes, written and waiting) and
-capture its elements to `fixtures/gearbox_elements.json`. Until then the gold
-set has two entries and cannot separate a language model from a string
-matcher — both score 2/2, which says nothing about either.
 
 The target system is specified in `goal_spec.txt` (SRS v0.1) and the HNI/IEM
 use-case slides; ROADMAP.md records where this project deliberately deviates

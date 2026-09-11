@@ -27,6 +27,7 @@ is put back and nothing is written.
 from __future__ import annotations
 
 import argparse
+import sys
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,12 +35,12 @@ from pathlib import Path
 import yaml
 
 from .catalog import load_catalog
-from .extract import load as load_requirements
+from .extract import from_capture
+from .project import Project, UnknownProject, add_project_argument, load_project
 from .gates import check_entry
-from .mapping import MAPPING, load_mapping
+from .mapping import load_mapping
 from .verify import AdapterPool, _leaf
 from .proposals import (
-    PROPOSALS,
     Proposal,
     decide,
     find,
@@ -110,10 +111,9 @@ def insert_into_section(text: str, section: str, block: str) -> str:
 def write_entries(
     proposal: Proposal,
     user: str,
-    path: Path | None = None,
+    path: Path,
 ) -> list[str]:
     """Append what this proposal becomes. Returns a note per section written."""
-    path = path or MAPPING
     original = path.read_text(encoding="utf-8")
     before = load_mapping(path)
     text = original
@@ -178,12 +178,16 @@ def _today() -> str:
 # --------------------------------------------------------------------------
 
 def confirm(
+    project: Project,
     proposal_id: str,
     user: str = "",
     path: Path | None = None,
     proposals_path: Path | None = None,
 ) -> int:
-    path = path or MAPPING
+    """`path` and `proposals_path` default to the project's own; tests pass
+    temporary copies so the committed files are never touched."""
+    path = path or project.mapping_path
+    proposals_path = proposals_path or project.proposals_path
     proposals = load_proposals(proposals_path)
     proposal = find(proposals, proposal_id)
     if proposal is None:
@@ -202,8 +206,8 @@ def confirm(
     check = check_entry(
         merged.attributes[-1],
         merged,
-        load_catalog(pool=pool),
-        {(r.requirement_id, _leaf(r.subject)): r for r in load_requirements()},
+        load_catalog(project, pool=pool),
+        {(r.requirement_id, _leaf(r.subject)): r for r in from_capture(project)},
         pool,
     )
 
@@ -230,16 +234,18 @@ def confirm(
     for note in written:
         print(f"  + {note}")
     print(f"\n{path.relative_to(Path.cwd()) if path.is_relative_to(Path.cwd()) else path} "
-          f"now carries the entry. `make verify` will use it.\n")
+          f"now carries the entry. `make verify PROJECT={project.name}` will use it.\n")
     return 0
 
 
 def reject(
+    project: Project,
     proposal_id: str,
     reason: str,
     user: str = "",
     proposals_path: Path | None = None,
 ) -> int:
+    proposals_path = proposals_path or project.proposals_path
     proposals = load_proposals(proposals_path)
     proposal = find(proposals, proposal_id)
     if proposal is None:
@@ -249,7 +255,7 @@ def reject(
     user = user or current_user()
     save_proposals(decide(proposals, proposal_id, "rejected", user, reason), proposals_path)
     print(f"{proposal_id} rejected by {user}"
-          f"{': ' + reason if reason else ''} -- kept in {PROPOSALS.name} as a record.")
+          f"{': ' + reason if reason else ''} -- kept in {proposals_path.name} as a record.")
     return 0
 
 
@@ -258,15 +264,22 @@ def main(argv: list[str] | None = None) -> int:
         prog="python -m sysmlcad.confirm",
         description="Confirm or reject a mapping proposal (SRS FREQ-5).",
     )
+    add_project_argument(parser)
     parser.add_argument("id", help="proposal id, e.g. p-01")
     parser.add_argument("--user", default="", help="who is deciding (default: git user.name)")
     parser.add_argument("--reject", action="store_true", help="record a rejection instead")
     parser.add_argument("--reason", default="", help="why it was rejected")
     args = parser.parse_args(argv)
 
+    try:
+        project = load_project(args.project)
+    except UnknownProject as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
     if args.reject:
-        return reject(args.id, args.reason, args.user)
-    return confirm(args.id, args.user)
+        return reject(project, args.id, args.reason, args.user)
+    return confirm(project, args.id, args.user)
 
 
 if __name__ == "__main__":

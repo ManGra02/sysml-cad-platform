@@ -19,7 +19,7 @@ from sysmlcad.extract import elements_to_requirements, resolve_satisfies
 #: A captured publish of models/gearbox.sysml -- three parts, and two of the
 #: four satisfy links written as dotted paths. Nothing else in the repository
 #: exercises a feature chain.
-GEARBOX = Path(__file__).resolve().parents[1] / "fixtures" / "gearbox_elements.json"
+GEARBOX = Path(__file__).resolve().parents[1] / "projects" / "gearbox" / "elements.json"
 
 
 def _graph(name, value, unit_short, operator="<="):
