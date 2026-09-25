@@ -1,0 +1,22 @@
+# Build-Ergebnis des Frontends (wird vom Backend ausgeliefert)
+backend/app/static/*
+!backend/app/static/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+.vite/
+
+# Laufzeit: Port und Token der laufenden Bruecke, nie einchecken
+bridge.json
+
+# Werkzeuge
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+Thumbs.db

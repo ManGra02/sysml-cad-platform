@@ -1,0 +1,11 @@
+* text=auto eol=lf
+*.ps1 eol=crlf
+*.bat eol=crlf
+*.sh eol=lf
+
+# Generiert -- bei Konflikt loeschen und neu erzeugen, nie von Hand mergen
+frontend/src/routeTree.gen.ts linguist-generated -merge
+
+# Binaerformat
+*.FCStd binary
+*.svg text

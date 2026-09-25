@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
+  <name>SysML-CAD Platform Bridge</name>
+  <description>
+    Brücke zwischen FreeCAD und der SysML-CAD-Plattform. Stellt das CAD-Modell über einen
+    lokalen HTTP/WebSocket-Dienst bereit (nur 127.0.0.1). Enthält bewusst keine Fachlogik.
+  </description>
+  <version>0.1.0</version>
+  <date>2026-09-11</date>
+  <maintainer email="a.alex2302@gmail.com">Projektgruppe SysML v2 to 3D</maintainer>
+  <license file="LICENSE">MIT</license>
+  <icon>Resources/icons/bridge.svg</icon>
+  <freecadmin>1.1.0</freecadmin>
+  <tag>utility</tag>
+  <tag>integration</tag>
+
+  <content>
+    <workbench>
+      <!-- Loader-Regel 1: ohne dieses <workbench>-Element wird InitGui.py NIE ausgefuehrt.
+           Loader-Regel 2: <subdirectory> faellt sonst auf <name> zurueck; der Code liegt
+                           hier im Wurzelverzeichnis des Addons, also './'.
+           Loader-Regel 3: <classname> muss exakt der Python-Klassenname sein. -->
+      <classname>CadBridgeWorkbench</classname>
+      <name>SysMLCadBridge</name>
+      <subdirectory>./</subdirectory>
+      <icon>Resources/icons/bridge.svg</icon>
+      <description>CAD-Bruecke fuer die SysML-CAD-Plattform</description>
+      <freecadmin>1.1.0</freecadmin>
+    </workbench>
+  </content>
+</package>
