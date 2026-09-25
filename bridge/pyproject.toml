@@ -1,0 +1,20 @@
+# Nur fuer das Backend: macht cad_contract als editierbares Paket einbindbar.
+# FreeCAD ignoriert diese Datei; es findet cad_contract ueber sein eigenes
+# Mod-Verzeichnis.
+#
+# Bewusst NUR cad_contract -- freecad_bridge und bridge_addon importieren
+# FreeCAD und gehoeren nie in die Backend-Umgebung.
+
+[project]
+name = "cad-contract"
+version = "0.3.0"
+description = "Gemeinsamer Vertrag zwischen FreeCAD-Bruecke und Plattform-Backend"
+requires-python = ">=3.11,<3.12"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cad_contract"]

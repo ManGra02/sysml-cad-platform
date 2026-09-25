@@ -1,0 +1,35 @@
+[project]
+name = "sysml-cad-backend"
+version = "0.1.0"
+description = "Plattform-Backend: liefert die Oberflaeche aus, verwaltet die Verbindung zur FreeCAD-Bruecke und beherbergt die Fachlogik der Projekte"
+# Gepinnt auf 3.11 wie FreeCADs gebuendeltes Python: cad_contract laeuft in
+# beiden Umgebungen, und PEP-695-Syntax darf nicht versehentlich hineinrutschen.
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "aiohttp>=3.9",
+    "cad-contract",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+]
+
+[tool.uv.sources]
+cad-contract = { path = "../bridge", editable = true }
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["../tests/backend"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+target-version = "py311"

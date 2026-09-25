@@ -119,8 +119,25 @@ def write_handshake(port, token, session_id):
         os.chmod(tmp, 0o600)
     except OSError:
         pass  # unter Windows ohne Wirkung, kein Grund zu scheitern
-    os.replace(tmp, target)
+    _replace_with_retry(tmp, target)
     return target
+
+
+def _replace_with_retry(src, dst, attempts=50):
+    """os.replace, das unter Windows kurz auf Leser wartet.
+
+    Das Backend liest bridge.json bei JEDEM Verbindungsversuch. Hat es die
+    Datei im selben Moment offen, verweigert Windows das Ersetzen mit
+    PermissionError -- der Bruecken-Start scheiterte dann zufaellig.
+    Gefunden im M5-Ende-zu-Ende-Test.
+    """
+    for _ in range(attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            time.sleep(0.01)
+    os.replace(src, dst)
 
 
 def read_handshake():

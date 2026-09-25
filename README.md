@@ -69,7 +69,8 @@ Drei Dinge laufen: FreeCAD, Backend, Vite.
 ```bash
 # 1. FreeCAD starten, Workbench "SysML-CAD Brücke" wählen, Brücke starten
 # 2. Backend
-uv run uvicorn app.main:app --reload --port 8000
+cd backend && uv sync && uv run python -m app --reload --dev
+# oder alles auf einmal: scripts/dev.ps1 bzw. scripts/dev.sh
 # 3. Frontend
 pnpm dev
 ```
@@ -83,7 +84,17 @@ das Flag schattet es die gebündelten Pakete. In FreeCADs Python wird nichts ins
 ```bash
 # Brücke -- braucht FreeCADs Python (aiohttp + unittest sind dort vorhanden, pytest nicht)
 PYTHONNOUSERSITE=1 "<FreeCAD>/bin/python.exe" tests/bridge/run.py
+
+# Backend -- ohne FreeCAD, gegen eine nachgebaute Bruecke
+cd backend && uv run pytest
+
+# Ende-zu-Ende: echte Bruecke, echtes Backend, simulierter Browser
+cd backend && uv run python ../scripts/e2e/m5_acceptance.py
 ```
+
+Der Ende-zu-Ende-Test braucht die Ports 8000 und 8765 -- FreeCAD mit laufender Bruecke
+vorher beenden. Er prueft den Abnahmefall aus M5: Bruecke stoppen, in FreeCAD Objekte
+anlegen, Bruecke starten -- der Browser ist danach aktuell, ohne neu zu laden.
 
 Läuft FreeCAD mit gestarteter Brücke, überspringen sich die Lebenszyklus-Tests von
 selbst — sie brauchen Port 8765. Für den vollständigen Lauf die Brücke im Dock-Panel
@@ -130,7 +141,7 @@ Junction nicht erreichbar, weil FreeCAD nur `Mod/SysMLCadPlatform` sieht.
 | M2 Brücke: Lesen (Baum, Batch, Detail, Auswahl) | ✅ |
 | M3 Brücke: Schreiben | ✅ |
 | M4 Brücke: Events | ✅ |
-| M5 Backend verbindet sich, Resync | offen |
+| M5 Backend verbindet sich, Resync | ✅ |
 | M6 Frontend: Explorer + Property-Editor | offen |
 | M7 Launcher + Projekt-Registry | offen |
 | M8 Objekt-Lifecycle + Speichern | offen |
