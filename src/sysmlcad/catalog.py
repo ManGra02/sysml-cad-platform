@@ -27,12 +27,12 @@ a different answer from "checked and fine".
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .adapters import CadTarget
 from .extract import _of_type, fetch_elements, find_first
-from .project import Project, UnknownProject, add_project_argument, load_project
+from .project import DEFAULT_AXES, Project, UnknownProject, add_project_argument, load_project
 from .units import ureg
 from .verify import AdapterPool
 
@@ -119,6 +119,10 @@ class Catalog:
     parts: tuple[CatalogPart, ...] = ()
     targets: tuple[CadTarget, ...] = ()
     source: str = ""
+    #: Which bounding-box axis each named dimension is measured along on this
+    #: project's CAD side -- `Project.axes`. Part of the excerpt because it is a
+    #: fact about how the CAD side is oriented, and every proposer needs it.
+    axes: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_AXES), hash=False)
 
     def part(self, name: str) -> CatalogPart | None:
         return next((p for p in self.parts if p.name == name), None)
@@ -247,19 +251,29 @@ def load_elements(project: Project, source: str | None = None) -> tuple[list[dic
 # The CAD side
 # --------------------------------------------------------------------------
 
-def cad_catalog(pool: AdapterPool | None = None) -> tuple[CadTarget, ...]:
+def cad_catalog(
+    pool: AdapterPool | None = None,
+    project_dirs: tuple[Path, ...] = (),
+) -> tuple[CadTarget, ...]:
     """Every CAD target this project can currently address.
 
     The adapters answer "what is in this module / this file"; deciding *which*
     modules and files to ask about is project layout, so it happens here and
     not behind the seam.
+
+    `project_dirs` adds a project's own STEP files: an export that belongs to
+    one model lives in that model's directory, next to its mapping, rather
+    than among the shared fixtures every project sees.
     """
     pool = pool or AdapterPool()
     out: list[CadTarget] = list(pool.get("build123d").catalog())
 
+    def reference(path: Path) -> str:
+        return str(path.relative_to(ROOT) if path.is_relative_to(ROOT) else path)
+
     files = [
-        str(path.relative_to(ROOT))
-        for directory in STEP_DIRS if directory.is_dir()
+        reference(path)
+        for directory in (*STEP_DIRS, *project_dirs) if directory.is_dir()
         for path in sorted(directory.glob("*.step"))
     ]
     if files:
@@ -275,8 +289,9 @@ def load_catalog(
     elements, origin = load_elements(project, source)
     return Catalog(
         parts=sysml_catalog(elements),
-        targets=cad_catalog(pool),
+        targets=cad_catalog(pool, project_dirs=(project.root,)),
         source=origin,
+        axes=dict(project.axes),
     )
 
 
@@ -287,7 +302,11 @@ def load_catalog(
 def report(catalog: Catalog) -> int:
     print(f"\nsysml source : {catalog.source}")
     print(f"parts        : {len(catalog.parts)}")
-    print(f"cad targets  : {len(catalog.targets)}\n")
+    print(f"cad targets  : {len(catalog.targets)}")
+    print(f"axes         : length {catalog.axes.get('length', '?')}, "
+          f"width {catalog.axes.get('width', '?')}, "
+          f"height {catalog.axes.get('height', '?')}"
+          f"{'' if catalog.axes == DEFAULT_AXES else '  (project.yaml)'}\n")
 
     header = f"{'part / attribute':<32} {'type':<20} {'dimension':<24} element"
     print(header)

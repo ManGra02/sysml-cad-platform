@@ -53,14 +53,9 @@ _BY_DIMENSION = {
     ureg.dimensionless.dimensionality: ("face_count",),
 }
 
-#: Which axis a named dimension is measured along. A convention, not a fact --
-#: which is why every proposal that uses it says so in its rationale, and why
-#: `mapping.yaml` carries the same warning under `note`.
-_AXIS_BY_NAME = {
-    "length": "X", "long": "X", "depth": "X",
-    "width": "Y", "breadth": "Y",
-    "height": "Z", "thickness": "Z", "tall": "Z",
-}
+#: Which axis a named dimension is measured along comes from the catalogue --
+#: the project's `axes:` over `project.DEFAULT_AXES`. A convention, not a fact,
+#: which is why every proposal that uses it says so in its rationale.
 
 
 class Proposer(Protocol):
@@ -251,7 +246,7 @@ class DifflibProposer:
 
                 args = {}
                 if method == "bbox_size":
-                    axis = _AXIS_BY_NAME.get(normalise(attribute.name).split()[-1])
+                    axis = catalog.axes.get(normalise(attribute.name).split()[-1])
                     if axis is None:
                         continue    # no idea which axis; guessing is the bug
                     args = {"axis": axis}
@@ -268,8 +263,8 @@ class DifflibProposer:
                     rationale=(
                         f"identity match {part_score:.2f} between {matched_on!r} "
                         f"and {target.reference!r}; {why}"
-                        + (f"; {attribute.name} taken along {args['axis']} by naming "
-                           f"convention, not from the model" if args else "")
+                        + (f"; {attribute.name} taken along {args['axis']} by the "
+                           f"project's axis convention, not from the model" if args else "")
                     ),
                     proposed_by=self.name,
                 ))

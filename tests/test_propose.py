@@ -236,7 +236,7 @@ def test_proposing_writes_nothing_to_the_mapping():
 # The scoreboard -- a floor, not a target
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize("name, floor", [("motor_housing", 2), ("gearbox", 11)])
+@pytest.mark.parametrize("name, floor", [("motor_housing", 2), ("gearbox", 11), ("box1", 3), ("box2", 3)])
 def test_the_baseline_does_not_regress(name, floor):
     """Pins the number the AI has to beat, per project.
 
@@ -286,3 +286,15 @@ def test_part_conflicts_are_summarised_once_per_part(capsys):
     assert "3 named another CAD object" in out
     assert out.count("housing:") == 1
     assert "a.step#Housing, gearbox" in out
+
+
+
+def test_the_axis_comes_from_the_project_s_convention():
+    """Configured, not hard-coded: with Chili3D's orientation in the catalogue,
+    `length` is proposed along Y -- and the rationale says where that came from."""
+    chili = Catalog(parts=(PART,), targets=(SCRIPT,), source="test",
+                    axes={"length": "Y", "width": "Z", "height": "X"})
+    length = next(p for p in DifflibProposer().propose(chili)
+                  if p.attribute == "length" and p.method == "bbox_size")
+    assert length.args == {"axis": "Y"}
+    assert "axis convention" in length.rationale

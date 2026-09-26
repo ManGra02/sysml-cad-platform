@@ -55,6 +55,8 @@ def test_every_gap_is_a_known_one(name):
 EXPECTED = {
     "motor_housing": {"MaxLength", "MaxMass"},
     "gearbox": {"MaxAssemblyMass", "MaxCoverThickness", "MaxHousingLength", "MinBoreRadius"},
+    "box1": {"MaxLength", "MaxWidth", "MaxHeight"},
+    "box2": {"MaxLength", "MaxWidth", "MaxHeight"},
 }
 
 

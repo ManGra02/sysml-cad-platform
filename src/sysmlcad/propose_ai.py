@@ -73,6 +73,8 @@ Two rules that matter more than coverage:
 
 `bbox_size` measures the bounding box along one axis, which is not the same
 thing as a named feature dimension -- say so in the rationale when you use it.
+Take the axis for a named dimension from the excerpt's "axes" line; CAD systems
+differ, and it is not always X, Y, Z.
 `mass` is listed as measurable only where the excerpt names the object's
 material, and the density comes from that material. Never supply a density.
 
@@ -160,6 +162,14 @@ def render_catalog(catalog: Catalog) -> str:
         lines.append("")
 
     lines += ["# CAD MODEL", ""]
+    # How this CAD side is oriented. Without it a model can only guess which
+    # axis a "length" lies along -- and a CAD system that puts it on Y would
+    # have every such guess wrong in the same, plausible-looking way.
+    lines.append(
+        "axes for bbox_size: "
+        + ", ".join(f"{name} {axis}" for name, axis in catalog.axes.items())
+    )
+    lines.append("")
     for target in catalog.targets:
         if not target.addressable:
             lines.append(f"cad_object {target.reference}  -- NOT ADDRESSABLE: {target.note}")

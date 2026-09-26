@@ -323,3 +323,12 @@ def test_a_truncated_claude_answer_yields_nothing_and_says_why():
     proposer = ClaudeProposer(client=type("Client", (), {"messages": _Messages()})())
     assert proposer.propose(CATALOG) == []
     assert any("max_tokens" in reason for reason in proposer.dropped)
+
+
+
+def test_the_excerpt_states_the_axis_convention():
+    """Without it a model can only assume X/Y/Z -- wrong for Chili3D, in the
+    same plausible-looking way for every dimension."""
+    chili = Catalog(parts=(PART,), targets=(SCRIPT,), axes={"length": "Y", "width": "Z", "height": "X"})
+    assert "axes for bbox_size: length Y, width Z, height X" in render_catalog(chili)
+    assert "length X" in render_catalog(CATALOG)

@@ -33,6 +33,7 @@ which refuses anything not yet confirmed.
 
 from __future__ import annotations
 
+import re
 import sys
 from collections import Counter
 from dataclasses import dataclass, replace
@@ -262,6 +263,30 @@ def gate_plausibility(requirement: Requirement | None, measured: Q | None) -> Ga
     )
 
 
+def off_axis(entry: AttributeMapping, catalog: Catalog) -> str | None:
+    """Does a `bbox_size` entry measure along the axis the project's convention
+    names for this attribute? None when it does, or when no convention applies.
+
+    Folded into plausibility, so never `invalid`: a part may legitimately lie
+    on its side, and the entry is then right where the convention is not. But
+    it is worth a look -- and it is what surfaces every entry left behind when
+    `axes:` in project.yaml changes, instead of letting them measure the wrong
+    extent in silence.
+    """
+    if entry.method != "bbox_size":
+        return None
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", entry.attribute)
+    words = re.sub(r"[_\-.]+", " ", spaced).lower().split()
+    expected = catalog.axes.get(words[-1]) if words else None
+    actual = str((entry.args or {}).get("axis", "")).upper()
+    if expected is None or not actual or actual == expected:
+        return None
+    return (
+        f"{entry.attribute} is measured along {actual}, but this project's axis "
+        f"convention puts {words[-1]} on {expected} (project.yaml `axes:`)"
+    )
+
+
 # --------------------------------------------------------------------------
 # Running them
 # --------------------------------------------------------------------------
@@ -277,6 +302,14 @@ def check_entry(
     existence, measured = gate_existence(entry, catalog, mapping, pool)
     part = mapping.part_for(entry)
 
+    plausibility = gate_plausibility(requirement, measured)
+    axis_note = off_axis(entry, catalog)
+    if axis_note:
+        plausibility = GateResult(
+            "plausibility", "unknown",
+            f"{axis_note}; {plausibility.detail}" if plausibility.detail else axis_note,
+        )
+
     return MappingCheck(
         sysml_part=entry.sysml_part,
         attribute=entry.attribute,
@@ -288,7 +321,7 @@ def check_entry(
             existence,
             gate_dimension(entry, catalog, requirement, measured),
             gate_uniqueness(entry, mapping),
-            gate_plausibility(requirement, measured),
+            plausibility,
         ),
     )
 

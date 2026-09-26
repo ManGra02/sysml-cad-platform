@@ -267,3 +267,26 @@ def test_gates_and_verdicts_are_independent():
     assert requirement.evaluate(over_limit)[0] == "violated"
     assert gate_dimension(_entry(), CATALOG, requirement, over_limit).verdict == "valid"
     assert gate_plausibility(requirement, over_limit).verdict != "invalid"
+
+
+
+# --------------------------------------------------------------------------
+# The axis convention
+# --------------------------------------------------------------------------
+
+def test_an_entry_against_the_axis_convention_is_flagged_not_condemned():
+    """A part may lie on its side, so this is never `invalid` -- but when a
+    project's `axes:` changes, every entry left on the old axis must show up
+    rather than measure the wrong extent in silence."""
+    from sysmlcad.gates import off_axis
+
+    chili = Catalog(parts=(HOUSING,), source="test",
+                    axes={"length": "Y", "width": "Z", "height": "X"})
+    assert off_axis(_entry(), chili) is not None, "length along X, convention says Y"
+    assert off_axis(_entry(args={"axis": "Y"}), chili) is None
+    assert off_axis(_entry(), CATALOG) is None, "the default convention puts length on X"
+
+    check = check_mapping(MOTOR, _mapping(_entry()), chili, [_requirement()], AdapterPool())[0]
+    plausibility = next(r for r in check.results if r.gate == "plausibility")
+    assert plausibility.verdict == "unknown"
+    assert check.verdict == "unknown", "flagged, never invalid"

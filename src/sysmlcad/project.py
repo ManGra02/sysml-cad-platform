@@ -20,8 +20,9 @@ missing.
         gold_mapping.yaml   the answer key for scoring proposers
         proposals.yaml      machine-written, read by no verification run
 
-`project.yaml` holds two keys and nothing else; every other path is the
-directory plus a fixed name. The one check on load is the one that matters: the
+`project.yaml` holds two keys, plus an optional `axes:` for CAD systems that do
+not put length, width and height on X, Y and Z (see `DEFAULT_AXES`); every
+other path is the directory plus a fixed name. The one check on load is the one that matters: the
 capture's Package must be the project it claims to be, so a mis-filed
 `elements.json` fails loudly instead of quietly verifying the wrong model.
 """
@@ -30,13 +31,27 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECTS_DIR = ROOT / "projects"
+
+#: Which bounding-box axis a named dimension is measured along, unless a
+#: project says otherwise. A convention, not a standard: it is what build123d
+#: and FreeCAD do with a box's length, width and height, and what the scripts in
+#: `cad/` follow. Other CAD systems differ -- Chili3D writes a box's Length
+#: along Y, Width along Z and Height along X (measured on two exports) -- which
+#: is why a project can override any of these in `project.yaml` under `axes:`.
+DEFAULT_AXES: dict[str, str] = {
+    "length": "X", "long": "X", "depth": "X",
+    "width": "Y", "breadth": "Y",
+    "height": "Z", "thickness": "Z", "tall": "Z",
+}
+
+_AXES = {"X", "Y", "Z"}
 
 #: How a CLI learns which project is meant when `--project` is not given.
 #: There is no other fallback: guessing a project would be guessing which
@@ -53,6 +68,10 @@ class Project:
     name: str
     sysml_project: str
     root: Path
+    #: `DEFAULT_AXES` with this project's `axes:` from project.yaml on top.
+    #: Read by the proposers, the LLM excerpt and the gates -- never by a run,
+    #: which measures exactly the axis each mapping entry states.
+    axes: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_AXES), hash=False)
 
     @property
     def mapping_path(self) -> Path:
@@ -133,7 +152,38 @@ def load_project(name: str | None = None, projects_dir: Path = PROJECTS_DIR) -> 
     if not sysml_project:
         raise ValueError(f"{root / 'project.yaml'} has no `sysml_project:` -- which model is this?")
 
-    return Project(name=name, sysml_project=str(sysml_project), root=root)
+    return Project(
+        name=name,
+        sysml_project=str(sysml_project),
+        root=root,
+        axes=_axes(meta.get("axes"), root / "project.yaml"),
+    )
+
+
+def _axes(configured, where: Path) -> dict[str, str]:
+    """`DEFAULT_AXES`, overridden by the project's own `axes:`.
+
+    Refused rather than guessed when malformed: an axis convention that
+    silently fell back to the default would measure the wrong extent and
+    report it with confidence.
+    """
+    axes = dict(DEFAULT_AXES)
+    if configured is None:
+        return axes
+    if not isinstance(configured, dict):
+        raise ValueError(f"{where}: `axes:` must map dimension names to X, Y or Z")
+    for name, axis in configured.items():
+        value = str(axis).upper()
+        if value not in _AXES:
+            raise ValueError(f"{where}: axes.{name} is {axis!r}, expected X, Y or Z")
+        axes[str(name).lower()] = value
+    main = [axes["length"], axes["width"], axes["height"]]
+    if len(set(main)) != 3:
+        raise ValueError(
+            f"{where}: length, width and height must lie on three different axes, "
+            f"not {main}"
+        )
+    return axes
 
 
 def add_project_argument(parser) -> None:

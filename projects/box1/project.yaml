@@ -1,0 +1,18 @@
+# One project = one SysML model and the mapping that ties it to CAD.
+# See projects/motor_housing/project.yaml for the reasoning; it is the same.
+#
+# The first project whose CAD side is a file this repository did not generate:
+# Box1.step, exported by an OpenCASCADE-based tool, lives in this directory
+# because it belongs to this model and to no other.
+name: box1
+sysml_project: Box1
+
+# How the CAD side is oriented: which bounding-box axis carries which named
+# dimension. Chili3D writes a box's Length along Y, Width along Z and Height
+# along X -- measured on two exports (Box1: 300/400/500, Box2: 100/200/300),
+# confirmed by the model's owner: "if Chili3D models it that way, that is how
+# it is". Unset keys keep project.DEFAULT_AXES (length X, width Y, height Z).
+axes:
+  length: Y
+  width: Z
+  height: X

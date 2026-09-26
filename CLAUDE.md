@@ -5,7 +5,7 @@ Check SysML v2 requirements automatically against CAD geometry. CI turns red whe
 the CAD model violates a system requirement. Later: a mapping store, AI-assisted
 mapping proposals, bidirectional sync, SMT-based verification.
 
-**Status: stages A, A2, E and H complete; 254 tests pass** (240 plus 14
+**Status: stages A, A2, E and H complete; 280 tests pass** (266 plus 14
 skipped without the optional AI SDKs, which is how CI's first step runs). The verification
 chain runs end to end (SysML v2 API → extractor → CAD adapter → verdict → exit
 code), and on top of it the mapping can now be *proposed*: a catalogue of both
@@ -15,9 +15,12 @@ and a Claude one. The server side runs on the `hni-ase/SysML-v2-API-Services`
 fork. All three reference runs at the bottom of this file reproduce exactly,
 digests included.
 
-Two models are published and captured, **each as its own project** under
-`projects/<name>/` — `motor_housing` (one part) and `gearbox` (three parts, ten
-attributes, an interface dimension and an assembly mass budget). A project is
+Four models are published and captured, **each as its own project** under
+`projects/<name>/` — `motor_housing` (one part), `gearbox` (three parts, ten
+attributes, an interface dimension and an assembly mass budget), and `box1` and
+`box2` (one cuboid each, checked against `projects/box<n>/Box<n>.step`,
+exported from the browser CAD Chili3D -- the first CAD files this repository did
+not generate, and the reason the axis convention is now configuration). A project is
 one SysML model plus the mapping that ties it to CAD (FREQ-3: "the mapping is
 stored with the project"); every command works on exactly one, chosen with
 `PROJECT=<name>`, and no run ever merges two. The baseline proposer scores
@@ -107,6 +110,8 @@ Compose files: `docker/docker-compose.yml` + `.devcontainer/docker-compose.dev.y
 # Every command below works on ONE project: `PROJECT=<name>`, default
 # motor_housing. `make projects` lists them. There is no "newest" fallback.
 make projects                   # what projects exist under projects/
+make publish NB=notebooks/04_publish_box2.ipynb   # %publish without clicking
+make capture PROJECT=box2       # server state -> projects/box2/elements.json
 make cad                        # CAD scripts, writes out/motor_housing.step
 make verify                     # verify the default project from its capture
 make verify PROJECT=gearbox     # ...another project
@@ -116,7 +121,7 @@ make catalog                    # what exists on each side, as data
 make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
 make step-fixtures              # regenerate fixtures/step/ (they are committed)
 python -m sysmlcad.verify -p gearbox api   # same as make verify-api PROJECT=gearbox
-make test                       # pytest, JUnit XML to out/ (254 tests)
+make test                       # pytest, JUnit XML to out/ (280 tests)
 
 # Mapping proposals -- nothing here can change a verdict
 make propose                    # baseline proposer -> projects/<name>/proposals.yaml
@@ -160,14 +165,18 @@ vendor/            hni-ase/SysML-v2-API-Services (git clone, not in the repo)
                    (deliberate: CI must be able to go green without a server).
                    Step 1: requirements.txt only, AI tests skip. Step 2: the
                    AI SDKs installed, AI tests run -- still no key
-models/            motor_housing.sysml, gearbox.sysml
-notebooks/         01_publish_motor_housing.ipynb, 02_publish_gearbox.ipynb
+models/            motor_housing.sysml, gearbox.sysml, box1.sysml, box2.sysml
+notebooks/         01_publish_motor_housing.ipynb, 02_publish_gearbox.ipynb,
+                   03_publish_box1.ipynb, 04_publish_box2.ipynb
 cad/               motor_housing.py, gearbox.py (two-part assembly),
                    export_fixtures.py (writes fixtures/step/)
 projects/          ONE DIRECTORY PER SYSML MODEL. Everything that belongs to a
                    model lives together, and nothing is shared between two.
   <name>/
-    project.yaml   name + sysml_project (the Package / server project name)
+    project.yaml   name + sysml_project (the Package / server project name),
+                   optionally `axes:` -- which bbox axis a named dimension
+                   lies along on this project's CAD side
+    *.step         the project's own CAD exports, if any (box1, box2)
     mapping.yaml   schema v2: parts ↔ CAD objects, attributes ↔ measurements
     elements.json  captured API response -- the offline source for
                    requirements, catalogue and tests. Checked on load: its
@@ -181,7 +190,9 @@ fixtures/          ai_response.json   (a CONSTRUCTED model response, so the AI
                    step/*.step        (committed STEP fixtures, shared)
 src/sysmlcad/      config, units, model, sysml_client, extract, mapping,
                    verify, explore
-                   project.py     Project: one model, one mapping, no guessing
+                   project.py     Project: one model, one mapping, no guessing;
+                                  DEFAULT_AXES + the project's `axes:`
+                   publish.py     runs a publish notebook on the Jupyter kernel
                    catalog.py     what exists on each side, as data
                    gates.py       is the mapping sound (≠ is the design ok)
                    proposals.py   the proposal store
@@ -330,6 +341,38 @@ first:
   approximation.
 
 **STEP files / the step adapter**
+- **The axis convention is configuration, not code.** CAD systems disagree on
+  which axis a "length" lies along: Chili3D writes a box's Length along Y,
+  Width along Z, Height along X (measured on Box1 300/400/500 -> X 500, Y 300,
+  Z 400 and Box2 100/200/300 -> X 300, Y 100, Z 200); build123d and FreeCAD
+  use X, Y, Z. `project.DEFAULT_AXES` is the default, and `axes:` in
+  project.yaml overrides it per project (validated: X/Y/Z only, and length,
+  width, height on three different axes). It flows through `Catalog.axes` to
+  the baseline proposer (it used to be the hard-coded `_AXIS_BY_NAME`), into
+  the LLM excerpt (an `axes for bbox_size:` line) and into the gates:
+  `gates.off_axis()` marks an entry measured along another axis as
+  plausibility `unknown`, never `invalid` -- a part may lie on its side. A run
+  does NOT read `axes:`; it measures what each confirmed entry states, so the
+  mapping digest still covers everything that decides a verdict. With X, Y, Z,
+  box1 reported MaxLength VIOLATED (500 > 300) -- correct under that
+  convention, and why it became configurable. Never pick an axis because its
+  extent matches the requirement's number: that passes every check by
+  construction.
+- Chili3D's STEP product name is the generic "Open CASCADE STEP translator
+  8.0 <n>", so a single-root export is addressed without `#node`. No material
+  in the file, so the box models ask for no mass.
+- A project's own STEP files live in `projects/<name>/`; `load_catalog()` adds
+  that directory to the shared `fixtures/step/`, so the proposer sees them. The
+  baseline scores 3/3 on box1 and box2 from an empty mapping.
+- **Publishing without clicking:** `make publish NB=notebooks/<nb>.ipynb` runs
+  a notebook's code cells on the SysML kernel of the Jupyter container
+  (`make jupyter` first) over Jupyter's REST + websocket API (token
+  `sysmlcad`, `websockets` needed); `make capture PROJECT=<name>` then stores
+  the server state as the offline capture. **The SysML kernel reports a parse
+  error as printed `ERROR:` text and still answers `status: ok`** --
+  `publish.py` treats such a line as failure and stops, or the `%publish` cell
+  would run on a model that did not parse. It also warns when the kernel's
+  `API base path` is not `SYSML_API_URL`.
 - `Shape.cast()` on the BASE class is an `@abstractmethod` and returns `None`.
   `Shape.shape_LUT` maps to class *names* (strings), not classes. The adapter
   therefore keeps its own explicit `TopAbs_* -> build123d class` table.

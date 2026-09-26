@@ -4,9 +4,11 @@ One continuous thread from a SysML v2 requirement to a red CI pipeline.
 Deliberately narrow: two small models, six requirements, and a mapping that a
 human confirms entry by entry.
 
-**Status:** Stages A, A2, E and H complete — 254 tests green. Two models are
-published and verified against CAD: `MotorHousing` (one part) and `Gearbox`
-(three parts, an interface dimension, an assembly mass budget). Requirements are
+**Status:** Stages A, A2, E and H complete — 280 tests green. Four models are
+published and verified against CAD: `MotorHousing` (one part), `Gearbox`
+(three parts, an interface dimension, an assembly mass budget), and `Box1` and
+`Box2`, two cuboids checked against STEP files exported from Chili3D (see
+[Foreign exports](#foreign-exports-box1-and-box2-chili3d)). Requirements are
 read from the live SysML v2 API or from a fixture; geometry is measured either
 from a build123d script or from a STEP file any CAD system exported. The mapping
 itself can be proposed — by a string matcher or by a language model of your
@@ -29,7 +31,7 @@ make cad                   # run the CAD scripts, write STEP to out/
 make verify                # verify the default project (motor_housing)
 make verify PROJECT=gearbox   # ...or another one, against ITS mapping
 make gates                 # is the MAPPING sound? (a different question)
-make test                  # pytest, JUnit XML to out/ (254 tests)
+make test                  # pytest, JUnit XML to out/ (280 tests)
 make catalog               # what exists on each side, as data
 make explore-cad FILE=fixtures/step/gearbox.step   # what is in a STEP file
 make step-fixtures  # regenerate fixtures/step/ after changing a CAD script
@@ -64,6 +66,19 @@ In JupyterLab, open `notebooks/01_publish_motor_housing.ipynb` and select the
 **SysML** kernel (not Python). Run the model cell, then `%publish MotorHousing`.
 The first output line must read `http://sysml-api:9000`. If it says
 `sysml2.intercax.com`, the model would go to the public community server instead.
+
+Or without clicking: with the Jupyter container running, the devcontainer can
+drive its SysML kernel directly, and then store the result as the project's
+offline capture:
+
+```bash
+make publish NB=notebooks/01_publish_motor_housing.ipynb
+make capture PROJECT=motor_housing      # projects/<name>/elements.json
+```
+
+`make publish` stops at the first cell the kernel reports an `ERROR` for -- it
+answers "ok" even then, and carrying on would `%publish` a model that did not
+parse -- and warns if the kernel published anywhere but `SYSML_API_URL`.
 
 Then verify against the real server from inside the devcontainer:
 
@@ -137,8 +152,11 @@ vendor/                       hni-ase/SysML-v2-API-Services (clone, not in git)
 models/
 ├── motor_housing.sysml       the system model, textual -- kept in step with
                               the notebook, which is what reaches the server
-└── gearbox.sysml             the two-part assembly
-notebooks/                    01_publish_motor_housing.ipynb, 02_publish_gearbox.ipynb
+├── gearbox.sysml             the two-part assembly
+├── box1.sysml                a cuboid, against a Chili3D STEP export
+└── box2.sysml                a second one, confirming Chili3D's orientation
+notebooks/                    01_publish_motor_housing.ipynb, 02_publish_gearbox.ipynb,
+                              03_publish_box1.ipynb, 04_publish_box2.ipynb
 cad/
 ├── motor_housing.py          the reference part as a build123d script
 ├── gearbox.py                two-part assembly, Housing + Cover, shared bore
@@ -150,7 +168,11 @@ projects/                     ONE DIRECTORY PER SYSML MODEL -- nothing shared
 │   ├── elements.json         a captured API response -- the offline source
 │   ├── gold_mapping.yaml     the answer key for scoring proposers on this model
 │   └── proposals.yaml        machine-written; no verification run reads it
-└── gearbox/                  the same five files for the gearbox
+├── gearbox/                  the same five files for the gearbox
+├── box1/                     the same, plus Box1.step -- a project's own CAD
+│                             export lives with it, and the catalogue finds it;
+│                             project.yaml also states Chili3D's `axes:`
+└── box2/                     likewise, with Box2.step
 fixtures/
 ├── ai_response.json          a constructed model response, for offline tests
 └── step/                     committed STEP fixtures for the step adapter
@@ -172,6 +194,7 @@ src/sysmlcad/
 ├── confirm.py                human confirmation → mapping.yaml
 ├── score.py                  hit rate against the gold set
 ├── explore.py                debugging tool for API payloads
+├── publish.py                runs a publish notebook on the Jupyter container's kernel
 ├── explore_cad.py            what is inside a STEP file
 └── adapters/
     ├── __init__.py           CadAdapter protocol -- the CAD seam
@@ -318,6 +341,47 @@ The swap is a real one, not a claim: point `motorHousing` at
 comes out the same — 118 mm — with only the recorded `cad state` changing
 (the mass agrees too, 0.7429 kg, given the density as a what-if). That is the
 adapter seam doing its job.
+
+## Foreign exports: Box1 and Box2 (Chili3D)
+
+`projects/box1/Box1.step` and `projects/box2/Box2.step` are the first CAD files
+here the repository did not generate: plain cuboids drawn in Chili3D, a browser
+CAD. Each model asks for the envelope Chili3D's properties panel shows, one
+upper bound per dimension (Box1: 300 × 400 × 500 mm, Box2: 100 × 200 × 300 mm).
+
+**CAD systems do not agree on which axis a "length" lies along.** Chili3D
+writes a box's Length along Y, Width along Z and Height along X -- measured on
+both exports, three different numbers each. build123d and FreeCAD use X, Y, Z.
+So which axis a named dimension is measured along is *configuration*, per
+project, in `project.yaml`:
+
+```yaml
+axes:            # Chili3D; unset names keep length X, width Y, height Z
+  length: Y
+  width: Z
+  height: X
+```
+
+The proposers use it (`make propose` suggests Y for a length, and the language
+model's excerpt states the convention), and `make gates` flags any mapping
+entry that measures along a different axis than the convention names -- as
+`unknown`, never `invalid`, because a part may genuinely lie on its side. Change
+`axes:` and every entry left on the old axis shows up. A run itself still
+measures exactly the axis each confirmed mapping entry states.
+
+```
+$ make verify PROJECT=box1
+MaxHeight          height                  500 mm            500 mm             +0 mm  OK
+MaxLength          length                  300 mm            300 mm             +0 mm  OK
+MaxWidth           width                   400 mm            400 mm             +0 mm  OK
+3 compliant, 0 within tolerance, 0 violated, 0 not checked
+```
+
+Before the convention was configurable, the same run measured length along X
+and reported `MaxLength` VIOLATED, 500 > 300 -- correct under the X, Y, Z
+convention, and the reason it stopped being hard-coded. What must never decide
+the axis is which extent happens to match the requirement's number: that
+passes every check by construction, whatever the part looks like.
 
 ## Where a mapping comes from
 

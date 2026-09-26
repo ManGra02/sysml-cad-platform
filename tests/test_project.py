@@ -12,6 +12,7 @@ import json
 import pytest
 
 from sysmlcad.project import (
+    DEFAULT_AXES,
     PROJECT_ENV,
     UnknownProject,
     list_projects,
@@ -23,8 +24,8 @@ from sysmlcad.project import (
 # Finding a project
 # --------------------------------------------------------------------------
 
-def test_both_committed_projects_load():
-    assert list_projects() == ["gearbox", "motor_housing"]
+def test_every_committed_project_loads():
+    assert list_projects() == ["box1", "box2", "gearbox", "motor_housing"]
     for name in list_projects():
         project = load_project(name)
         assert project.name == name
@@ -36,10 +37,12 @@ def test_both_committed_projects_load():
 def test_the_sysml_project_name_is_the_package_name():
     assert load_project("motor_housing").sysml_project == "MotorHousing"
     assert load_project("gearbox").sysml_project == "Gearbox"
+    assert load_project("box1").sysml_project == "Box1"
+    assert load_project("box2").sysml_project == "Box2"
 
 
 def test_an_unknown_project_lists_the_known_ones():
-    with pytest.raises(UnknownProject, match="gearbox, motor_housing"):
+    with pytest.raises(UnknownProject, match="box1, box2, gearbox, motor_housing"):
         load_project("turbine")
 
 
@@ -129,3 +132,41 @@ def test_a_directory_without_project_yaml_is_not_a_project(tmp_path):
     (tmp_path / "stray").mkdir()
     (tmp_path / "stray" / "mapping.yaml").write_text("version: 2\n", encoding="utf-8")
     assert list_projects(tmp_path) == []
+
+
+# --------------------------------------------------------------------------
+# The axis convention -- configured per project, never guessed
+# --------------------------------------------------------------------------
+
+def test_without_axes_a_project_uses_the_default_convention():
+    assert load_project("gearbox").axes == DEFAULT_AXES
+    assert DEFAULT_AXES["length"] == "X"
+
+
+def test_a_project_can_state_how_its_cad_side_is_oriented():
+    """Chili3D writes a box's Length along Y, Width along Z, Height along X --
+    measured on two exports. That is configuration, not code."""
+    axes = load_project("box1").axes
+    assert (axes["length"], axes["width"], axes["height"]) == ("Y", "Z", "X")
+    assert axes["thickness"] == DEFAULT_AXES["thickness"], "unset names keep the default"
+
+
+def _with_axes(tmp_path, axes_yaml: str):
+    root = tmp_path / "p"
+    root.mkdir()
+    (root / "project.yaml").write_text(
+        f"name: p\nsysml_project: P\naxes:\n{axes_yaml}", encoding="utf-8"
+    )
+    return lambda: load_project("p", projects_dir=tmp_path)
+
+
+def test_an_axis_that_is_not_x_y_or_z_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="expected X, Y or Z"):
+        _with_axes(tmp_path, "  length: W\n")()
+
+
+def test_two_dimensions_on_one_axis_are_refused(tmp_path):
+    """A convention that silently measured length and width along the same
+    axis would report one extent twice, with confidence."""
+    with pytest.raises(ValueError, match="three different axes"):
+        _with_axes(tmp_path, "  length: Y\n")()

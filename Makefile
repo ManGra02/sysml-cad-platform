@@ -26,13 +26,13 @@ COMPOSE := docker compose --env-file docker/.env \
 
 .PHONY: help venv secret vendor up api jupyter down logs api-docs \
         cad verify verify-api test clean step-fixtures explore-cad catalog gates \
-        propose proposals confirm propose-score projects
+        propose proposals confirm propose-score projects publish capture
 
 help:
 	@echo "In the devcontainer:  cad  verify  verify-api  gates  test  clean"
 	@echo "                      catalog  explore-cad  step-fixtures"
 	@echo "Mapping proposals:    propose  proposals  confirm ID=p-01  propose-score"
-	@echo "Projects:             projects        every command takes PROJECT=<name>"
+	@echo "Projects:             projects  publish NB=...  capture   (PROJECT=<name>)"
 	@echo "                      (default: $(PROJECT))"
 	@echo "On the host:          secret  vendor  api  jupyter  logs  down  up"
 
@@ -62,6 +62,17 @@ catalog:
 
 projects:
 	$(PY) -m sysmlcad.project
+
+# Publish a model without clicking through JupyterLab: runs the notebook's code
+# cells on the SysML kernel of the Jupyter container (`make jupyter` first).
+#   make publish NB=notebooks/04_publish_box2.ipynb
+publish:
+	$(PY) -m sysmlcad.publish $(NB)
+
+# Store the server's current state of a project as its offline capture.
+#   make capture PROJECT=box2
+capture:
+	$(PY) -m sysmlcad.explore $(P) && cp out/elements.json projects/$(PROJECT)/elements.json
 
 # Is the MAPPING sound: dimension, existence, uniqueness, plausibility.
 # A different question from `verify` -- a correctly mapped part that is too long

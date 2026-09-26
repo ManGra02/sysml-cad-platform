@@ -204,3 +204,24 @@ def test_the_catalogue_can_be_looked_up_by_name():
     assert catalog.attribute("motorHousing", "nonsense") is None
     assert catalog.target("motor_housing") is not None
     assert catalog.source.endswith("elements.json")
+
+
+def test_a_project_s_own_step_file_is_catalogued():
+    """An export that belongs to one model lives in that model's directory.
+    The catalogue -- and so the proposer -- has to see it there, not only in
+    the shared fixtures."""
+    targets = load_catalog(load_project("box1")).targets
+    box = next(t for t in targets if t.reference == "projects/box1/Box1.step")
+    assert box.adapter == "step"
+    assert "mass" not in box.methods, "the export carries no material"
+
+
+def test_another_project_s_step_file_stays_out():
+    references = {t.reference for t in load_catalog(MOTOR).targets}
+    assert "projects/box1/Box1.step" not in references
+
+
+
+def test_the_catalogue_carries_the_project_s_axis_convention():
+    assert load_catalog(load_project("box2")).axes["length"] == "Y"
+    assert load_catalog(MOTOR).axes["length"] == "X"
