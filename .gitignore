@@ -1,6 +1,6 @@
 # Build-Ergebnis des Frontends (wird vom Backend ausgeliefert)
-backend/app/static/*
-!backend/app/static/.gitkeep
+# (Vite leert das Verzeichnis bei jedem Build; ohne Build zeigt das Backend eine Hinweisseite)
+backend/app/static/
 
 # Python
 __pycache__/

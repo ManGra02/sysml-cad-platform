@@ -5,6 +5,8 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PYTHONNOUSERSITE=1
+# Zeigt OPENSSL_CONF auf eine fehlende Datei (z. B. von PostgreSQL), bricht pnpm ab.
+if [ -n "${OPENSSL_CONF:-}" ] && [ ! -f "$OPENSSL_CONF" ]; then unset OPENSSL_CONF; fi
 
 pids=()
 cleanup() { for pid in "${pids[@]}"; do kill "$pid" 2>/dev/null || true; done; }
@@ -15,6 +17,7 @@ pids+=($!)
 echo "Backend -> http://127.0.0.1:8000"
 
 if [ -f "$REPO/frontend/package.json" ]; then
+  [ -d "$REPO/frontend/node_modules" ] || (cd "$REPO/frontend" && pnpm install)
   (cd "$REPO/frontend" && pnpm dev) &
   pids+=($!)
   echo "Vite    -> http://127.0.0.1:5173"

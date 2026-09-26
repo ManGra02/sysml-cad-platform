@@ -47,6 +47,18 @@ class InvalidPatch(BridgeError):
     http_status = 400
 
 
+class RevisionConflict(BridgeError):
+    """Das Objekt hat sich geaendert, seit der Client es gelesen hat.
+
+    ``detail`` traegt den aktuellen Stand des Objekts mit, damit die
+    Oberflaeche "neu laden oder ueberschreiben" anbieten kann, ohne ein
+    weiteres Mal zu fragen.
+    """
+
+    code = "rev_mismatch"
+    http_status = 409
+
+
 # -- Idempotenz --------------------------------------------------------
 
 
@@ -156,9 +168,33 @@ def _decode_all(obj, changes):
 # -- Oeffentliche Operationen ------------------------------------------
 
 
+def _check_revision(obj, if_match):
+    """Optimistische Sperre: nur schreiben, wenn der Client den aktuellen Stand kennt.
+
+    Vorher wird geflusht: eine Aenderung in FreeCAD, deren Flush noch aussteht
+    (bis zu 100 ms), haette ihren rev sonst noch nicht erhoeht -- und der PATCH
+    ginge ueber sie hinweg.
+    """
+    observer.flush_now("precondition")
+    current = revisions.current(obj.Document.Name, obj.Name)
+    if current != if_match:
+        raise RevisionConflict(
+            "%s wurde inzwischen geaendert (rev %d, erwartet %d)" % (obj.Label, current, if_match),
+            {
+                "expected": if_match,
+                "current": current,
+                "object": objects.describe_object(obj),
+            },
+        )
+
+
 @main_thread_only
-def patch_object(doc_name, obj_name, changes, request_id=None, recompute=True):
-    """Properties eines Objekts setzen -- alle in EINER Transaktion."""
+def patch_object(doc_name, obj_name, changes, request_id=None, recompute=True, if_match=None):
+    """Properties eines Objekts setzen -- alle in EINER Transaktion.
+
+    ``if_match`` ist der ``rev``, den der Client gesehen hat. Weicht er ab,
+    wird nichts geschrieben (409 rev_mismatch). None = ohne Pruefung.
+    """
     replay = _cached(request_id)
     if replay is not None:
         return replay
@@ -168,6 +204,8 @@ def patch_object(doc_name, obj_name, changes, request_id=None, recompute=True):
 
     obj = objects.get_object(doc_name, obj_name)
     doc = obj.Document
+    if if_match is not None:
+        _check_revision(obj, if_match)
     decoded = _decode_all(obj, changes)
 
     documents.ensure_undo_enabled(doc)

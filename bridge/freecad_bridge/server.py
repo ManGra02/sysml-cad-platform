@@ -4,8 +4,8 @@ Hier wird FreeCAD nicht angefasst. Ein CI-Grep prueft das; Logging laeuft
 ueber freecad_bridge.log, alles am Dokument ueber dispatch() in den
 Adapter-Modulen.
 
-Routen dieser Version (M1): nur /api/cad/health und /ws-Geruest. Lesen und
-Schreiben folgen in M2/M3.
+Routen: Gesundheit, Lesen (Dokumente, Baum, Objekte, Typen), Auswahl,
+Schreiben (PATCH mit optionalem If-Match, Recompute) und /ws.
 """
 
 import json
@@ -215,16 +215,48 @@ async def _write(fn, request_id=None):
     )
 
 
+def parse_if_match(value):
+    """``If-Match`` -> rev als int, None ohne Pruefung.
+
+    Akzeptiert ``12``, ``"12"`` und ``W/"12"``; ``*`` heisst "egal welcher Stand".
+    Ein unlesbarer Wert ist ein Fehler, keine stille Nicht-Pruefung -- sonst
+    ueberschriebe ein kaputter Client unbemerkt fremde Aenderungen.
+    """
+    if value is None:
+        return None
+    text = value.strip()
+    if text == "*":
+        return None
+    if text.startswith("W/"):
+        text = text[2:]
+    text = text.strip('"')
+    try:
+        rev = int(text)
+    except ValueError:
+        raise ValueError(value)
+    if rev < 0:
+        raise ValueError(value)
+    return rev
+
+
 async def handle_patch_object(request):
     """Properties setzen -- nur die geaenderten Felder, in EINER Transaktion.
 
     Body: {"Length": "40 mm", "Label": "Gehaeuse"}  (Vertragsform oder nackter Wert)
     Query: ?recompute=false unterdrueckt den Recompute (dann eigene Route nutzen).
+    Header: If-Match: <rev> -- 409 rev_mismatch, wenn sich das Objekt inzwischen
+    geaendert hat.
     """
     doc_name = request.match_info["doc"]
     obj_name = request.match_info["name"]
     request_id = request.headers.get("X-Request-Id")
     recompute = request.query.get("recompute", "true").lower() != "false"
+    try:
+        if_match = parse_if_match(request.headers.get("If-Match"))
+    except ValueError:
+        return error_response(
+            "bad_request", "If-Match erwartet einen rev (Ganzzahl)", 400, request_id=request_id
+        )
 
     try:
         changes = await request.json()
@@ -233,7 +265,8 @@ async def handle_patch_object(request):
 
     data = await _write(
         lambda: writes.patch_object(
-            doc_name, obj_name, changes, request_id=request_id, recompute=recompute
+            doc_name, obj_name, changes, request_id=request_id, recompute=recompute,
+            if_match=if_match,
         ),
         request_id,
     )

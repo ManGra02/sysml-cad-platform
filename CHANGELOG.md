@@ -3,6 +3,12 @@
 Jede Aenderung an `cad_contract` bumpt `CONTRACT_VERSION` und bekommt hier eine
 Zeile. Die Mismatch-Meldung des Backends verweist auf diese Datei.
 
+## cad_contract 0.4.0 -- 2026-09-25
+
+- `PATCH .../objects/{name}` versteht `If-Match: <rev>` (auch `"12"`, `W/"12"`, `*`).
+  Weicht der rev ab: `409 rev_mismatch`, `detail = {expected, current, object}` mit dem
+  aktuellen Stand des Objekts. Ohne Header wie bisher ohne Pruefung.
+
 ## cad_contract 0.3.0 -- 2026-09-25
 
 - Neues Modul `events.py`: Ereignis-Vokabular (cad.*, doc.*), Herkunft

@@ -12,6 +12,8 @@
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $env:PYTHONNOUSERSITE = '1'
+# Zeigt OPENSSL_CONF auf eine fehlende Datei (z. B. von PostgreSQL), bricht pnpm ab.
+if ($env:OPENSSL_CONF -and -not (Test-Path $env:OPENSSL_CONF)) { Remove-Item Env:OPENSSL_CONF }
 
 $jobs = @()
 $backend = Start-Process -PassThru -NoNewWindow -WorkingDirectory (Join-Path $repo 'backend') `
@@ -21,10 +23,13 @@ Write-Host "Backend gestartet (PID $($backend.Id)) -> http://127.0.0.1:8000"
 
 $frontend = Join-Path $repo 'frontend'
 if (Test-Path (Join-Path $frontend 'package.json')) {
+    if (-not (Test-Path (Join-Path $frontend 'node_modules'))) {
+        Push-Location $frontend; try { pnpm install } finally { Pop-Location }
+    }
     $vite = Start-Process -PassThru -NoNewWindow -WorkingDirectory $frontend `
         -FilePath 'pnpm' -ArgumentList @('dev')
     $jobs += $vite
-    Write-Host "Vite gestartet (PID $($vite.Id)) -> http://127.0.0.1:5173"
+    Write-Host "Vite gestartet (PID $($vite.Id)) -> http://127.0.0.1:5173  <- im Browser oeffnen"
 } else {
     Write-Host "Frontend noch nicht angelegt -- nur Backend."
 }

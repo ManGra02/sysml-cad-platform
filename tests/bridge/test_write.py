@@ -288,6 +288,60 @@ class ReplayTest(unittest.TestCase):
         self.assertEqual(self.doc.UndoCount, 1)
 
 
+class IfMatchTest(unittest.TestCase):
+    """M6: optimistische Sperre -- ein Konflikt wird sichtbar statt ueberschrieben."""
+
+    def setUp(self):
+        self.doc = build_document()
+        self.box = self.doc.getObject("Box")
+
+    def tearDown(self):
+        close_document()
+
+    def test_passender_rev_schreibt(self):
+        result = writes.patch_object(DOC_NAME, "Box", {"Length": "41 mm"}, if_match=0)
+        self.assertTrue(result["changed"])
+        self.assertEqual(self.box.Length.Value, 41.0)
+
+    def test_veralteter_rev_schreibt_nicht(self):
+        writes.patch_object(DOC_NAME, "Box", {"Length": "41 mm"})  # rev 0 -> 1
+        with self.assertRaises(writes.RevisionConflict) as caught:
+            writes.patch_object(DOC_NAME, "Box", {"Length": "99 mm"}, if_match=0)
+        self.assertEqual(self.box.Length.Value, 41.0)
+        self.assertEqual(self.doc.UndoCount, 1)
+        detail = caught.exception.detail
+        self.assertEqual((detail["expected"], detail["current"]), (0, 1))
+        # Der aktuelle Stand reist mit -- die UI braucht keinen zweiten Request.
+        length = [p for p in detail["object"]["properties"] if p["name"] == "Length"][0]
+        self.assertEqual(length["value"]["value"], 41.0)
+
+    def test_ohne_if_match_keine_pruefung(self):
+        writes.patch_object(DOC_NAME, "Box", {"Length": "41 mm"})
+        writes.patch_object(DOC_NAME, "Box", {"Length": "42 mm"})
+        self.assertEqual(self.box.Length.Value, 42.0)
+
+    def test_replay_gewinnt_vor_der_pruefung(self):
+        """Ein Retry nach Erfolg traegt den alten rev -- er darf nicht als Konflikt enden."""
+        first = writes.patch_object(DOC_NAME, "Box", {"Length": "43 mm"}, request_id="im-1", if_match=0)
+        again = writes.patch_object(DOC_NAME, "Box", {"Length": "43 mm"}, request_id="im-1", if_match=0)
+        self.assertTrue(again["replayed"])
+        self.assertEqual(again["rev"], first["rev"])
+
+
+class ParseIfMatchTest(unittest.TestCase):
+    def test_formen(self):
+        self.assertIsNone(server.parse_if_match(None))
+        self.assertIsNone(server.parse_if_match("*"))
+        self.assertEqual(server.parse_if_match("7"), 7)
+        self.assertEqual(server.parse_if_match('"7"'), 7)
+        self.assertEqual(server.parse_if_match('W/"7"'), 7)
+
+    def test_unlesbar_ist_fehler(self):
+        for value in ("abc", "-1", '"x"'):
+            with self.assertRaises(ValueError):
+                server.parse_if_match(value)
+
+
 class RecomputeErrorTest(unittest.TestCase):
     def setUp(self):
         self.doc = build_document()
@@ -370,6 +424,27 @@ class WriteRoutesTest(AioHTTPTestCase):
         )
         self.assertEqual(response.status, 200)
         self.assertEqual((await response.json())["status"], "done")
+
+    async def test_if_match_konflikt_409(self):
+        await self.patch("Box", {"Length": "47 mm"})
+        response = await self.client.patch(
+            "/api/cad/documents/%s/objects/Box" % DOC_NAME,
+            headers=dict(self.headers(), **{"If-Match": '"0"'}),
+            json={"Length": "1 mm"},
+        )
+        self.assertEqual(response.status, 409)
+        error = (await response.json())["error"]
+        self.assertEqual(error["code"], "rev_mismatch")
+        self.assertEqual(error["detail"]["current"], 1)
+        self.assertEqual(self.doc.getObject("Box").Length.Value, 47.0)
+
+    async def test_if_match_unlesbar_400(self):
+        response = await self.client.patch(
+            "/api/cad/documents/%s/objects/Box" % DOC_NAME,
+            headers=dict(self.headers(), **{"If-Match": "gestern"}),
+            json={"Length": "1 mm"},
+        )
+        self.assertEqual(response.status, 400)
 
     async def test_patch_braucht_token(self):
         response = await self.client.patch(

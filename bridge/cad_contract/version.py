@@ -8,4 +8,4 @@ REGEL: Jede Aenderung an types.py oder events.py bumpt diese Version UND
 traegt eine Zeile in CHANGELOG.md ein, auf die die Mismatch-Meldung verweist.
 """
 
-CONTRACT_VERSION = "0.3.0"
+CONTRACT_VERSION = "0.4.0"

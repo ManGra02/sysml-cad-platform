@@ -71,9 +71,30 @@ Drei Dinge laufen: FreeCAD, Backend, Vite.
 # 2. Backend
 cd backend && uv sync && uv run python -m app --reload --dev
 # oder alles auf einmal: scripts/dev.ps1 bzw. scripts/dev.sh
-# 3. Frontend
-pnpm dev
+# 3. Frontend (einmalig: cd frontend && pnpm install)
+cd frontend && pnpm dev            # -> http://127.0.0.1:5173
 ```
+
+Im Dev-Betrieb öffnet man **http://127.0.0.1:5173**: Vite reicht `/api` und `/ws` an das
+Backend weiter, das dafür mit `--dev` laufen muss (erlaubt den Origin `:5173`). Ohne Vite
+liefert das Backend die gebaute Oberfläche selbst aus (`cd frontend && pnpm build`, dann
+**http://127.0.0.1:8000**).
+
+> **Windows: `pnpm` meldet „OpenSSL configuration error“?** Eine andere Installation
+> (z. B. PostgreSQL) hat `OPENSSL_CONF` auf eine fehlende Datei gesetzt. Die Startskripte
+> leeren die Variable für sich; von Hand: `$env:OPENSSL_CONF=""` vor `pnpm`.
+
+### Im Browser bearbeiten
+
+- Eingaben werden beim **Verlassen des Feldes oder mit Enter** übernommen, **Esc** verwirft.
+  Jede Übernahme ist in FreeCAD genau **ein** Undo-Schritt („Browser: Box.Length“).
+- Lage und Vektoren werden als Ganzes übernommen, wenn der Fokus die Gruppe verlässt.
+- **Konflikte werden sichtbar, nie still überschrieben:** hat sich genau das bearbeitete
+  Feld inzwischen in FreeCAD geändert, fragt ein Dialog, welcher Wert gelten soll.
+  Änderungen an *anderen* Feldern desselben Objekts sind kein Konflikt. Technisch:
+  `If-Match: <rev>` am PATCH, `409 rev_mismatch` mit dem aktuellen Stand.
+- Gesperrte Felder tragen ein Schloss (schreibgeschützt) oder ƒ (an eine Expression
+  gebunden – in FreeCAD bearbeiten).
 
 **`PYTHONNOUSERSITE=1` gehört in jedes Startskript.** Das user-site-Verzeichnis wird mit
 einem separat installierten Python geteilt und steht *vor* FreeCADs site-packages — ohne
@@ -90,6 +111,9 @@ cd backend && uv run pytest
 
 # Ende-zu-Ende: echte Bruecke, echtes Backend, simulierter Browser
 cd backend && uv run python ../scripts/e2e/m5_acceptance.py
+
+# Frontend -- reine Logik (Baum, Ereignisse, Drehung, Formate) und Typen
+cd frontend && pnpm test && pnpm typecheck
 ```
 
 Der Ende-zu-Ende-Test braucht die Ports 8000 und 8765 -- FreeCAD mit laufender Bruecke
@@ -142,7 +166,7 @@ Junction nicht erreichbar, weil FreeCAD nur `Mod/SysMLCadPlatform` sieht.
 | M3 Brücke: Schreiben | ✅ |
 | M4 Brücke: Events | ✅ |
 | M5 Backend verbindet sich, Resync | ✅ |
-| M6 Frontend: Explorer + Property-Editor | offen |
+| M6 Frontend: Explorer + Property-Editor, `If-Match` | ✅ |
 | M7 Launcher + Projekt-Registry | offen |
 | M8 Objekt-Lifecycle + Speichern | offen |
 | M9 Produktions-Build | offen |
