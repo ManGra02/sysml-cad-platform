@@ -1,9 +1,10 @@
 # SysML v2 → CAD: Proof of Concept
 
 One continuous thread from a SysML v2 requirement to a red CI pipeline.
-Deliberately narrow: one part, two requirements, a hardcoded mapping.
+Deliberately narrow: two small models, six requirements, and a mapping that a
+human confirms entry by entry.
 
-**Status:** Stages A, A2, E and H complete — 127 tests green. Two models are
+**Status:** Stages A, A2, E and H complete — 247 tests green. Two models are
 published and verified against CAD: `MotorHousing` (one part) and `Gearbox`
 (three parts, an interface dimension, an assembly mass budget). Requirements are
 read from the live SysML v2 API or from a fixture; geometry is measured either
@@ -28,7 +29,7 @@ make cad                   # run the CAD scripts, write STEP to out/
 make verify                # verify the default project (motor_housing)
 make verify PROJECT=gearbox   # ...or another one, against ITS mapping
 make gates                 # is the MAPPING sound? (a different question)
-make test                  # pytest, JUnit XML to out/ (201 tests)
+make test                  # pytest, JUnit XML to out/ (247 tests)
 make catalog               # what exists on each side, as data
 make explore-cad FILE=fixtures/step/gearbox.step   # what is in a STEP file
 make step-fixtures  # regenerate fixtures/step/ after changing a CAD script
@@ -67,16 +68,16 @@ The first output line must read `http://sysml-api:9000`. If it says
 Then verify against the real server from inside the devcontainer:
 
 ```bash
-make verify-api                         # or: python -m sysmlcad.verify api
-python -m sysmlcad.explore              # element dump to out/elements.json
-python -m sysmlcad.explore MaxLength    # tree of a single requirement
+make verify-api                         # or: python -m sysmlcad.verify -p motor_housing api
+python -m sysmlcad.explore -p motor_housing             # element dump to out/elements.json
+python -m sysmlcad.explore -p motor_housing MaxLength   # tree of a single requirement
 ```
 
 ## The failure case
 
 ```bash
 sed -i 's/^LENGTH_MM = 118.0/LENGTH_MM = 123.0/' cad/motor_housing.py
-python -m sysmlcad.verify api ; echo "Exit: $?"
+python -m sysmlcad.verify -p motor_housing ; echo "Exit: $?"
 ```
 
 ```
@@ -97,6 +98,12 @@ A verdict is three-valued, not a boolean. Give the `MaxLength` mapping entry a
 still visible in the report, but not a failure. "Over the limit but inside what
 we agreed" is the case engineers actually negotiate over, and a boolean cannot
 express it.
+
+**What a run does not check, it says.** A requirement with no confirmed
+mapping, a measurement the adapter cannot make, a malformed `args:` or
+`tolerance:` in one entry, and a requirement the extractor cannot read (a
+compound constraint, say) each become one `NOT CHECKED` line. None of them
+fails the run, and none of them takes the other verdicts down with it.
 
 ## Architecture
 
@@ -153,6 +160,7 @@ src/sysmlcad/
 ├── model.py                  Requirement, Verdict, RunContext, Run
 ├── sysml_client.py           REST client, all_elements() paginates
 ├── extract.py                API or fixture → Requirements, incl. satisfy links
+├── project.py                one model + its mapping, chosen by name, never guessed
 ├── mapping.py                loads and resolves mapping.yaml
 ├── verify.py                 evaluation, report, exit code
 ├── catalog.py                what exists on each side, as data
@@ -173,15 +181,19 @@ src/sysmlcad/
 tests/
 ├── test_extract.py           the element graph, rebuilt from a real %publish
 ├── test_requirements.py      the rule runner -- runs verify() at collection
-├── test_verify.py            evaluation semantics + the confirmation rule
+├── test_verify.py            evaluation semantics, the report, one bad entry = one gap
+├── test_project.py           one model per project, and the refusals
+├── test_build123d_adapter.py component addressing, material from the script
 ├── test_step_adapter.py      STEP reading, and both adapters agreeing
 ├── test_catalog.py           both sides of the excerpt
 ├── test_gates.py             the four gates, and what they may not conclude
 ├── test_confirm.py           the store, and writing YAML without rewriting it
 ├── test_propose.py           the baseline, and the dimension filter
-└── test_propose_ai.py        the AI proposer, from a recorded response
+├── test_propose_ai.py        every AI backend, from a recorded response
+└── test_propose_openai.py    the OpenAI-protocol call, against a stub client
 out/                          STEP, JUnit XML, dumps. *.step and *.xml are
-                              ignored; elements.json is a committed capture
+                              ignored; relevant.txt and llm_request.txt are
+                              committed reference payloads
 .github/workflows/verify.yml  CI, runs against the fixture
 CLAUDE.md                     project context for Claude Code
 ROADMAP.md                    stages, rationale, open questions
@@ -254,12 +266,16 @@ reference strings for mapping.yaml:
     cad_object: fixtures/step/gearbox.step#Cover
 
 no material in the file for: Gearbox, Housing, Cover
-  -> `mass` needs `args: {density_g_per_cm3: ...}` in the mapping,
-     otherwise the run reports a gap instead of inventing a density.
+  -> `mass` from this file is a gap, not an invented density. Measure
+     it where the material is declared (a build123d script), or pass
+     `args: {density_g_per_cm3: ...}` for a what-if study -- a density
+     committed to mapping.yaml fails the test suite on purpose.
 ```
 
 Then point a mapping at it. `#` selects one node; without it the whole file is
-measured, so an assembly's mass and bounding box aggregate over its parts:
+measured, so an assembly's mass and bounding box aggregate over its parts. A
+file with several root shapes has no "whole file" -- each root is addressed by
+name, and the bare path is refused:
 
 ```yaml
 parts:
@@ -270,13 +286,21 @@ parts:
 
 attributes:
   - sysml_part: motorHousing
-    attribute: mass
-    requirement: MaxMass
-    method: mass
-    args: {density_g_per_cm3: 2.70}   # STEP rarely carries a material
+    attribute: length
+    requirement: MaxLength
+    method: bbox_size
+    args: {axis: X}
     direction: cad_owns
     status: confirmed
 ```
+
+**Mass needs a material, and STEP rarely carries one.** Without it the run
+reports `mass` as a gap. `args: {density_g_per_cm3: ...}` makes it computable,
+but a density is a fact about the part, not a correspondence between two
+models -- frozen into `mapping.yaml` it keeps reporting the old mass after the
+material changes. `test_the_committed_mapping_carries_no_density` therefore
+refuses it in any committed mapping; use it for what-if studies, and measure
+mass where the material is declared.
 
 **What a STEP file cannot give you:** named parameters. `LENGTH_MM` exists only
 in the script — a STEP file is baked geometry, so `parameter()` returns None and
@@ -289,9 +313,10 @@ node, and `mass` on a part with no material and no density override. Both are
 reported as gaps.
 
 The swap is a real one, not a claim: point `motorHousing` at
-`fixtures/step/motor_housing.step` instead of the script and the same two
-verdicts come out — 118 mm and 0.7429 kg — with only the recorded `cad state`
-changing. That is the adapter seam doing its job.
+`fixtures/step/motor_housing.step` instead of the script and the length verdict
+comes out the same — 118 mm — with only the recorded `cad state` changing
+(the mass agrees too, 0.7429 kg, given the density as a what-if). That is the
+adapter seam doing its job.
 
 ## Where a mapping comes from
 
@@ -328,6 +353,13 @@ existing byte of the file, comments included, is left exactly as it was. If the
 file does not read back as intended, the original is restored and nothing is
 written.
 
+**A part stands for one CAD object.** The gates measure the object a proposal
+names, and a proposal that names a different object for a part that is already
+mapped is refused. It used to be gated — and, once confirmed, measured — on the
+part's existing object, so a reviewer could approve `cover.mass ->
+gearbox#Housing` and get the cover's own mass without noticing. If a part's
+mapping is wrong, that is an edit to its `parts:` entry, in review.
+
 **Two questions, deliberately not merged.** `make gates` asks whether the
 *mapping* is sound — right dimension, measurable, unique, plausible.
 `make verify` asks whether the *design* complies. A correctly mapped part that
@@ -337,7 +369,8 @@ system exists to report.
 **What the AI may and may not do.** It proposes, with a confidence and a
 rationale (SRS FREQ-4). Every candidate is then checked against the catalogue —
 a part, attribute or CAD object it names but that does not exist is dropped and
-the reason recorded — and then through the same four gates as any other
+the reason recorded, as is a confidence outside [0, 1] or a density the model
+tried to supply — and then through the same four gates as any other
 proposal. Once confirmed, an entry is an ordinary deterministic rule and nothing
 behaves differently because a model suggested it (FREQ-5, NFREQ-1). CI never
 calls it: every SDK is an optional extra and the tests drive the proposers from
@@ -356,7 +389,9 @@ make propose-score AI=openai                       # how does it do?
 ```
 
 That covers OpenAI, Azure, vLLM, LM Studio, Groq, OpenRouter, together.ai and
-Ollama. A weaker model does not become dangerous here, only less useful: its
+Ollama. The SDKs are optional extras: CI installs them only to test the AI
+path against recorded responses, never with a key. A weaker model does not
+become dangerous here, only less useful: its
 answer is checked field by field against the catalogue, then gated, then shown
 to a human. What changes with model quality is the scoreboard, not the safety
 properties — which is exactly what `make propose-score AI=openai` measures.
@@ -421,8 +456,10 @@ One honest caveat: the baseline was tuned *after* seeing this gold set, so its
 
 ## Next steps
 
-Publish `models/gearbox.sysml` (written, waiting) and capture its elements —
-that is what turns the proposer scoreboard from a mechanism into a number.
+Re-measure the three language models per project: the numbers above predate
+projects, and the merged excerpt was part of every model's difficulty. The
+prompt has changed since as well — it no longer mentions supplying a density,
+which the verification now refuses.
 
 Then stage B: change-impact analysis — given a change on either side, derive the
 affected requirements and verification cases from the model links instead of

@@ -26,23 +26,28 @@ What still does NOT happen, and why:
       system does not notice. Closing this needs the FeatureChainExpression
       resolved; it is the next extractor step.
 
-    * Only ONE comparison per requirement. Compound constraints (and/or,
-      several bounds) collapse to the first comparison; _find_all() warns.
+    * Only ONE comparison per requirement. A requirement whose subtree holds
+      more than one comparison, literal or unit (and/or, several bounds, an
+      offset like `maxLength - 5 [mm]`) is NOT extracted: it is reported as a
+      gap, "not checked". It used to collapse to the first comparison with a
+      warning on stdout -- which checks one bound of `a >= x and a <= y` and
+      reports the whole requirement as passed.
 
     * The expression is never evaluated, only its parts are read. Something
       like "length + width <= 200" would be misread. That is what SMT over the
       constraint network is for.
 
 What DOES happen now, and did not before: the requirement's SUBJECT is
-resolved through the model's own `satisfy` link -- see resolve_satisfies().
+resolved through the model's own `satisfy` link -- see resolve_satisfies() --
+and a definition satisfied by several parts is checked once per part.
+A definition that cannot be read is carried as a skip reason, which a run
+reports as a gap: a requirement nobody checked must not vanish from the report.
 =============================================================================
 """
 
 from __future__ import annotations
 
-import json
 from collections import deque
-from pathlib import Path
 
 from .model import Requirement
 from .project import Project
@@ -193,8 +198,15 @@ def _chained_subject(branch: dict, by_id: dict[str, dict]) -> tuple[dict | None,
 def resolve_satisfies(
     elements: list[dict],
     by_id: dict[str, dict] | None = None,
-) -> dict[str, tuple[dict, list[str]]]:
-    """Map RequirementDefinition id -> (satisfying PartUsage, link path).
+) -> dict[str, list[tuple[dict, list[str]]]]:
+    """Map RequirementDefinition id -> [(satisfying PartUsage, link path), ...].
+
+    A list, because one definition is routinely satisfied by several parts --
+    `MaxMass` for every component, the bore radius for both sides of an
+    interface. Keeping only one of them used to drop the others silently: the
+    last `satisfy` in the payload won, and the part named by the earlier ones
+    was never checked and never reported. One entry per distinct part, in the
+    order the model states them.
 
     `satisfy maxLengthCheck by motorHousing;` lands in the model as a
     SatisfyRequirementUsage with two branches:
@@ -216,7 +228,7 @@ def resolve_satisfies(
     part per satisfy.
     """
     by_id = by_id or {e["@id"]: e for e in elements if "@id" in e}
-    out: dict[str, tuple[dict, list[str]]] = {}
+    out: dict[str, list[tuple[dict, list[str]]]] = {}
 
     for satisfy in elements:
         if satisfy.get("@type") != "SatisfyRequirementUsage":
@@ -244,8 +256,10 @@ def resolve_satisfies(
         if definition is None or part is None:
             continue
 
-        path = [satisfy["@id"]] + definition_path + part_path
-        out[definition["@id"]] = (part, path)
+        links = out.setdefault(definition["@id"], [])
+        # Two usages of one definition satisfied by the same part are one check.
+        if all(known["@id"] != part["@id"] for known, _ in links):
+            links.append((part, [satisfy["@id"]] + definition_path + part_path))
 
     return out
 
@@ -254,103 +268,110 @@ def resolve_satisfies(
 # Conversion
 # --------------------------------------------------------------------------
 
-def _find_all(elements: list[dict], predicate, what: str, context: str) -> list[dict]:
-    hits = [e for e in elements if predicate(e)]
-    if len(hits) > 1:
-        print(f"[warn] {context}: {len(hits)} candidates for {what}, taking the first")
-    return hits
-
-
-def _to_requirement(
+def _to_requirements(
     definition: dict,
     by_id: dict[str, dict],
-    satisfied_by: dict[str, tuple[dict, list[str]]] | None = None,
-) -> Requirement | None:
+    satisfied_by: dict[str, list[tuple[dict, list[str]]]] | None = None,
+) -> tuple[list[Requirement], str | None]:
     """Translate one RequirementDefinition into the intermediate format.
 
-    Returns None if any of the three parts is missing -- a partially extracted
-    requirement would be more dangerous than none at all.
+    Returns the requirements -- one per satisfying part, or one with the
+    definition's own subject parameter when nothing satisfies it -- or, when
+    the definition cannot be read, no requirements and the reason. A partially
+    extracted requirement would be more dangerous than none at all, and "none"
+    has to be visible: the caller reports the reason as a gap.
     """
     name = definition.get("declaredName") or definition.get("name")
     if not name:
-        return None
+        return [], None
+    requirement_id = definition.get("declaredShortName") or name
 
     subtree = reachable(definition, by_id)
 
-    operators = _find_all(
-        subtree,
-        lambda e: e.get("operator") in COMPARISON_OPERATORS,
-        "comparison operator", name,
-    )
-    literals = _find_all(
-        subtree,
-        lambda e: str(e.get("@type", "")).startswith("Literal") and "value" in e,
-        "limit value", name,
-    )
-    units = _find_all(
-        subtree,
-        lambda e: e.get("isLibraryElement") and e.get("declaredShortName"),
-        "unit", name,
-    )
+    found = {
+        "comparison": [e for e in subtree if e.get("operator") in COMPARISON_OPERATORS],
+        "limit": [
+            e for e in subtree
+            if str(e.get("@type", "")).startswith("Literal") and "value" in e
+        ],
+        "unit": [
+            e for e in subtree
+            if e.get("isLibraryElement") and e.get("declaredShortName")
+        ],
+    }
 
-    missing = [
-        label for label, hits in
-        (("operator", operators), ("limit", literals), ("unit", units))
-        if not hits
-    ]
+    missing = [label for label, hits in found.items() if not hits]
     if missing:
-        print(f"[warn] {name}: {', '.join(missing)} not found -- skipped")
-        return None
+        return [], f"{requirement_id}: not extracted -- no {', '.join(missing)} found"
 
-    unit_symbol = units[0]["declaredShortName"]
+    # One of each or nothing. The first of two comparisons is one bound of a
+    # compound constraint, and the first of two literals may be an offset
+    # rather than the limit: checking either would report a pass for a
+    # requirement that was only half read.
+    several = [f"{len(hits)} {label}s" for label, hits in found.items() if len(hits) > 1]
+    if several:
+        return [], (
+            f"{requirement_id}: not extracted -- {', '.join(several)}; compound "
+            f"constraints are not supported yet (see extract.py)"
+        )
+
+    unit_symbol = found["unit"][0]["declaredShortName"]
     try:
-        limit = ureg.Quantity(literals[0]["value"], unit_symbol)
+        limit = ureg.Quantity(found["limit"][0]["value"], unit_symbol)
     except Exception as exc:  # pint does not know the symbol
-        print(f"[warn] {name}: unknown unit {unit_symbol!r} ({exc}) -- skipped")
-        return None
+        return [], f"{requirement_id}: not extracted -- unknown unit {unit_symbol!r} ({exc})"
 
-    # Preferred: the part the model says satisfies this requirement. Fallback:
+    # Preferred: the parts the model says satisfy this requirement. Fallback:
     # the subject parameter of the definition, which is what a model without a
     # satisfy link can offer.
-    satisfied = (satisfied_by or {}).get(definition["@id"])
-    if satisfied is not None:
-        part, _path = satisfied
-        subject = part.get("declaredName") or part.get("declaredShortName") or ""
-        subject_id = part["@id"]
-    else:
+    subjects = [
+        (part.get("declaredName") or part.get("declaredShortName") or "", part["@id"])
+        for part, _path in (satisfied_by or {}).get(definition["@id"], [])
+    ]
+    if not subjects:
         parameters = [
             e.get("declaredName") for e in subtree
             if e.get("@type") == "ReferenceUsage" and e.get("declaredName")
         ]
-        subject = parameters[0] if parameters else ""
-        subject_id = ""
+        subjects = [(parameters[0] if parameters else "", "")]
 
-    return Requirement(
-        requirement_id=definition.get("declaredShortName") or name,
-        element_id=definition["@id"],
-        subject=subject,
-        subject_id=subject_id,
-        prop="",  # comes from mapping.yaml, see module header
-        operator=operators[0]["operator"],
-        limit=limit,
-        text=name,
-    )
+    return [
+        Requirement(
+            requirement_id=requirement_id,
+            element_id=definition["@id"],
+            subject=subject,
+            subject_id=subject_id,
+            prop="",  # comes from mapping.yaml, see module header
+            operator=found["comparison"][0]["operator"],
+            limit=limit,
+            text=name,
+        )
+        for subject, subject_id in subjects
+    ], None
 
 
-def elements_to_requirements(elements: list[dict]) -> list[Requirement]:
-    """Pure function -- testable without a network."""
+def extract(elements: list[dict]) -> tuple[list[Requirement], list[str]]:
+    """Every requirement in the payload, plus a reason for each definition that
+    could not be read. Pure function -- testable without a network."""
     by_id = {e["@id"]: e for e in elements if "@id" in e}
     satisfied_by = resolve_satisfies(elements, by_id)
-    result = []
+    requirements: list[Requirement] = []
+    skipped: list[str] = []
     for element in elements:
         if element.get("@type") != "RequirementDefinition":
             continue
         if element.get("isLibraryElement"):
             continue
-        req = _to_requirement(element, by_id, satisfied_by)
-        if req:
-            result.append(req)
-    return result
+        found, reason = _to_requirements(element, by_id, satisfied_by)
+        requirements.extend(found)
+        if reason:
+            skipped.append(reason)
+    return requirements, skipped
+
+
+def elements_to_requirements(elements: list[dict]) -> list[Requirement]:
+    """The requirements alone, for callers that do not report coverage."""
+    return extract(elements)[0]
 
 
 # --------------------------------------------------------------------------
@@ -363,16 +384,17 @@ def from_capture(project: Project) -> list[Requirement]:
     return elements_to_requirements(project.elements())
 
 
-def from_api(
+def fetch_elements(
     project_name: str,
     base_url: str | None = None,
-) -> tuple[list[Requirement], dict[str, str]]:
-    """Requirements plus the model state they came from.
+) -> tuple[list[dict], dict[str, str]]:
+    """Every element of the server project NAMED `project_name`, at its head
+    commit, plus the ids of that model state.
 
-    The server project is found BY NAME. It used to be "whichever was published
-    most recently", which meant that publishing a second model silently changed
-    what `verify api` verified. Which model is checked is stated by the project,
-    never inferred from a timestamp.
+    By name: it used to be "whichever was published most recently", which
+    meant that publishing a second model silently changed what `verify api`
+    verified. Which model is checked is stated by the project, never inferred
+    from a timestamp -- see `SysMLClient.project_named`.
 
     SRS FREQ-1 requires the commit id to be recorded so that every later result
     can be attributed to an exact state of the system model. Fetching it and
@@ -380,31 +402,12 @@ def from_api(
     """
     client = SysMLClient(base_url)
     try:
-        projects = client.projects()
-        matching = [p for p in projects if p.get("name") == project_name]
-        if not matching:
-            available = ", ".join(sorted(p.get("name", "?") for p in projects)) or "none"
-            raise RuntimeError(
-                f"no project named {project_name!r} on the API server. "
-                f"Available: {available}"
-            )
-        if len(matching) > 1:
-            # Publishing the same package twice leaves two projects with one
-            # name. Take the newest of THOSE -- same-named, so the same model --
-            # and say so, because a silent choice here is a silent choice of
-            # commit.
-            matching.sort(key=lambda p: p.get("created", ""))
-            print(f"[warn] {len(matching)} server projects named {project_name!r}; "
-                  f"using the most recently created")
-        project_id = matching[-1]["@id"]
+        project_id = client.project_named(project_name)["@id"]
         commit_id = client.head_commit(project_id)
         elements = client.all_elements(project_id, commit_id)
     finally:
         client.close()
-    return elements_to_requirements(elements), {
-        "sysml_project_id": project_id,
-        "sysml_commit_id": commit_id,
-    }
+    return elements, {"sysml_project_id": project_id, "sysml_commit_id": commit_id}
 
 
 def load(project: Project, source: str | None = None) -> list[Requirement]:
@@ -415,7 +418,12 @@ def load(project: Project, source: str | None = None) -> list[Requirement]:
 def load_with_context(
     project: Project,
     source: str | None = None,
-) -> tuple[list[Requirement], dict[str, str]]:
+) -> tuple[list[Requirement], list[str], dict[str, str]]:
+    """Requirements, the definitions that could not be read, and the model
+    state they came from (empty for a capture)."""
     if source == "api":
-        return from_api(project.sysml_project)
-    return from_capture(project), {}
+        elements, state = fetch_elements(project.sysml_project)
+    else:
+        elements, state = project.elements(), {}
+    requirements, skipped = extract(elements)
+    return requirements, skipped, state

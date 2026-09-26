@@ -35,10 +35,10 @@ from typing import Protocol
 from .catalog import Catalog, CatalogAttribute, CatalogPart, load_catalog
 from .extract import from_capture
 from .project import Project, UnknownProject, add_project_argument, load_project
-from .gates import MappingCheck, check_entry
+from .gates import PART_CONFLICT, MappingCheck, check_proposal
 from .mapping import Mapping, load_mapping
 from .model import Requirement
-from .proposals import Proposal, add, load_proposals, merged_mapping, save_proposals
+from .proposals import Proposal, add, load_proposals, save_proposals
 from .units import ureg
 from .verify import AdapterPool, _leaf
 
@@ -340,8 +340,7 @@ def gate(
     dropped: list[tuple[Proposal, MappingCheck]] = []
 
     for candidate in candidates:
-        merged = merged_mapping(mapping, candidate)
-        check = check_entry(merged.attributes[-1], merged, catalog, requirements, pool)
+        check = check_proposal(candidate, mapping, catalog, requirements, pool)
         if check.verdict == "invalid":
             dropped.append((candidate, check))
         else:
@@ -427,14 +426,31 @@ def report(kept: list[Proposal], dropped: list, stored: int) -> int:
               f"({candidate.args or ''})")
         print(f"        {candidate.rationale}")
 
-    if dropped:
+    # A candidate on another object than its part's mapped one is a conflict,
+    # not a finding about that candidate -- one line per part says it, where
+    # one line per candidate buried every other rejection under repetitions.
+    conflicts: dict[str, list[str]] = {}
+    others: list[tuple[Proposal, str]] = []
+    for candidate, check in dropped:
+        problem = next((p for p in check.problems if p.verdict == "invalid"), None)
+        if problem is not None and problem.code == PART_CONFLICT:
+            objects = conflicts.setdefault(candidate.sysml_part, [])
+            if candidate.cad_object not in objects:
+                objects.append(candidate.cad_object)
+        else:
+            others.append((candidate, problem.detail if problem else "?"))
+
+    if others:
         print("\n  rejected by a gate (not stored):")
-        for candidate, check in dropped:
-            reason = next(
-                (p.detail for p in check.problems if p.verdict == "invalid"), "?"
-            )
+        for candidate, reason in others:
             print(f"    {candidate.sysml_part}.{candidate.attribute} -> "
                   f"{candidate.cad_object} via {candidate.method}: {reason}")
+    if conflicts:
+        count = len(dropped) - len(others)
+        print(f"\n  {count} named another CAD object for a part that is already "
+              f"mapped (not stored):")
+        for part, objects in conflicts.items():
+            print(f"    {part}: {', '.join(objects)}")
     print()
     return 0
 

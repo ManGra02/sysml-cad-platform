@@ -17,7 +17,9 @@ from sysmlcad.adapters import CadTarget
 from sysmlcad.catalog import Catalog, CatalogAttribute, CatalogPart
 from sysmlcad.mapping import AttributeMapping, Mapping, PartMapping
 from sysmlcad.project import list_projects, load_project
-from sysmlcad.propose import DifflibProposer, normalise, run, similarity
+from sysmlcad.propose import DifflibProposer, gate, normalise, run, similarity
+from sysmlcad.proposals import Proposal
+from sysmlcad.verify import AdapterPool
 from sysmlcad.units import ureg
 
 MOTOR = load_project("motor_housing")
@@ -107,9 +109,10 @@ def test_an_attribute_of_unknown_type_is_not_forced_into_a_measurement():
     """`SpringRate` is not in `_VALUE_TYPES`, so no dimension filter applies.
     The proposer may still suggest something, but nothing here may pretend the
     dimension was checked -- the gate reports `unknown` and the human decides."""
-    for proposal in _proposals():
-        if proposal.attribute == "stiffness":
-            assert "weak" in proposal.rationale or "matches" in proposal.rationale
+    stiffness = [p for p in _proposals() if p.attribute == "stiffness"]
+    assert stiffness, "the test needs candidates to say anything"
+    for proposal in stiffness:
+        assert "weak" in proposal.rationale
 
 
 # --------------------------------------------------------------------------
@@ -188,6 +191,27 @@ def test_an_already_confirmed_attribute_is_not_proposed_again():
     assert not [p for p in kept if p.attribute == "length"]
 
 
+def test_a_candidate_naming_another_object_for_a_mapped_part_is_dropped():
+    """Gated on the object it names, and refused because the part already
+    stands for a different one. Before, it was gated on the existing object
+    and stored looking sound."""
+    mapping = Mapping(
+        parts={"motorHousing": PartMapping("motorHousing", "build123d", "motor_housing",
+                                           status="confirmed")},
+        attributes=[],
+        digest="test",
+    )
+    candidate = Proposal(
+        id="", sysml_part="motorHousing", attribute="length", adapter="step",
+        cad_object="fixtures/step/motor_housing.step", method="bbox_size",
+        args={"axis": "X"}, confidence=0.9,
+    )
+    kept, dropped = gate([candidate], mapping, CATALOG, {}, AdapterPool())
+    assert kept == []
+    [(_, check)] = dropped
+    assert any("already mapped" in p.detail for p in check.problems)
+
+
 def test_top_limits_what_reaches_the_review_queue():
     empty = Mapping(parts={}, attributes=[], digest="empty")
     one, _ = run(MOTOR, top=1, catalog=CATALOG, mapping=empty)
@@ -240,3 +264,25 @@ def test_the_proposer_does_not_invent_a_density():
         for proposal in DifflibProposer().propose(load_catalog(load_project(name))):
             if proposal.method == "mass":
                 assert "density_g_per_cm3" not in proposal.args
+
+
+def test_part_conflicts_are_summarised_once_per_part(capsys):
+    """Every candidate on another object than its part's mapped one is refused
+    for the same reason. One line each buried the rejections that say
+    something; one line per part keeps them visible."""
+    from sysmlcad.gates import PART_CONFLICT, GateResult, MappingCheck
+    from sysmlcad.propose import report
+
+    def conflict(attribute, cad_object):
+        candidate = Proposal(id="", sysml_part="housing", attribute=attribute,
+                             adapter="step", cad_object=cad_object, method="bbox_size")
+        check = MappingCheck("housing", attribute, cad_object, "bbox_size", "confirmed",
+                             results=(GateResult("uniqueness", "invalid", "...", code=PART_CONFLICT),))
+        return candidate, check
+
+    report([], [conflict("width", "a.step#Housing"), conflict("height", "a.step#Housing"),
+                conflict("width", "gearbox")], stored=0)
+    out = capsys.readouterr().out
+    assert "3 named another CAD object" in out
+    assert out.count("housing:") == 1
+    assert "a.step#Housing, gearbox" in out

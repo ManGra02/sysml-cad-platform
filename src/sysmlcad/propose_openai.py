@@ -35,7 +35,7 @@ does not become dangerous here, only less useful: whatever it returns is
 checked field by field against the catalogue, then run through the same four
 gates, then shown to a human. What changes with model quality is the
 scoreboard, never the safety properties. `make propose-score AI=openai` is how
-you find out which side of the 11/13 baseline your model falls on.
+you find out which side of the baseline your model falls on.
 
 ONE PORTABILITY NOTE
 --------------------

@@ -117,10 +117,15 @@ def test_a_proposal_is_gated_as_if_it_were_confirmed():
     assert merged.parts["newPart"].status == "confirmed"
 
 
-def test_merging_does_not_overwrite_an_existing_part_entry():
+def test_a_proposal_is_measured_on_the_object_it_names():
+    """The inverse of what this test used to pin. The merged view kept the
+    EXISTING part entry, so the gates measured an object the proposal did not
+    name -- and the reviewer approved one object while the mapping recorded
+    another. `gates.check_proposal` now reports that disagreement instead."""
     mapping = load_mapping(MAPPING_SRC)
-    merged = merged_mapping(mapping, _proposal(cad_object="something_else"))
-    assert merged.parts["motorHousing"].cad_object == "motor_housing"
+    merged = merged_mapping(mapping, _proposal(cad_object="gearbox#Housing"))
+    assert merged.parts["motorHousing"].cad_object == "gearbox#Housing"
+    assert mapping.parts["motorHousing"].cad_object == "motor_housing", "input untouched"
 
 
 # --------------------------------------------------------------------------
@@ -204,6 +209,22 @@ def test_an_invalid_proposal_is_refused_and_the_file_untouched(workspace, capsys
     assert "gate says" in capsys.readouterr().out
 
 
+def test_a_proposal_naming_another_object_for_a_mapped_part_is_refused(workspace, capsys):
+    """`motorHousing` is already `build123d:motor_housing`. A proposal for its
+    mass on `gearbox#Housing` passes dimension, existence and plausibility --
+    and used to be confirmed, gated and then measured on `motor_housing`, the
+    object nobody had reviewed. A part stands for one CAD object."""
+    mapping, store = workspace
+    before = mapping.read_text(encoding="utf-8")
+    save_proposals([_proposal(cad_object="gearbox#Housing")], store)
+
+    assert confirm(MOTOR, "p-01", user="vh", path=mapping, proposals_path=store) == 1
+    assert mapping.read_text(encoding="utf-8") == before
+    out = capsys.readouterr().out
+    assert "already mapped to build123d:motor_housing" in out
+    assert find(load_proposals(store), "p-01").status == "proposed"
+
+
 def test_confirming_twice_is_refused(workspace):
     mapping, store = workspace
     save_proposals([_proposal()], store)
@@ -230,6 +251,18 @@ def test_rejecting_records_the_reason_and_writes_nothing_to_the_mapping(workspac
     assert decided.reason == "that bore belongs to the cover"
 
 
+def test_a_decided_proposal_cannot_be_rejected(workspace):
+    """Rejecting a confirmed proposal would leave the record saying "no" while
+    mapping.yaml still carries the entry. Undoing a confirmation is an edit to
+    mapping.yaml, in review."""
+    mapping, store = workspace
+    save_proposals([_proposal()], store)
+    assert confirm(MOTOR, "p-01", user="vh", path=mapping, proposals_path=store) == 0
+
+    assert reject(MOTOR, "p-01", "changed my mind", "vh", store) == 2
+    assert find(load_proposals(store), "p-01").status == "confirmed"
+
+
 def test_a_confirmed_entry_is_what_a_run_would_use(workspace):
     """The end of the chain: after confirmation the entry is an ordinary
     deterministic rule, indistinguishable from a hand-written one."""
@@ -239,3 +272,20 @@ def test_a_confirmed_entry_is_what_a_run_would_use(workspace):
 
     entry = load_mapping(mapping).for_requirement("MaxMass", "motorHousing")
     assert entry is not None and entry.usable
+
+
+def test_confirming_onto_an_unconfirmed_part_says_a_run_will_not_use_it(workspace, capsys):
+    """The part entry already exists with the same object, so only the
+    attribute is written -- but the part is still `proposed`. Claiming that a
+    run will now use the entry would be false."""
+    mapping, store = workspace
+    text = mapping.read_text(encoding="utf-8")
+    mapping.write_text(text.replace("    status: confirmed\n", "    status: proposed\n", 1),
+                       encoding="utf-8")
+    assert not load_mapping(mapping).parts["motorHousing"].usable
+    save_proposals([_proposal()], store)
+
+    assert confirm(MOTOR, "p-01", user="vh", path=mapping, proposals_path=store) == 0
+    out = capsys.readouterr().out
+    assert "is `proposed` under `parts:`" in out
+    assert "will use it" not in out

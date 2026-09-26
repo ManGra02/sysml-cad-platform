@@ -1,5 +1,5 @@
 {
-  "_comment": "A CONSTRUCTED response, not a captured one -- no live call was made to produce it. It is shaped exactly like what messages.parse returns for fixtures/elements.json plus the committed CAD targets, and it exists so the validation in propose_ai.py can be tested without a network or an API key. Each candidate after the first two is a way a well-formed answer can still be fiction: an invented CAD object, an attribute the part does not have, bbox_size with no axis, and a measurement the target does not offer. If you replace this with a genuine recorded response, keep those cases -- they are the ones worth testing.",
+  "_comment": "A CONSTRUCTED response, not a captured one -- no live call was made to produce it. It is shaped exactly like what messages.parse returns for the motor_housing project plus the committed CAD targets, and it exists so the validation in propose_ai.py can be tested without a network or an API key. Each candidate after the first two is a way a well-formed answer can still be fiction: an invented CAD object, an attribute the part does not have, bbox_size with no axis, and a measurement the target does not offer. If you replace this with a genuine recorded response, keep those cases -- they are the ones worth testing.",
 
   "candidates": [
     {
@@ -8,7 +8,6 @@
       "cad_object": "motor_housing",
       "method": "bbox_size",
       "axis": "X",
-      "density_g_per_cm3": null,
       "confidence": 0.93,
       "rationale": "The script declares LENGTH_MM, and the part name matches the module name; bounding box along X, which is not necessarily a named feature dimension."
     },
@@ -18,7 +17,6 @@
       "cad_object": "motor_housing",
       "method": "mass",
       "axis": null,
-      "density_g_per_cm3": null,
       "confidence": 0.9,
       "rationale": "The module declares MATERIAL AlSi10Mg with a density, so mass follows from the geometry without an override."
     },
@@ -28,7 +26,6 @@
       "cad_object": "fixtures/step/housing_v2.step",
       "method": "bbox_size",
       "axis": "X",
-      "density_g_per_cm3": null,
       "confidence": 0.71,
       "rationale": "A revised housing export would be the better source for the as-designed length."
     },
@@ -38,7 +35,6 @@
       "cad_object": "motor_housing",
       "method": "bbox_size",
       "axis": "Z",
-      "density_g_per_cm3": null,
       "confidence": 0.44,
       "rationale": "A housing normally has a wall thickness and the script has a Z extent."
     },
@@ -48,7 +44,6 @@
       "cad_object": "fixtures/step/gearbox.step#Housing",
       "method": "bbox_size",
       "axis": null,
-      "density_g_per_cm3": null,
       "confidence": 0.6,
       "rationale": "The gearbox housing is a plausible alternative source for the length."
     },
@@ -58,7 +53,6 @@
       "cad_object": "fixtures/step/gearbox.step#Housing",
       "method": "mass",
       "axis": null,
-      "density_g_per_cm3": null,
       "confidence": 0.55,
       "rationale": "Mass of the housing node in the assembly export."
     }

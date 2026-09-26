@@ -28,6 +28,27 @@ class SysMLClient:
         r.raise_for_status()
         return r.json()
 
+    def project_named(self, name: str) -> dict:
+        """The server project called `name` -- BY NAME, never "the newest one".
+
+        Publishing the same package twice leaves two projects with one name.
+        Then the newest of THOSE is taken -- same name, so the same model --
+        and a warning says so, because a silent choice here is a silent choice
+        of commit. One implementation, so the verifier, the catalogue and the
+        explorer cannot disagree about which project a name means.
+        """
+        projects = self.projects()
+        matching = [p for p in projects if p.get("name") == name]
+        if not matching:
+            available = ", ".join(sorted(p.get("name", "?") for p in projects)) or "none"
+            raise LookupError(
+                f"no project named {name!r} on the API server. Available: {available}"
+            )
+        if len(matching) > 1:
+            print(f"[warn] {len(matching)} server projects named {name!r}; "
+                  f"using the most recently created")
+        return sorted(matching, key=lambda p: p.get("created", ""))[-1]
+
     def head_commit(self, project_id: str) -> str:
         r = self._c.get(f"/projects/{project_id}/commits")
         r.raise_for_status()

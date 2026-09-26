@@ -83,14 +83,19 @@ class Mapping:
         Matched on the requirement id, and on the subject part too when the
         model told us one -- so that two parts constrained by requirements of
         the same name cannot be confused for each other.
+
+        A confirmed entry wins over an unconfirmed one for the same pair, in
+        whatever order the file lists them: a `disabled` line left above its
+        replacement must not turn a checked requirement into a gap. An
+        unconfirmed entry is still returned when it is the only one, so the run
+        can say *why* the requirement was not checked.
         """
-        for entry in self.attributes:
-            if entry.requirement != requirement_id:
-                continue
-            if subject and entry.sysml_part != subject:
-                continue
-            return entry
-        return None
+        matches = [
+            entry for entry in self.attributes
+            if entry.requirement == requirement_id
+            and (not subject or entry.sysml_part == subject)
+        ]
+        return next((e for e in matches if e.usable), matches[0] if matches else None)
 
     def part_for(self, entry: AttributeMapping) -> PartMapping | None:
         return self.parts.get(entry.sysml_part)

@@ -4,7 +4,10 @@ on:
   push:
     paths:
       - "cad/**"
-      - "mapping/**"
+      # One directory per model: mapping, capture, gold set. A changed mapping
+      # can change a verdict, so it has to trigger the run as much as a
+      # changed CAD script does.
+      - "projects/**"
       - "fixtures/**"
       - "src/**"
       - "tests/**"
@@ -27,11 +30,22 @@ jobs:
           python-version: "3.14"
           cache: pip
       - run: pip install -r requirements.txt
-      # Runs against the FIXTURE, deliberately: CI must be able to go green
-      # without a live SysML API server.
-      - run: PYTHONPATH=src:cad pytest
+      # Runs against each project's CAPTURE, deliberately: CI must be able to
+      # go green without a live SysML API server -- and without the optional AI
+      # SDKs, which is what this step proves. Tests that need them skip.
+      - name: Verify (base dependencies only)
+        run: PYTHONPATH=src:cad pytest
+      # The same AI tests again, now with the SDKs present, so their request-
+      # building and error handling are covered too. No key is needed: every
+      # one of them replays a recorded response or uses a stub client.
+      - name: Install the optional AI SDKs
+        run: pip install "anthropic>=1.3.0" "openai>=1.60.0"
+      - name: AI proposers (with SDKs, no key)
+        run: PYTHONPATH=src:cad pytest tests/test_propose_ai.py tests/test_propose_openai.py --junitxml=out/ai-proposers.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: verification-report
-          path: out/verification.xml
+          path: |
+            out/verification.xml
+            out/ai-proposers.xml

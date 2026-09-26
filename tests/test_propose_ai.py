@@ -136,6 +136,43 @@ def test_a_measurement_the_target_cannot_make_is_dropped(proposer, proposals):
     assert any("does not offer" in reason for reason in proposer.dropped)
 
 
+def _one(proposer, **fields):
+    """Replay a single candidate through the same backend."""
+    candidate = {
+        "sysml_part": "motorHousing", "attribute": "length",
+        "cad_object": "motor_housing", "method": "bbox_size", "axis": "X",
+        "confidence": 0.9, "rationale": "LENGTH_MM names the same quantity.",
+        **fields,
+    }
+    replay = type(proposer)(recorded=json.dumps({"candidates": [candidate]}))
+    return replay, replay.propose(CATALOG)
+
+
+def test_a_density_from_the_model_is_dropped(proposer):
+    """A density is a fact about the part. In a mapping entry it overrides the
+    material the CAD side declares and goes stale when that changes -- so no
+    proposer may supply one, whatever the server let through."""
+    replay, proposals = _one(proposer, method="mass", attribute="mass", axis=None,
+                             density_g_per_cm3=2.7)
+    assert proposals == []
+    assert any("density" in reason for reason in replay.dropped)
+
+
+@pytest.mark.parametrize("confidence", [1.7, -0.1, "high", None, float("nan")])
+def test_a_confidence_outside_zero_to_one_is_dropped(proposer, confidence):
+    """In plain JSON mode nothing enforces the schema's bounds. A score of 1.7
+    would outrank every honest candidate; "high" used to crash the run."""
+    replay, proposals = _one(proposer, confidence=confidence)
+    assert proposals == []
+    assert any("confidence" in reason for reason in replay.dropped)
+
+
+def test_a_candidate_that_is_not_an_object_is_dropped(proposer):
+    replay = type(proposer)(recorded=json.dumps({"candidates": ["motorHousing.length"]}))
+    assert replay.propose(CATALOG) == []
+    assert any("not an object" in reason for reason in replay.dropped)
+
+
 def test_every_rejection_is_recorded(proposer, proposals):
     """A proposer that invents names systematically is worth knowing about, and
     silence would hide it."""
@@ -246,6 +283,7 @@ def test_the_json_schema_is_strict_enough_for_structured_outputs():
     """OpenAI-compatible strict mode rejects a schema that allows extra keys or
     leaves a property optional. Derived from the one pydantic model, so the two
     representations cannot drift apart."""
+    pytest.importorskip("pydantic", reason="pydantic arrives with an AI SDK extra")
     schema = json_schema()
     candidate = schema["$defs"]["AiCandidate"]
 
@@ -266,3 +304,22 @@ def test_a_model_without_a_name_is_refused_rather_than_guessed():
     finally:
         if saved is not None:
             os.environ["SYSMLCAD_OPENAI_MODEL"] = saved
+
+
+def test_a_truncated_claude_answer_yields_nothing_and_says_why():
+    """`max_tokens` leaves `parsed_output` empty. It used to raise an
+    AttributeError; half an answer is dropped, like on the OpenAI path."""
+    pytest.importorskip("pydantic", reason="the Claude call builds its schema with pydantic")
+
+    class _Response:
+        stop_reason = "max_tokens"
+        parsed_output = None
+        id = "msg-1"
+
+    class _Messages:
+        def parse(self, **kwargs):
+            return _Response()
+
+    proposer = ClaudeProposer(client=type("Client", (), {"messages": _Messages()})())
+    assert proposer.propose(CATALOG) == []
+    assert any("max_tokens" in reason for reason in proposer.dropped)

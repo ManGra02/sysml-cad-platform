@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from sysmlcad.extract import elements_to_requirements, resolve_satisfies
+from sysmlcad.extract import elements_to_requirements, extract, resolve_satisfies
 
 #: A captured publish of models/gearbox.sysml -- three parts, and two of the
 #: four satisfy links written as dotted paths. Nothing else in the repository
@@ -72,34 +72,35 @@ def _graph(name, value, unit_short, operator="<="):
     ]
 
 
-def _satisfy(name, part_name):
+def _satisfy(name, part_name, usage=""):
     """`satisfy <name>Check by <part>;` as the API actually serialises it.
 
     Two branches off one SatisfyRequirementUsage: the ReferenceSubsetting side
     leads to the RequirementDefinition, the SubjectMembership side to the
-    PartUsage.
+    PartUsage. `usage` tells a second satisfy of the same definition apart.
     """
     p = name.lower()
+    s = f"{p}{usage}"
     return [
-        {"@id": f"{p}-sat", "@type": "SatisfyRequirementUsage",
-         "ownedRelationship": [{"@id": f"{p}-rs"}, {"@id": f"{p}-satsm"}]},
+        {"@id": f"{s}-sat", "@type": "SatisfyRequirementUsage",
+         "ownedRelationship": [{"@id": f"{s}-rs"}, {"@id": f"{s}-satsm"}]},
         # -> requirement definition
-        {"@id": f"{p}-rs", "@type": "ReferenceSubsetting",
-         "general": {"@id": f"{p}-requsage"}},
-        {"@id": f"{p}-requsage", "@type": "RequirementUsage",
-         "declaredName": f"{p}Check",
-         "ownedRelationship": [{"@id": f"{p}-ft"}]},
-        {"@id": f"{p}-ft", "@type": "FeatureTyping", "general": {"@id": f"{p}-req"}},
+        {"@id": f"{s}-rs", "@type": "ReferenceSubsetting",
+         "general": {"@id": f"{s}-requsage"}},
+        {"@id": f"{s}-requsage", "@type": "RequirementUsage",
+         "declaredName": f"{s}Check",
+         "ownedRelationship": [{"@id": f"{s}-ft"}]},
+        {"@id": f"{s}-ft", "@type": "FeatureTyping", "general": {"@id": f"{p}-req"}},
         # -> part usage
-        {"@id": f"{p}-satsm", "@type": "SubjectMembership",
-         "memberElement": {"@id": f"{p}-satref"}},
-        {"@id": f"{p}-satref", "@type": "ReferenceUsage",
-         "ownedRelationship": [{"@id": f"{p}-satfv"}]},
-        {"@id": f"{p}-satfv", "@type": "FeatureValue",
-         "memberElement": {"@id": f"{p}-satfre"}},
-        {"@id": f"{p}-satfre", "@type": "FeatureReferenceExpression",
-         "ownedRelationship": [{"@id": f"{p}-satmem"}]},
-        {"@id": f"{p}-satmem", "@type": "Membership",
+        {"@id": f"{s}-satsm", "@type": "SubjectMembership",
+         "memberElement": {"@id": f"{s}-satref"}},
+        {"@id": f"{s}-satref", "@type": "ReferenceUsage",
+         "ownedRelationship": [{"@id": f"{s}-satfv"}]},
+        {"@id": f"{s}-satfv", "@type": "FeatureValue",
+         "memberElement": {"@id": f"{s}-satfre"}},
+        {"@id": f"{s}-satfre", "@type": "FeatureReferenceExpression",
+         "ownedRelationship": [{"@id": f"{s}-satmem"}]},
+        {"@id": f"{s}-satmem", "@type": "Membership",
          "memberElement": {"@id": f"part-{part_name}"}},
         {"@id": f"part-{part_name}", "@type": "PartUsage", "declaredName": part_name},
     ]
@@ -128,6 +129,35 @@ def test_requirements_stay_separate():
 def test_incomplete_requirement_is_discarded():
     graph = [e for e in _graph("MaxLength", 120, "mm") if e["@id"] != "maxlength-cmp"]
     assert elements_to_requirements(graph) == []
+
+
+def test_a_discarded_requirement_says_why():
+    """Discarded, but not silently: the reason is what a run reports as a gap.
+    A requirement that disappears from the report looks exactly like one that
+    was checked and passed."""
+    graph = [e for e in _graph("MaxLength", 120, "mm") if e["@id"] != "maxlength-cmp"]
+    requirements, skipped = extract(graph)
+    assert requirements == []
+    assert len(skipped) == 1
+    assert skipped[0].startswith("MaxLength:")
+    assert "comparison" in skipped[0]
+
+
+def test_a_compound_constraint_is_not_half_checked():
+    """`a >= x and a <= y` has two comparisons. Reading the first and reporting
+    a pass would check one bound of the requirement and vouch for both -- so
+    the requirement is not extracted, and says so."""
+    graph = _graph("MaxLength", 120, "mm")
+    constraint = next(e for e in graph if e["@id"] == "maxlength-cu")
+    constraint["ownedRelationship"].append({"@id": "maxlength-rem2"})
+    graph += [
+        {"@id": "maxlength-rem2", "@type": "ResultExpressionMembership",
+         "ownedRelatedElement": [{"@id": "maxlength-cmp2"}]},
+        {"@id": "maxlength-cmp2", "@type": "OperatorExpression", "operator": ">="},
+    ]
+    requirements, skipped = extract(graph)
+    assert requirements == []
+    assert "2 comparisons" in skipped[0]
 
 
 def test_library_elements_are_ignored():
@@ -175,10 +205,33 @@ def test_satisfy_resolution_records_a_link_path():
     graph = _graph("MaxLength", 120, "mm") + _satisfy("MaxLength", "motorHousing")
     resolved = resolve_satisfies(graph)
     assert len(resolved) == 1
-    part, path = resolved["maxlength-req"]
+    [(part, path)] = resolved["maxlength-req"]
     assert part["declaredName"] == "motorHousing"
     assert path[0] == "maxlength-sat"
     assert "part-motorHousing" in path
+
+
+def test_one_definition_satisfied_by_two_parts_is_checked_on_both():
+    """`MaxMass` for every component is the normal way to model this. Keeping
+    only the last satisfy link dropped the other part silently: never checked,
+    never reported."""
+    graph = (
+        _graph("MaxLength", 120, "mm")
+        + _satisfy("MaxLength", "motorHousing")
+        + _satisfy("MaxLength", "spareHousing", usage="2")
+    )
+    requirements = elements_to_requirements(graph)
+    assert sorted(r.subject for r in requirements) == ["motorHousing", "spareHousing"]
+    assert {r.requirement_id for r in requirements} == {"MaxLength"}
+
+
+def test_the_same_part_twice_is_one_check():
+    graph = (
+        _graph("MaxLength", 120, "mm")
+        + _satisfy("MaxLength", "motorHousing")
+        + _satisfy("MaxLength", "motorHousing", usage="2")
+    )
+    assert [r.subject for r in elements_to_requirements(graph)] == ["motorHousing"]
 
 
 # --------------------------------------------------------------------------
@@ -227,7 +280,7 @@ def test_the_chain_is_recorded_in_the_link_path():
     resolved = resolve_satisfies(elements, by_id)
 
     housing = next(
-        (part, path) for part, path in resolved.values()
+        (part, path) for links in resolved.values() for part, path in links
         if part.get("declaredName") == "housing"
     )
     part, path = housing

@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Literal
 
+import pint
+
 from .units import Q, ureg
 
 Operator = Literal["<=", ">=", "==", "<", ">"]
@@ -33,6 +35,16 @@ class DimensionMismatch(TypeError):
     `verify.run()` can single it out and record a gap instead of losing every
     other verdict in the run to one bad mapping entry.
     """
+
+
+class BadTolerance(ValueError):
+    """A mapping entry's tolerance cannot be read against its requirement's limit.
+
+    `"5 kg"` on a length limit, `"abc%"`, a unit pint does not know. Like
+    `DimensionMismatch` this is a mapping fault: `make gates` reports it, and a
+    run records it as a gap for that one requirement instead of crashing.
+    """
+
 
 #: `compliant` and `within_tolerance` both leave the pipeline green; only
 #: `violated` turns it red. Reporting keeps them apart because "we used up the
@@ -55,15 +67,25 @@ def parse_tolerance(spec: str | float | None, limit: Q) -> Q | None:
     units of the limit (``0.5``), or a percentage of the limit (``"2%"``).
     Returns None when no tolerance is agreed -- which is not the same as a
     tolerance of zero, and is why this is not simply `0`.
+
+    Raises `BadTolerance` for anything it cannot read against `limit`, rather
+    than whatever pint or `float()` happened to raise -- so a caller can treat
+    it as the mapping fault it is.
     """
     if spec is None:
         return None
-    if isinstance(spec, str):
-        text = spec.strip()
-        if text.endswith("%"):
-            return abs(limit) * (float(text[:-1]) / 100.0)
-        return ureg.Quantity(text).to(limit.units)
-    return ureg.Quantity(float(spec), limit.units)
+    try:
+        if isinstance(spec, str):
+            text = spec.strip()
+            if text.endswith("%"):
+                return abs(limit) * (float(text[:-1]) / 100.0)
+            return ureg.Quantity(text).to(limit.units)
+        return ureg.Quantity(float(spec), limit.units)
+    except (ValueError, TypeError, AttributeError, pint.PintError) as exc:
+        raise BadTolerance(
+            f"tolerance {spec!r} cannot be read against a limit in "
+            f"{limit.units:~P}: {exc}"
+        ) from exc
 
 
 @dataclass(frozen=True)
@@ -83,19 +105,6 @@ class Requirement:
     limit: Q
     text: str = ""
     subject_id: str = ""
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "Requirement":
-        return cls(
-            requirement_id=d["requirement_id"],
-            element_id=d.get("element_id", ""),
-            subject=d["subject"],
-            prop=d.get("property", ""),
-            operator=d["operator"],
-            limit=ureg.Quantity(d["value"], d["unit"]),
-            text=d.get("text", ""),
-            subject_id=d.get("subject_id", ""),
-        )
 
     def evaluate(self, measured: Q, tolerance: Q | None = None) -> tuple[Status, Q]:
         """Compare a measurement against the limit. Returns status and deviation.

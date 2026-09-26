@@ -164,16 +164,79 @@ def test_a_bad_axis_is_refused(adapter):
         adapter.measure(HOUSING, "bbox_size", {"axis": "Q"})
 
 
+def test_an_unexpected_argument_is_refused(adapter):
+    """A TypeError here would take the whole run down with one mapping typo."""
+    with pytest.raises(Unsupported, match="axsi"):
+        adapter.measure(HOUSING, "bbox_size", {"axis": "X", "axsi": "Y"})
+    with pytest.raises(Unsupported):
+        adapter.measure(HOUSING, "volume", {"axis": "X"})
+
+
+def test_a_density_override_must_be_a_positive_number(adapter):
+    with pytest.raises(Unsupported, match="positive"):
+        adapter.measure(HOUSING, "mass", {"density_g_per_cm3": 0})
+
+
+# --------------------------------------------------------------------------
+# Several root shapes
+# --------------------------------------------------------------------------
+
+def _two_roots(path):
+    """A file with two free shapes and no assembly above them -- common in
+    exports, and not something build123d's `export_step` writes."""
+    from OCP.STEPCAFControl import STEPCAFControl_Writer
+    from OCP.STEPControl import STEPControl_AsIs
+    from OCP.TCollection import TCollection_ExtendedString
+    from OCP.TDataStd import TDataStd_Name
+    from OCP.TDocStd import TDocStd_Document
+    from OCP.XCAFDoc import XCAFDoc_DocumentTool
+
+    doc = TDocStd_Document(TCollection_ExtendedString("two-roots"))
+    tool = XCAFDoc_DocumentTool.ShapeTool_s(doc.Main())
+    for name, size in (("Shaft", 10), ("Key", 5)):
+        with BuildPart() as part:
+            Box(size, size, size)
+        label = tool.AddShape(part.part.wrapped, False)
+        TDataStd_Name.Set_s(label, TCollection_ExtendedString(name))
+    writer = STEPCAFControl_Writer()
+    writer.SetNameMode(True)
+    writer.Transfer(doc, STEPControl_AsIs)
+    writer.Write(str(path))
+    return str(path)
+
+
+def test_several_roots_are_each_addressable_and_the_bare_file_is_not(adapter, tmp_path):
+    path = _two_roots(tmp_path / "loose.step")
+
+    with pytest.raises(Unsupported, match="root shapes"):
+        adapter.measure(path, "volume")
+    assert adapter.measure(f"{path}#Key", "volume").magnitude == pytest.approx(125.0)
+
+
+def test_the_catalogue_lists_several_roots_by_name(adapter, tmp_path):
+    """It used to raise on the first multi-root file it met: each root was
+    listed under the bare path, which `_node` refuses."""
+    path = _two_roots(tmp_path / "loose.step")
+    references = {t.reference for t in adapter.catalog([path])}
+    assert references == {f"{path}#Shaft", f"{path}#Key"}
+
+
 # --------------------------------------------------------------------------
 # Provenance
 # --------------------------------------------------------------------------
 
-def test_state_id_follows_the_file_contents(adapter, tmp_path):
-    """Two different files must not share a design state."""
+def test_state_id_follows_the_file_contents(tmp_path):
+    """Same file name, different bytes: a different design state.
+
+    Comparing two differently NAMED files would pass on the name alone -- the
+    digest includes it -- and prove nothing about the content."""
+    renamed = tmp_path / "motor_housing.step"
+    renamed.write_bytes(Path(GEARBOX).read_bytes())
+
     one = StepAdapter()
     one.measure(HOUSING, "volume")
     other = StepAdapter()
-    other.measure(GEARBOX, "volume")
+    other.measure(str(renamed), "volume")
     assert one.state_id() != other.state_id()
 
 

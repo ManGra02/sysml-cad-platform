@@ -5,7 +5,8 @@ Check SysML v2 requirements automatically against CAD geometry. CI turns red whe
 the CAD model violates a system requirement. Later: a mapping store, AI-assisted
 mapping proposals, bidirectional sync, SMT-based verification.
 
-**Status: stages A, A2, E and H complete; 201 tests pass.** The verification
+**Status: stages A, A2, E and H complete; 247 tests pass** (233 plus 14
+skipped without the optional AI SDKs, which is how CI's first step runs). The verification
 chain runs end to end (SysML v2 API → extractor → CAD adapter → verdict → exit
 code), and on top of it the mapping can now be *proposed*: a catalogue of both
 sides, four gates over any proposed entry, a proposal store, a human
@@ -115,7 +116,7 @@ make catalog                    # what exists on each side, as data
 make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
 make step-fixtures              # regenerate fixtures/step/ (they are committed)
 python -m sysmlcad.verify -p gearbox api   # same as make verify-api PROJECT=gearbox
-make test                       # pytest, JUnit XML to out/ (201 tests)
+make test                       # pytest, JUnit XML to out/ (247 tests)
 
 # Mapping proposals -- nothing here can change a verdict
 make propose                    # baseline proposer -> projects/<name>/proposals.yaml
@@ -124,8 +125,8 @@ make propose AI=openai          # ...or any OpenAI-protocol server, local too
 make proposals                  # what is waiting for a decision
 make confirm ID=p-01            # gate it again, then write it into mapping.yaml
 make propose-score              # hit rate against projects/<name>/gold_mapping.yaml
-python -m sysmlcad.explore      # element dump to out/elements.json
-python -m sysmlcad.explore MaxLength   # tree of one requirement
+python -m sysmlcad.explore -p motor_housing   # element dump to out/elements.json
+python -m sysmlcad.explore -p motor_housing MaxLength   # tree of one requirement
 python -m sysmlcad.explore_cad fixtures/step/gearbox.step   # the CAD side
 ```
 
@@ -155,8 +156,10 @@ docker/            docker-compose.yml, jupyter.Dockerfile, .env (gitignored),
                    .env.example
                    (no api-services.Dockerfile any more -- the fork ships one)
 vendor/            hni-ase/SysML-v2-API-Services (git clone, not in the repo)
-.github/workflows/ verify.yml -- CI runs against the FIXTURE, not the API
-                   (deliberate: CI must be able to go green without a server)
+.github/workflows/ verify.yml -- CI runs against the CAPTURES, not the API
+                   (deliberate: CI must be able to go green without a server).
+                   Step 1: requirements.txt only, AI tests skip. Step 2: the
+                   AI SDKs installed, AI tests run -- still no key
 models/            motor_housing.sysml, gearbox.sysml
 notebooks/         01_publish_motor_housing.ipynb, 02_publish_gearbox.ipynb
 cad/               motor_housing.py, gearbox.py (two-part assembly),
@@ -194,23 +197,27 @@ src/sysmlcad/adapters/   __init__.py (CadAdapter protocol, CadTarget),
                          measurements.py (vocabulary over a Shape)
 src/sysmlcad/explore_cad.py   what is inside a STEP file
 tests/             test_extract.py, test_requirements.py, test_verify.py,
+                   test_project.py, test_build123d_adapter.py,
                    test_step_adapter.py, test_catalog.py, test_gates.py,
                    test_confirm.py, test_propose.py, test_propose_ai.py,
                    test_propose_openai.py
 pyproject.toml     package metadata + pytest config (pytest.ini is gone)
 out/               STEP, JUnit XML, dumps. Only *.step and *.xml are
-                   gitignored; out/elements.json and out/relevant.txt are
-                   committed captures of a real API response, kept as
-                   reference payloads for extractor work
+                   gitignored; out/relevant.txt (a real API payload excerpt)
+                   and out/llm_request.txt (a recorded proposer request, made
+                   before the prompt stopped mentioning densities) are
+                   committed as reference material
 ```
 
 ## Data flow
 
-1. `extract.load_with_context("api")` → `SysMLClient.all_elements()`
-   (paginated) → `elements_to_requirements()`, which first runs
-   `resolve_satisfies()` to learn which PartUsage each requirement is about →
-   `Requirement(id, subject, operator, limit: pint.Quantity)` plus the project
-   and commit ids
+1. `extract.load_with_context(project, "api")` → `fetch_elements()` →
+   `SysMLClient.project_named()` + `all_elements()` (paginated) →
+   `extract()`, which first runs `resolve_satisfies()` to learn which
+   PartUsages each requirement is about → one
+   `Requirement(id, subject, operator, limit: pint.Quantity)` per satisfying
+   part, the definitions it could not read (with the reason), and the
+   project and commit ids
 2. `mapping.load_mapping()` → `parts:` (SysML part ↔ adapter + CAD object) and
    `attributes:` (SysML attribute ↔ measurement method, unit, direction,
    tolerance, status)
@@ -220,12 +227,13 @@ out/               STEP, JUnit XML, dumps. Only *.step and *.xml are
    `(status, deviation)` → `Verdict`
 5. `verify.run()` → `Run(context, verdicts, gaps)`; `report()` → table, exit 0/1
 
-An unevaluable requirement becomes a **gap**, not a pass: no confirmed mapping,
-an `Unsupported` from the adapter, or a `DimensionMismatch` (which is a mapping
-fault, so it is reported as a gap here and diagnosed by `make gates` — letting
-it escape would take every other verdict in the run down with it). Gaps are
-reported and do not fail the run. FREQ-2: report the gap, never substitute a
-value.
+An unevaluable requirement becomes a **gap**, not a pass: a definition the
+extractor could not read, no confirmed mapping, an `Unsupported` from the
+adapter (including malformed `args:`), or a `DimensionMismatch` /
+`BadTolerance` (mapping faults, reported as a gap here and diagnosed by
+`make gates` — letting them escape would take every other verdict in the run
+down with it). Gaps are reported and do not fail the run. FREQ-2: report the
+gap, never substitute a value.
 
 **How a mapping entry comes to exist** — the second flow, which cannot touch the
 first:
@@ -235,8 +243,10 @@ first:
    actually support. One excerpt, three consumers (gates, proposers, explorers)
 2. a `Proposer` (`DifflibProposer`, `ClaudeProposer`) turns that into
    `Proposal`s with a confidence and a rationale (FREQ-4)
-3. `propose.gate()` runs every candidate through `gates.py` **before storing
-   it**; the rejects are reported, not silently dropped
+3. `propose.gate()` runs every candidate through `gates.check_proposal()`
+   **before storing it** — measured on the object the candidate names, and
+   refused if its part is already mapped to a different one; the rejects are
+   reported, not silently dropped
 4. survivors go to `projects/<name>/proposals.yaml` with `status: proposed`.
    No verification run opens that file
 5. `confirm.py` re-gates one, then appends it to `mapping.yaml` with the
@@ -310,6 +320,13 @@ first:
 - `Shape.cast()` on the BASE class is an `@abstractmethod` and returns `None`.
   `Shape.shape_LUT` maps to class *names* (strings), not classes. The adapter
   therefore keeps its own explicit `TopAbs_* -> build123d class` table.
+- A file with several ROOT shapes has no "whole file". `_node` refuses the
+  bare path, so `catalog()` lists each root as `file#name` -- it used to list
+  them under the bare path and raise on the first multi-root export it met.
+- Malformed `args:` (a typo, `axis: Q`, `density_g_per_cm3: 0`) raise
+  `Unsupported`, never TypeError/AttributeError: `adapters.check_args()`
+  binds the signature before the call and `check_density()` insists on a
+  positive number. One typo in mapping.yaml used to lose the whole run.
 - `build123d.import_step()` MANGLES node names: it translates `" .()"` to `"_"`,
   so `Housing (rev A)` becomes `Housing__rev_A_`. Since stable identity through
   names is the core convention, the adapter drives XCAF
@@ -382,6 +399,13 @@ first:
   a downward search. A nested part needs several steps to reach its package.
 
 **API details**
+- Finding the server project BY NAME lives in one place,
+  `SysMLClient.project_named()`; `verify api`, `catalog api` and `explore`
+  used to carry three copies of it.
+- `head_commit()` takes `commits[0]` of `/projects/{id}/commits`. With one
+  commit per published project that is the only one; whether the server
+  orders commits newest-first once a project has several is **unverified**
+  -- `defaultBranch` → branch `head` would be the unambiguous route.
 - `/projects/{id}/commits/{cid}/elements` paginates — 100 per page by default,
   and the client asks for `page[size]=200`. The next page is in the Link header.
   `SysMLClient.all_elements()` follows it; `elements()` returns the first page
@@ -390,6 +414,22 @@ first:
   the unit. Raise it when debugging.
 
 **Mapping proposals, gates and the AI**
+- **A proposal is gated on the object it names.** `merged_mapping()` used to
+  keep the EXISTING part entry, so a candidate for an already-mapped part was
+  measured on the part's current object: `cover.mass -> gearbox#Housing`
+  passed every gate with the cover's own mass, and confirming it appended an
+  attribute entry that the run then measured on `gearbox#Cover`. The reviewer
+  approved one object; the mapping recorded another. Now the merged view
+  carries the proposal's own part entry, and `gates.check_proposal()` marks a
+  different object for an already-mapped part as `invalid` under uniqueness
+  (`code=PART_CONFLICT`, summarised once per part in `make propose`). A wrong
+  part mapping is an edit to `parts:`, in review. Guarded by
+  `test_a_proposal_naming_another_object_for_a_mapped_part_is_refused`.
+- **`reject` refuses a proposal that is no longer pending.** Rejecting a
+  confirmed one left proposals.yaml saying "no" while mapping.yaml carried the
+  entry. Undoing a confirmation is setting the entry to `disabled`.
+- **The confirm safety net uses explicit checks, not `assert`.** `python -O`
+  strips asserts. It also checks that the part reads back as the proposed one.
 - **A YAML round-tripper is not a safe way to edit `mapping.yaml`.** Measured,
   not assumed: `ruamel.yaml` 0.19.1 preserves the comments but still rewrites 38
   lines of today's file — list indentation (`  - ` becomes `- `), `tolerance:
@@ -445,7 +485,19 @@ first:
   `propose.AI_PROPOSERS`, one `_ask`, one entry in `pyproject`'s extras.
 - **Every validation test runs against every backend.** The `proposer` fixture
   in `tests/test_propose_ai.py` is parametrised over `BACKENDS`, so a new one
-  inherits all sixteen the moment it is added.
+  inherits all of them the moment it is added.
+- **The verification trusts types no more than names.** In plain JSON mode
+  (`SYSMLCAD_OPENAI_RESPONSE_FORMAT=json_object`) nothing enforces the schema,
+  so `_verify` drops a candidate that is not an object or whose confidence is
+  not a number in [0, 1] -- "high" used to crash the run, 1.7 would have
+  outranked every honest candidate. A truncated Claude answer
+  (`parsed_output is None`, typically `max_tokens`) is dropped the same way.
+- **No proposer may supply a density.** The schema has no such field, the
+  prompt says not to, and `_verify` drops a candidate that carries one anyway.
+  `mass` is only offered where the catalogue knows a material, so a density
+  from a model could only ever override the CAD side's own -- the stale-mass
+  bug described under Conventions. This changed the prompt digest; the AI
+  measurements above were made with the old prompt.
 - **A key in a file beats a key in the environment.** `SYSMLCAD_OPENAI_API_KEY_FILE`
   points at a file whose first line is the key; it wins over `OPENAI_API_KEY`
   when set, because naming a file is the more specific instruction and it lets
@@ -475,7 +527,13 @@ first:
   `requirements.txt`: CI verifies
   geometry and must go green without an API key. `tests/test_propose_ai.py`
   drives the proposer from `fixtures/ai_response.json`, so every line of its
-  validation runs offline. Model id `claude-opus-5`, structured output through
+  validation runs offline. **Measured, not assumed: with requirements.txt
+  alone, 13 tests failed** -- building the request needs pydantic (the schema
+  is derived from its model) and the outage tests need the SDK's error
+  classes, and neither is in requirements.txt. Those tests now skip without
+  them, and CI's second step installs both SDKs and runs the AI tests again.
+  Simulate the first step locally by making `pydantic`/`openai`/`anthropic`
+  unimportable (a `sys.meta_path` blocker as a pytest plugin). Model id `claude-opus-5`, structured output through
   `client.messages.parse(output_format=...)`.
 - **A schema guarantees the shape of an answer, not its truth.** The model can
   return a perfectly typed `cad_object` that does not exist. Every field of
@@ -488,14 +546,18 @@ first:
   exactly what gates must not do.
 
 **Test design**
-- `tests/test_requirements.py` calls `run()` at MODULE LEVEL (`RESULT = run()`),
-  i.e. during test collection. It deliberately runs against the fixture —
-  switching it to `"api"` would make every pytest run require a live server.
-  It also asserts `RESULT.gaps == []`: a requirement that was silently not
-  checked must not be allowed to look like a pass.
+- `tests/test_requirements.py` calls `run()` for every project at MODULE LEVEL
+  (`RESULTS = {...}`), i.e. during test collection. It deliberately runs
+  against the captures — switching it to `"api"` would make every pytest run
+  require a live server. It pins the known gaps (only `MinBoreRadius`), and
+  `EXPECTED` pins every requirement id per project: a requirement that
+  vanished from both the verdicts and the gaps passes every other test.
 - `tests/test_verify.py` pins the evaluation semantics (three verdicts,
   tolerance, unit conversion, dimension mismatch) with no geometry and no
-  server. A wrong verdict is the one bug this system cannot tolerate.
+  server. A wrong verdict is the one bug this system cannot tolerate. It also
+  pins the report's words -- a `>=` violation reads "under by 1 mm", not
+  "over by -1 mm" -- and, on a copied project, that a typo'd `args:` or an
+  unreadable `tolerance:` costs one gap, not the run.
 - `tests/test_extract.py` reconstructs the element graph synthetically from a real
   `%publish` dump. It runs without network access.
 - `tests/test_step_adapter.py` is what holds the two measurement vocabularies
@@ -521,13 +583,16 @@ first:
    Cost: if someone points the constraint at a different attribute, it goes
    unnoticed. Closing it means resolving the `FeatureChainExpression` — the
    next extractor step.
-2. One comparison per requirement only; compound constraints are reduced to the
-   first one (with a warning).
+2. One comparison per requirement only. A compound constraint is **not
+   extracted** and becomes a gap -- it used to be reduced to its first
+   comparison with a stdout warning, which checks one bound and reports the
+   whole requirement as passed.
 3. Expressions are not evaluated, only their parts are read
    (`length + width <= 200` would be wrong). → phase 6 (SMT).
 4. Extraction searches the subgraph reachable from the `RequirementDefinition`
-   for: the first comparison operator, the first literal, and the first library
-   element with a `declaredShortName`. `_UPWARD_FIELDS` prevents drifting into
+   for exactly one comparison operator, one literal, and one library element
+   with a `declaredShortName`. None, or more than one, of any of them is a
+   skip reason, and the run reports it as a gap. `_UPWARD_FIELDS` prevents drifting into
    neighbouring requirements — guarded by `test_requirements_stay_separate`.
 5. `requirement_id` = `declaredShortName` or `declaredName` of the definition.
    `mapping.yaml` and the fixture use the same keys (`MaxLength`, `MaxMass`).
@@ -535,7 +600,13 @@ first:
    `<'REQ001'>` would make the id `REQ001` and match nothing in the mapping.
 **No longer a simplification:** the requirement's *subject* is now resolved
 through the model's `satisfy` link rather than guessed from the first
-`ReferenceUsage` in the subtree. See `extract.resolve_satisfies`.
+`ReferenceUsage` in the subtree. See `extract.resolve_satisfies`. A definition
+satisfied by several parts is checked once per part; it used to keep only the
+last `satisfy` in the payload, and the other parts were never checked and never
+reported. The report labels such rows `MaxMass@cover`, and the uniqueness gate
+counts entries per (requirement, part), exactly as `for_requirement` looks
+them up -- which also prefers a confirmed entry over an unconfirmed one for
+the same pair, whatever the file order.
 
 **No longer a hole:** an assembly script's components were unaddressable, so a
 component's mass could only be had by writing a density into `mapping.yaml`.
@@ -632,7 +703,7 @@ $ make verify                              # PROJECT=motor_housing, LENGTH_MM = 
 project      : motor_housing
 source       : fixture
 cad state    : build123d:bdaee4cff5d3ddfa
-mapping      : a4b11cc20a9634e8
+mapping      : f2bf5647e29f56f6
 
 ID         Attribute        Measured          Limit      Deviation  Status
 MaxLength  length                118 mm            120 mm             -2 mm  OK
@@ -650,7 +721,8 @@ MaxLength  length                123 mm            120 mm             +3 mm  TOL
   TOLERANCE MaxLength: ... inside the agreed tolerance of 5 mm   → exit 0
 ```
 
-All three reproduced on 2026-09-03, digests included. The `cad state` and
+All three reproduced on 2026-09-26, digests included (the mapping digest
+moved from `a4b11cc2…` when the mapping moved into `projects/`). The `cad state` and
 `mapping` digests change when the geometry or the mapping changes. That is what
 makes a verdict citable rather than merely printed.
 

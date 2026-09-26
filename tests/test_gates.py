@@ -131,6 +131,14 @@ def test_the_matching_dimension_is_valid():
     assert result.verdict == "valid"
 
 
+def test_an_unreadable_tolerance_is_a_dimension_fault():
+    """A run meets `tolerance: "5 kg"` on a length only as a gap; the gates are
+    where it gets named."""
+    result = gate_dimension(_entry(tolerance="5 kg"), CATALOG, _requirement(), 118 * ureg.mm)
+    assert result.verdict == "invalid"
+    assert "5 kg" in result.detail
+
+
 # --------------------------------------------------------------------------
 # Existence
 # --------------------------------------------------------------------------
@@ -142,6 +150,15 @@ def test_an_attribute_the_model_does_not_have_is_invalid():
     problem = next(p for p in check.problems if p.gate == "existence")
     assert "wheelbase" in problem.detail
     assert "length" in problem.detail, "the message should say what is available"
+
+
+def test_a_malformed_argument_is_invalid_not_a_crash():
+    """A typo in `args:` used to escape the gates as a TypeError, taking every
+    other entry's check with it."""
+    mapping = _mapping(_entry(args={"axis": "X", "axsi": "Y"}))
+    check = check_mapping(MOTOR, mapping, CATALOG, [_requirement()], AdapterPool())[0]
+    assert check.verdict == "invalid"
+    assert any("axsi" in p.detail for p in check.problems)
 
 
 def test_a_measurement_the_adapter_cannot_make_is_invalid():
@@ -171,6 +188,21 @@ def test_two_confirmed_entries_for_one_requirement_are_invalid():
     second = _entry(attribute="width", method="bbox_size", args={"axis": "Y"})
     mapping = _mapping(first, second)
     assert gate_uniqueness(first, mapping).verdict == "invalid"
+
+
+def test_one_requirement_on_two_parts_is_not_a_duplicate():
+    """A definition satisfied by two parts is checked once per part, so each
+    part legitimately carries its own entry for it -- keyed exactly as
+    `Mapping.for_requirement` looks them up."""
+    housing = _entry()
+    spare = _entry(sysml_part="spareHousing")
+    mapping = _mapping(housing, spare)
+    mapping.parts["spareHousing"] = PartMapping(
+        sysml_part="spareHousing", adapter="step",
+        cad_object="fixtures/step/motor_housing.step", status="confirmed",
+    )
+    assert gate_uniqueness(housing, mapping).verdict == "valid"
+    assert gate_uniqueness(spare, mapping).verdict == "valid"
 
 
 def test_a_proposed_duplicate_does_not_invalidate_a_confirmed_entry():

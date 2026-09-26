@@ -37,7 +37,7 @@ import yaml
 from .catalog import load_catalog
 from .extract import from_capture
 from .project import Project, UnknownProject, add_project_argument, load_project
-from .gates import check_entry
+from .gates import check_proposal
 from .mapping import load_mapping
 from .verify import AdapterPool, _leaf
 from .proposals import (
@@ -45,7 +45,6 @@ from .proposals import (
     decide,
     find,
     load_proposals,
-    merged_mapping,
     save_proposals,
 )
 
@@ -150,15 +149,26 @@ def write_entries(
     path.write_text(text, encoding="utf-8")
 
     # The safety net: it has to load, and it has to say what we meant.
+    # Explicit checks, not `assert` -- `python -O` strips asserts, and a safety
+    # net that disappears under an optimisation flag is not one.
     try:
         after = load_mapping(path)
-        entry = next(
-            e for e in after.attributes
-            if (e.sysml_part, e.attribute) == (proposal.sysml_part, proposal.attribute)
-            and e.method == proposal.method
-        )
-        assert entry.status == "confirmed"
-        assert len(after.attributes) == len(before.attributes) + 1
+        added = after.attributes[len(before.attributes):]
+        if len(added) != 1 or after.attributes[: len(before.attributes)] != before.attributes:
+            raise ValueError(
+                f"expected exactly one new attribute entry at the end, found {len(added)}"
+            )
+        entry = added[0]
+        if (entry.sysml_part, entry.attribute, entry.method, entry.status) != (
+            proposal.sysml_part, proposal.attribute, proposal.method, "confirmed",
+        ):
+            raise ValueError(f"the new entry reads back as {entry}")
+        part = after.parts.get(proposal.sysml_part)
+        if part is None or (part.adapter, part.cad_object) != (proposal.adapter, proposal.cad_object):
+            raise ValueError(
+                f"{proposal.sysml_part} reads back as "
+                f"{part.adapter + ':' + part.cad_object if part else 'unmapped'}"
+            )
     except Exception as exc:
         path.write_text(original, encoding="utf-8")
         raise RuntimeError(
@@ -199,13 +209,13 @@ def confirm(
         return 2
 
     # Gate it once more, in the company it would keep. The mapping on disk may
-    # have moved since the proposal was made, and a duplicate only shows up
-    # against the entries that are actually there now.
-    merged = merged_mapping(load_mapping(path), proposal)
+    # have moved since the proposal was made, and a duplicate -- or a part that
+    # has since been mapped to a different object -- only shows up against the
+    # entries that are actually there now.
     pool = AdapterPool()
-    check = check_entry(
-        merged.attributes[-1],
-        merged,
+    check = check_proposal(
+        proposal,
+        load_mapping(path),
         load_catalog(project, pool=pool),
         {(r.requirement_id, _leaf(r.subject)): r for r in from_capture(project)},
         pool,
@@ -233,8 +243,18 @@ def confirm(
     print(f"\nconfirmed by {user}:")
     for note in written:
         print(f"  + {note}")
-    print(f"\n{path.relative_to(Path.cwd()) if path.is_relative_to(Path.cwd()) else path} "
-          f"now carries the entry. `make verify PROJECT={project.name}` will use it.\n")
+    where = path.relative_to(Path.cwd()) if path.is_relative_to(Path.cwd()) else path
+    part = load_mapping(path).parts[proposal.sysml_part]
+    if part.usable:
+        print(f"\n{where} now carries the entry. "
+              f"`make verify PROJECT={project.name}` will use it.\n")
+    else:
+        # The attribute is confirmed, but its part entry was already there with
+        # another status and is left as its author wrote it. Saying "a run will
+        # use it" would be false until a human confirms the part as well.
+        print(f"\n{where} now carries the entry, but part {proposal.sysml_part!r} "
+              f"is `{part.status}` under `parts:` -- a run will not use it until "
+              f"that entry is confirmed too.\n")
     return 0
 
 
@@ -250,6 +270,13 @@ def reject(
     proposal = find(proposals, proposal_id)
     if proposal is None:
         print(f"no proposal {proposal_id!r}.")
+        return 2
+    if not proposal.pending:
+        # Rejecting a confirmed proposal would leave the record saying "no"
+        # while mapping.yaml still carries the entry. Undoing a confirmation is
+        # an edit to mapping.yaml (set the entry to `disabled`), in review.
+        print(f"{proposal_id} is already {proposal.status} "
+              f"(by {proposal.decided_by or 'someone'} at {proposal.decided_at or '?'}).")
         return 2
 
     user = user or current_user()

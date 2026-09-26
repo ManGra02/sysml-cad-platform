@@ -31,9 +31,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .adapters import CadTarget
-from .extract import _of_type, find_first
+from .extract import _of_type, fetch_elements, find_first
 from .project import Project, UnknownProject, add_project_argument, load_project
-from .sysml_client import SysMLClient
 from .units import ureg
 from .verify import AdapterPool
 
@@ -234,19 +233,14 @@ def load_elements(project: Project, source: str | None = None) -> tuple[list[dic
     reads the project's capture, so every consumer works offline by default.
     """
     if source == "api":
-        client = SysMLClient()
-        try:
-            matching = [p for p in client.projects() if p.get("name") == project.sysml_project]
-            if not matching:
-                raise RuntimeError(
-                    f"no project named {project.sysml_project!r} on the API server"
-                )
-            project_id = sorted(matching, key=lambda p: p.get("created", ""))[-1]["@id"]
-            return client.all_elements(project_id, client.head_commit(project_id)), "api"
-        finally:
-            client.close()
+        # The same by-name lookup `verify api` uses -- one implementation, so
+        # the catalogue and the verifier cannot disagree about which project
+        # a name means.
+        elements, _state = fetch_elements(project.sysml_project)
+        return elements, "api"
 
-    return project.elements(), str(project.elements_path.relative_to(ROOT))
+    path = project.elements_path
+    return project.elements(), str(path.relative_to(ROOT) if path.is_relative_to(ROOT) else path)
 
 
 # --------------------------------------------------------------------------

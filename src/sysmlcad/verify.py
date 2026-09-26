@@ -9,6 +9,8 @@ bad mapping -- and it is exactly the case the system exists to report.
 from __future__ import annotations
 
 import sys
+from collections import Counter
+from dataclasses import replace
 
 from .adapters import CadAdapter, Unsupported
 from .adapters.build123d_adapter import Build123dAdapter
@@ -17,6 +19,7 @@ from .extract import load_with_context
 from .mapping import AttributeMapping, Mapping, load_mapping
 from .project import Project, UnknownProject, add_project_argument, load_project
 from .model import (
+    BadTolerance,
     DimensionMismatch,
     Requirement,
     Run,
@@ -103,17 +106,19 @@ def _evaluate(
 def run(project: Project, source: str | None = None) -> Run:
     """One project, one mapping, one model. `source="api"` reads the server
     project of the same name; anything else reads the project's capture."""
-    requirements, state = load_with_context(project, source)
+    requirements, skipped, state = load_with_context(project, source)
     mapping = load_mapping(project.mapping_path)
     pool = AdapterPool()
 
     verdicts: list[Verdict] = []
-    gaps: list[str] = []
+    # A requirement the extractor could not read is not checked, and saying so
+    # is the difference between "0 not checked" being true and being a claim.
+    gaps: list[str] = sorted(skipped)
 
     # Sorted, so the same model state gives the same report byte for byte --
     # the API returns elements in whatever order it likes, and a citable
     # verdict should not depend on that.
-    for req in sorted(requirements, key=lambda r: r.requirement_id):
+    for req in sorted(requirements, key=lambda r: (r.requirement_id, r.subject)):
         subject = _leaf(req.subject)
         entry = mapping.for_requirement(req.requirement_id, subject)
 
@@ -129,7 +134,7 @@ def run(project: Project, source: str | None = None) -> Run:
 
         # The measured attribute comes from the mapping, not from the
         # constraint expression (see the header of extract.py).
-        req = Requirement(**{**req.__dict__, "prop": entry.attribute})
+        req = replace(req, prop=entry.attribute)
 
         try:
             verdicts.append(_evaluate(req, entry, mapping, pool))
@@ -143,6 +148,10 @@ def run(project: Project, source: str | None = None) -> Run:
             # escape would take every other verdict in the run down with it.
             # The message already names the requirement.
             gaps.append(f"{exc} -- a mapping fault, diagnosed by `make gates`")
+        except BadTolerance as exc:
+            # Same reasoning: an unreadable tolerance is one bad entry.
+            gaps.append(f"{req.requirement_id}: {exc} -- a mapping fault, "
+                        f"diagnosed by `make gates`")
 
     context = RunContext(
         source="api" if source == "api" else "fixture",
@@ -153,6 +162,21 @@ def run(project: Project, source: str | None = None) -> Run:
         **state,
     )
     return Run(context=context, verdicts=verdicts, gaps=gaps)
+
+
+def _miss(v: Verdict) -> tuple[str, str]:
+    """How a measurement misses its limit, in words that fit the operator.
+
+    The deviation is signed (`measured - limit`) so the table reads the same way
+    for every operator; a sentence does not have to. "Over by -1 mm" for a
+    lower bound would tell a reviewer the opposite of what happened.
+    """
+    amount = f"{abs(v.deviation):.4g~P}"
+    if v.requirement.operator in ("<=", "<"):
+        return "exceeds", f"over by {amount}"
+    if v.requirement.operator in (">=", ">"):
+        return "falls short of", f"under by {amount}"
+    return "misses", f"off by {amount}"
 
 
 def report(result: Run) -> int:
@@ -166,10 +190,18 @@ def report(result: Run) -> int:
 
     print(f"\n{'ID':<18} {'Attribute':<12} {'Measured':>14} {'Limit':>14} "
           f"{'Deviation':>14}  Status")
+    # One requirement satisfied by two parts gives two rows with one id; the
+    # part is what tells them apart, so it is shown exactly then.
+    repeated = Counter(v.requirement.requirement_id for v in result.verdicts)
+
+    def label(v: Verdict) -> str:
+        rid = v.requirement.requirement_id
+        return f"{rid}@{v.requirement.subject}" if repeated[rid] > 1 else rid
+
     print("-" * 92)
     for v in result.verdicts:
         print(
-            f"{v.requirement.requirement_id:<18} {v.requirement.prop:<12} "
+            f"{label(v):<18} {v.requirement.prop:<12} "
             f"{v.measured:>14.4g~P} {v.requirement.limit:>14.4g~P} "
             f"{v.deviation:>+14.4g~P}  {_STATUS_LABEL[v.status]}"
         )
@@ -186,19 +218,20 @@ def report(result: Run) -> int:
     )
 
     for v in result.verdicts:
+        verb, by = _miss(v)
         if v.status == "violated":
             print(
-                f"  VIOLATED {v.requirement.requirement_id}: "
+                f"  VIOLATED {label(v)}: "
                 f"{v.requirement.prop} = {v.measured:.4g~P} "
                 f"{v.requirement.operator} {v.requirement.limit:.4g~P} is false "
-                f"(over by {v.deviation:.4g~P}; "
+                f"({by}; "
                 f"source {v.requirement.element_id}, {v.method})"
             )
         elif v.status == "within_tolerance":
             print(
-                f"  TOLERANCE {v.requirement.requirement_id}: "
-                f"{v.requirement.prop} = {v.measured:.4g~P} exceeds "
-                f"{v.requirement.limit:.4g~P} by {v.deviation:.4g~P}, "
+                f"  TOLERANCE {label(v)}: "
+                f"{v.requirement.prop} = {v.measured:.4g~P} {verb} "
+                f"{v.requirement.limit:.4g~P} by {abs(v.deviation):.4g~P}, "
                 f"inside the agreed tolerance of {v.tolerance:.4g~P}"
             )
 

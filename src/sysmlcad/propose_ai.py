@@ -73,8 +73,8 @@ Two rules that matter more than coverage:
 
 `bbox_size` measures the bounding box along one axis, which is not the same
 thing as a named feature dimension -- say so in the rationale when you use it.
-`mass` needs a density: the object's material if the excerpt lists one,
-otherwise `density_g_per_cm3`.
+`mass` is listed as measurable only where the excerpt names the object's
+material, and the density comes from that material. Never supply a density.
 
 Keep each rationale to one sentence naming the actual evidence -- the names that
 matched, the parameter you relied on. "Seems related" is not a rationale.\
@@ -97,10 +97,9 @@ def _schema():
         axis: Literal["X", "Y", "Z"] | None = Field(
             default=None, description="required for bbox_size, omit otherwise"
         )
-        density_g_per_cm3: float | None = Field(
-            default=None,
-            description="only for mass on an object with no material listed",
-        )
+        # No density field, on purpose. A density is a fact about the part, and
+        # a mapping entry carrying one goes silently stale when the material
+        # changes -- see `test_the_committed_mapping_carries_no_density`.
         confidence: float = Field(ge=0.0, le=1.0)
         rationale: str = Field(description="one sentence naming the actual evidence")
 
@@ -263,7 +262,39 @@ class LlmProposer:
         below is a way a confident answer can still be fiction, and every
         rejection is recorded rather than dropped silently -- a proposer that
         invents names systematically is worth knowing about.
+
+        Not even the shape is guaranteed on a server running in plain JSON mode
+        (`SYSMLCAD_OPENAI_RESPONSE_FORMAT=json_object`), so the types are
+        checked here too: a candidate that is not an object, or whose
+        confidence is not a number in [0, 1], is dropped rather than crashing
+        the run or ranking a proposal by a meaningless score.
         """
+        if not isinstance(candidate, dict):
+            self.dropped.append(f"a candidate that is not an object: {str(candidate)[:80]!r}")
+            return None
+
+        try:
+            confidence = float(candidate.get("confidence"))
+        except (TypeError, ValueError):
+            confidence = float("nan")
+        if not 0.0 <= confidence <= 1.0:          # False for NaN as well
+            self.dropped.append(
+                f"{candidate.get('sysml_part')}.{candidate.get('attribute')}: "
+                f"confidence {candidate.get('confidence')!r} is not a number in [0, 1]"
+            )
+            return None
+
+        if candidate.get("density_g_per_cm3") is not None:
+            # The schema has no such field; a server that does not enforce it
+            # can still send one. A density in the mapping overrides the
+            # material the CAD side declares and goes stale when it changes.
+            self.dropped.append(
+                f"{candidate.get('sysml_part')}.{candidate.get('attribute')}: "
+                f"supplies a density ({candidate['density_g_per_cm3']!r}) -- a fact "
+                f"about the part, which no mapping entry may carry"
+            )
+            return None
+
         part = catalog.part(candidate.get("sysml_part", ""))
         if part is None:
             self.dropped.append(f"no such part in the model: {candidate.get('sysml_part')!r}")
@@ -301,8 +332,6 @@ class LlmProposer:
                 )
                 return None
             args = {"axis": axis}
-        elif method == "mass" and candidate.get("density_g_per_cm3") is not None:
-            args = {"density_g_per_cm3": float(candidate["density_g_per_cm3"])}
 
         return Proposal(
             id="",
@@ -312,7 +341,7 @@ class LlmProposer:
             cad_object=target.reference,
             method=method,
             args=args,
-            confidence=float(candidate.get("confidence", 0.0)),
+            confidence=confidence,
             rationale=str(candidate.get("rationale", "")).strip(),
             proposed_by=self.name,
             provenance=provenance,
@@ -372,7 +401,17 @@ class ClaudeProposer(LlmProposer):
             )
             return {"candidates": []}, getattr(response, "id", "")
 
-        return response.parsed_output.model_dump(), getattr(response, "id", "")
+        parsed = getattr(response, "parsed_output", None)
+        if parsed is None:
+            # Typically `max_tokens`: the answer was cut off and nothing could
+            # be validated. Nothing is salvaged from half a candidate list.
+            self.dropped.append(
+                f"the model returned no parseable answer "
+                f"(stop_reason {getattr(response, 'stop_reason', None)!r})"
+            )
+            return {"candidates": []}, getattr(response, "id", "")
+
+        return parsed.model_dump(), getattr(response, "id", "")
 
 
 def main() -> int:  # pragma: no cover - needs credentials

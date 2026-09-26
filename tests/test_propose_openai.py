@@ -12,6 +12,7 @@ mode is advisory, and none of those can be summoned on demand from a real
 endpoint. They can all be handed over by a stub.
 """
 
+import importlib
 import json
 import sys
 
@@ -43,10 +44,31 @@ GOOD = {
     "candidates": [{
         "sysml_part": "motorHousing", "attribute": "length",
         "cad_object": "motor_housing", "method": "bbox_size", "axis": "X",
-        "density_g_per_cm3": None, "confidence": 0.9,
+        "confidence": 0.9,
         "rationale": "LENGTH_MM names the same quantity on the same object.",
     }]
 }
+
+
+def _importable(module: str) -> bool:
+    try:
+        importlib.import_module(module)
+    except ImportError:
+        return False
+    return True
+
+
+#: The SDK and pydantic are optional extras, and `requirements.txt` -- all CI
+#: installs for the main run -- carries neither. Every test that builds the
+#: request needs pydantic (the schema is derived from its model); the outage
+#: tests need the SDK's own error classes. Skipped, not failed, without them:
+#: a machine without the extras still runs everything that does not need them.
+needs_pydantic = pytest.mark.skipif(
+    not _importable("pydantic"), reason="pydantic arrives with the `openai` extra"
+)
+needs_sdk = pytest.mark.skipif(
+    not _importable("openai"), reason="the `openai` extra is not installed"
+)
 
 
 class _Message:
@@ -83,6 +105,7 @@ def _proposer(response):
 # The happy path
 # --------------------------------------------------------------------------
 
+@needs_pydantic
 def test_a_well_formed_answer_becomes_a_proposal():
     proposer = _proposer(_Response(content=json.dumps(GOOD)))
     proposals = proposer.propose(CATALOG)
@@ -94,6 +117,7 @@ def test_a_well_formed_answer_becomes_a_proposal():
     assert proposals[0].provenance["provider"] == "openai-compatible"
 
 
+@needs_pydantic
 def test_the_request_carries_the_schema_and_both_prompt_halves():
     proposer = _proposer(_Response(content=json.dumps(GOOD)))
     proposer.propose(CATALOG)
@@ -107,6 +131,7 @@ def test_the_request_carries_the_schema_and_both_prompt_halves():
     assert "cad_object motor_housing" in sent["messages"][1]["content"]
 
 
+@needs_pydantic
 def test_no_token_cap_is_sent():
     """`max_tokens` and `max_completion_tokens` are accepted by different
     servers and different model generations; sending the wrong one is a hard
@@ -123,6 +148,7 @@ def test_no_token_cap_is_sent():
 # Answers that are not answers
 # --------------------------------------------------------------------------
 
+@needs_pydantic
 def test_a_refusal_is_recorded_not_raised():
     """One model declining is a fact about that run, not a broken pipeline."""
     proposer = _proposer(_Response(refusal="I can't help with that"))
@@ -131,6 +157,7 @@ def test_a_refusal_is_recorded_not_raised():
     assert any("declined" in reason for reason in proposer.dropped)
 
 
+@needs_pydantic
 def test_a_truncated_body_yields_nothing_and_says_why():
     """Half a candidate list is exactly the plausible-looking wrong answer this
     project refuses -- nothing is salvaged from it."""
@@ -140,6 +167,7 @@ def test_a_truncated_body_yields_nothing_and_says_why():
     assert any(FORMAT_ENV in reason for reason in proposer.dropped)
 
 
+@needs_pydantic
 def test_json_without_a_candidate_list_is_dropped():
     """Servers with advisory JSON modes return well-formed JSON of the wrong
     shape. It is caught here rather than raising a KeyError three frames up."""
@@ -149,6 +177,7 @@ def test_json_without_a_candidate_list_is_dropped():
     assert any("candidates" in reason for reason in proposer.dropped)
 
 
+@needs_pydantic
 def test_an_invented_object_is_still_dropped_by_the_shared_verification():
     """The backend does not get its own verification, and this is what that
     buys: a name the catalogue has never heard of dies here regardless of how
@@ -164,6 +193,7 @@ def test_an_invented_object_is_still_dropped_by_the_shared_verification():
 # Configuration
 # --------------------------------------------------------------------------
 
+@needs_pydantic
 def test_a_weaker_server_can_fall_back_to_plain_json_mode(monkeypatch):
     """Not every server that speaks the protocol supports strict schemas. The
     fallback weakens the guarantee about the answer's shape and changes nothing
@@ -267,6 +297,7 @@ def test_the_key_file_wins_over_the_environment(tmp_path, monkeypatch):
     assert captured["api_key"] == "from-the-file"
 
 
+@needs_pydantic
 def test_a_key_never_reaches_a_log_line(tmp_path, monkeypatch):
     """Nothing this module prints may carry the key -- not an error message, not
     a dropped-candidate reason. A secret in a CI log is a leaked secret."""
@@ -302,6 +333,8 @@ def _api_error(cls):
     return cls("high demand", response=response, body=None)
 
 
+@needs_sdk
+@needs_pydantic
 def test_a_busy_server_is_reported_not_raised():
     """A 503 is a fact about this run, not a broken pipeline. Crashing would
     also discard the baseline's score, computed just before this call, which is
@@ -314,6 +347,8 @@ def test_a_busy_server_is_reported_not_raised():
     assert any("could not be reached" in reason for reason in proposer.dropped)
 
 
+@needs_sdk
+@needs_pydantic
 def test_a_rate_limit_is_reported_not_raised():
     from openai import RateLimitError
 
@@ -323,6 +358,8 @@ def test_a_rate_limit_is_reported_not_raised():
     assert proposer.dropped
 
 
+@needs_sdk
+@needs_pydantic
 def test_a_wrong_key_or_model_still_raises():
     """The opposite case, and the reason the transient list is explicit: a 401
     or a 404 is the caller's to fix. Swallowed, it would read as "the model

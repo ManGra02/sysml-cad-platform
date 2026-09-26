@@ -30,7 +30,7 @@ def bbox_size(shape: Shape, axis: str = "X") -> Q:
     Not the same thing as a named feature dimension -- the difference shows up
     at the first draft angle. The mapping entry has to say which it means.
     """
-    key = axis.upper()
+    key = str(axis).upper()
     if key not in ("X", "Y", "Z"):
         raise Unsupported(f"bbox_size: axis must be X, Y or Z, not {axis!r}")
     return getattr(shape.bounding_box().size, key) * _LENGTH

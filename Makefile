@@ -54,8 +54,9 @@ explore-cad:
 	$(PY) -m sysmlcad.explore_cad $(or $(FILE),fixtures/step/gearbox.step)
 
 # What exists on each side: SysML parts and attributes, CAD objects and the
-# measurements they support. Reads the captured payload in fixtures/, so it
-# needs no server; `make catalog SOURCE=api` reads the live one.
+# measurements they support. Reads the project's capture
+# (projects/<name>/elements.json), so it needs no server;
+# `make catalog SOURCE=api` reads the live one.
 catalog:
 	$(PY) -m sysmlcad.catalog $(P) $(SOURCE)
 
@@ -69,8 +70,8 @@ gates:
 	$(PY) -m sysmlcad.gates $(P)
 
 # Suggest mapping entries. Nothing is applied: candidates land in
-# mapping/proposals.yaml with status `proposed` and reach mapping.yaml only
-# through `confirm`. `make propose AI=1` asks Claude instead of the stdlib
+# projects/<name>/proposals.yaml with status `proposed` and reach mapping.yaml
+# only through `confirm`. `make propose AI=1` asks Claude instead of the stdlib
 # baseline -- that needs `pip install anthropic` and credentials.
 # AI=1 or AI=claude asks Claude; AI=openai asks whatever OPENAI_BASE_URL and
 # SYSMLCAD_OPENAI_MODEL point at. `filter-out 1` keeps `AI=1` meaning the
@@ -86,8 +87,8 @@ proposals:
 confirm:
 	$(PY) -m sysmlcad.confirm $(P) $(ID)
 
-# How good is a proposer, against fixtures/gold_mapping.yaml. The number to
-# watch is wrong@1, not hit rate.
+# How good is a proposer, against projects/<name>/gold_mapping.yaml. The number
+# to watch is wrong@1, not hit rate.
 propose-score:
 	$(PY) -m sysmlcad.score $(P) $(if $(AI),--ai $(filter-out 1,$(AI)),)
 

@@ -39,7 +39,7 @@ from types import ModuleType
 from build123d import Part
 
 from ..units import Q, ureg
-from . import METHODS, CadTarget, Material, Unsupported
+from . import METHODS, CadTarget, Material, Unsupported, check_args, check_density
 
 #: Where the CAD scripts live, for `catalog()`. The modules are addressed by
 #: import name; this path only answers "which names exist".
@@ -183,7 +183,9 @@ class Build123dAdapter:
     def measure(self, obj: str, method: str, args: dict | None = None) -> Q:
         if method not in _METHODS:
             raise Unsupported(f"unknown measurement method: {method}")
-        return _METHODS[method](self, obj, **(args or {}))
+        args = dict(args or {})
+        check_args(method, _METHODS[method], self, obj, **args)
+        return _METHODS[method](self, obj, **args)
 
     def catalog(self, objects: list[str] | None = None) -> list[CadTarget]:
         """One target per CAD script, with its named parameters.
@@ -256,8 +258,11 @@ class Build123dAdapter:
     # -- measurement vocabulary ---------------------------------------------
 
     def _bbox_size(self, obj: str, axis: str = "X") -> Q:
+        key = str(axis).upper()
+        if key not in ("X", "Y", "Z"):
+            raise Unsupported(f"bbox_size: axis must be X, Y or Z, not {axis!r}")
         size = self._part(obj).bounding_box().size
-        return getattr(size, axis.upper()) * ureg.mm
+        return getattr(size, key) * ureg.mm
 
     def _volume(self, obj: str) -> Q:
         return self._part(obj).volume * ureg.mm**3
@@ -272,7 +277,7 @@ class Build123dAdapter:
         of truth for its own material.
         """
         if density_g_per_cm3 is not None:
-            rho = density_g_per_cm3 * ureg.g / ureg.cm**3
+            rho = check_density(density_g_per_cm3) * ureg.g / ureg.cm**3
         else:
             material = self.material(obj)
             if material is None or material.density is None:

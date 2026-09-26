@@ -22,12 +22,13 @@ Both are what the FreeCAD adapter is for; this adapter reads.
 
 ADDRESSING
 ----------
-    cad/step/gearbox.step#Housing    one node of an assembly, by name
-    cad/step/shaft.step              the whole file
+    fixtures/step/gearbox.step#Housing    one node of an assembly, by name
+    fixtures/step/shaft.step              the whole file
 
 Paths resolve against the repository root. A name matching more than one node
 is an error, never a choice -- picking the first would be the same class of bug
-as substituting a value.
+as substituting a value. So is a file with several root shapes addressed
+without a `#`: which root was meant is not the adapter's to decide.
 """
 
 from __future__ import annotations
@@ -48,7 +49,7 @@ from OCP.TopAbs import TopAbs_ShapeEnum
 from OCP.XCAFDoc import XCAFDoc_DocumentTool
 
 from ..units import Q, ureg
-from . import METHODS, CadTarget, Material, Unsupported
+from . import METHODS, CadTarget, Material, Unsupported, check_args, check_density
 from . import measurements as mm
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -278,18 +279,16 @@ class StepAdapter:
         shape = self._shape(entry, node)
         args = dict(args or {})
 
-        if method == "bbox_size":
-            return mm.bbox_size(shape, **args)
-        if method == "volume":
-            return mm.volume(shape, **args)
-        if method == "face_count":
-            return mm.face_count(shape, **args)
+        geometric = {"bbox_size": mm.bbox_size, "volume": mm.volume, "face_count": mm.face_count}
+        if method in geometric:
+            check_args(method, geometric[method], shape, **args)
+            return geometric[method](shape, **args)
 
         override = args.pop("density_g_per_cm3", None)
         if args:
             raise Unsupported(f"mass: unexpected arguments {sorted(args)}")
         if override is not None:
-            density = override * ureg.g / ureg.cm**3
+            density = check_density(override) * ureg.g / ureg.cm**3
         else:
             material = self.material(obj)
             if material is None or material.density is None:
@@ -322,9 +321,16 @@ class StepAdapter:
                 continue
 
             file_ref = str(ref).split("#", 1)[0]
+            # A file with one root is that root, addressed bare. With several,
+            # the bare path is refused by `_node`, so each root is addressed by
+            # name like any other node -- otherwise listing the catalogue would
+            # fail on the first multi-root export it met.
+            single_root = len(entry["roots"]) == 1
             for depth, node in self.tree(file_ref):
                 ambiguous = len(entry["by_name"].get(node.name, [])) > 1
-                target_ref = file_ref if depth == 0 else f"{file_ref}#{node.name}"
+                target_ref = (
+                    file_ref if depth == 0 and single_root else f"{file_ref}#{node.name}"
+                )
                 material = None if ambiguous else self.material(target_ref)
                 methods = () if ambiguous else tuple(
                     m for m in METHODS

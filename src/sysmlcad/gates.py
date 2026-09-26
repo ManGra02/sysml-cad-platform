@@ -35,14 +35,15 @@ from __future__ import annotations
 
 import sys
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .adapters import Unsupported
 from .catalog import Catalog, load_catalog
 from .extract import from_capture
 from .project import Project, UnknownProject, add_project_argument, load_project
 from .mapping import AttributeMapping, Mapping, load_mapping
-from .model import Requirement
+from .model import BadTolerance, Requirement, parse_tolerance
+from .proposals import Proposal, merged_mapping
 from .units import Q
 from .verify import AdapterPool, _leaf
 
@@ -53,12 +54,18 @@ PLAUSIBLE_RANGE = (0.1, 10.0)
 
 VERDICTS = ("valid", "unknown", "invalid")
 
+#: `GateResult.code` of a proposal that names a different CAD object for a part
+#: that is already mapped -- see `check_proposal`. A code rather than a match on
+#: the message, so a report can group these without parsing prose.
+PART_CONFLICT = "part_conflict"
+
 
 @dataclass(frozen=True)
 class GateResult:
     gate: str
     verdict: str
     detail: str = ""
+    code: str = ""
 
 
 @dataclass(frozen=True)
@@ -137,7 +144,17 @@ def gate_dimension(
     type (`length : LengthValue`) and, when a requirement is linked, the unit of
     its limit. They should agree; when the model is odd enough that they do not,
     the mismatch is worth seeing.
+
+    The entry's tolerance is a quantity against the same limit, so it is
+    checked here too: `"5 kg"` on a length is a dimension fault a run would
+    otherwise only meet as a gap.
     """
+    if requirement is not None and entry.tolerance is not None:
+        try:
+            parse_tolerance(entry.tolerance, requirement.limit)
+        except BadTolerance as exc:
+            return GateResult("dimension", "invalid", str(exc))
+
     if measured is None:
         return GateResult("dimension", "unknown", "nothing measured")
 
@@ -175,7 +192,9 @@ def gate_uniqueness(entry: AttributeMapping, mapping: Mapping) -> GateResult:
     """Nothing may win a tie silently.
 
     `Mapping.for_requirement` returns the first match, so a second entry for the
-    same requirement would simply never be used -- and never be noticed either.
+    same requirement on the same part would simply never be used -- and never
+    be noticed either. Keyed on (requirement, part) exactly as that lookup is:
+    one requirement satisfied by two parts legitimately has one entry per part.
     """
     confirmed = [e for e in mapping.attributes if e.usable]
 
@@ -188,18 +207,23 @@ def gate_uniqueness(entry: AttributeMapping, mapping: Mapping) -> GateResult:
         )
 
     if entry.requirement:
-        by_requirement = Counter(e.requirement for e in confirmed if e.requirement)
-        if by_requirement[entry.requirement] > 1:
+        by_requirement = Counter(
+            (e.requirement, e.sysml_part) for e in confirmed if e.requirement
+        )
+        count = by_requirement[(entry.requirement, entry.sysml_part)]
+        if count > 1:
             return GateResult(
                 "uniqueness", "invalid",
-                f"{by_requirement[entry.requirement]} confirmed entries check "
-                f"{entry.requirement}",
+                f"{count} confirmed entries check {entry.requirement} "
+                f"on {entry.sysml_part}",
             )
 
+    own = mapping.part_for(entry)
+    if own is None:
+        return GateResult("uniqueness", "unknown", f"no parts: entry for {entry.sysml_part!r}")
     shared = [
         name for name, part in mapping.parts.items()
-        if part.cad_object == (mapping.part_for(entry) or part).cad_object
-        and name != entry.sysml_part
+        if part.cad_object == own.cad_object and name != entry.sysml_part
     ]
     if shared:
         return GateResult(
@@ -267,6 +291,50 @@ def check_entry(
             gate_plausibility(requirement, measured),
         ),
     )
+
+
+def check_proposal(
+    proposal: Proposal,
+    mapping: Mapping,
+    catalog: Catalog,
+    requirements: dict[tuple[str, str], Requirement],
+    pool: AdapterPool,
+) -> MappingCheck:
+    """A proposal, gated in the company it would keep -- and on the CAD object
+    it actually names.
+
+    The object a proposal names is the object measured here. Before this
+    existed, a proposal for a part that was already mapped was gated against
+    the EXISTING part entry: `cover.mass -> gearbox#Housing` passed every gate
+    with the cover's own mass, and confirming it appended an attribute entry
+    that the run then measured on `gearbox#Cover`. The reviewer approved one
+    object and the mapping recorded another.
+
+    A part stands for one CAD object, so a proposal naming a different one for
+    an already-mapped part is invalid under `uniqueness`. If the existing part
+    entry is the wrong one, that is a human's edit to `parts:`, not something a
+    proposal may slip in beside an attribute.
+    """
+    merged = merged_mapping(mapping, proposal)
+    check = check_entry(merged.attributes[-1], merged, catalog, requirements, pool)
+
+    existing = mapping.parts.get(proposal.sysml_part)
+    if existing is None or (existing.adapter, existing.cad_object) == (
+        proposal.adapter, proposal.cad_object,
+    ):
+        return check
+
+    conflict = GateResult(
+        "uniqueness", "invalid",
+        f"{proposal.sysml_part} is already mapped to "
+        f"{existing.adapter}:{existing.cad_object}, but this proposal names "
+        f"{proposal.adapter}:{proposal.cad_object}. A part stands for one CAD "
+        f"object; change its `parts:` entry by hand if that one is wrong",
+        code=PART_CONFLICT,
+    )
+    return replace(check, results=tuple(
+        conflict if result.gate == "uniqueness" else result for result in check.results
+    ))
 
 
 def check_mapping(
@@ -352,7 +420,6 @@ def report(checks: list[MappingCheck], mapping: Mapping, project: Project | None
 
 def main(argv: list[str] | None = None) -> int:
     import argparse
-    import sys
 
     parser = argparse.ArgumentParser(
         prog="python -m sysmlcad.gates",

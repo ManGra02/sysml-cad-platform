@@ -78,6 +78,31 @@ def test_a_module_without_build_is_refused(adapter):
 
 
 # --------------------------------------------------------------------------
+# A malformed mapping entry is a gap, never a crash
+# --------------------------------------------------------------------------
+
+def test_a_bad_axis_is_refused(adapter):
+    """It used to escape as an AttributeError from deep inside build123d, which
+    `verify.run()` does not catch -- one typo in `mapping.yaml` lost the run."""
+    with pytest.raises(Unsupported, match="axis"):
+        adapter.measure("motor_housing", "bbox_size", {"axis": "Q"})
+
+
+def test_an_unexpected_argument_is_refused(adapter):
+    with pytest.raises(Unsupported, match="axsi"):
+        adapter.measure("motor_housing", "bbox_size", {"axis": "X", "axsi": "Y"})
+    with pytest.raises(Unsupported, match="axis"):
+        adapter.measure("motor_housing", "volume", {"axis": "X"})
+
+
+def test_a_density_override_must_be_a_positive_number(adapter):
+    """Zero would make every mass requirement pass at 0 kg."""
+    for bad in (0, -2.7, "2.7"):
+        with pytest.raises(Unsupported, match="density"):
+            adapter.measure("motor_housing", "mass", {"density_g_per_cm3": bad})
+
+
+# --------------------------------------------------------------------------
 # The point of the exercise
 # --------------------------------------------------------------------------
 

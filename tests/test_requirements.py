@@ -49,6 +49,26 @@ def test_every_gap_is_a_known_one(name):
     assert reported == known.get(name, []), f"unexpected gaps: {RESULTS[name].gaps}"
 
 
+#: Every requirement each committed model states. Pinned here because the two
+#: tests above only look at what the run reports: a requirement the extractor
+#: dropped is in neither list, and both of them pass without it.
+EXPECTED = {
+    "motor_housing": {"MaxLength", "MaxMass"},
+    "gearbox": {"MaxAssemblyMass", "MaxCoverThickness", "MaxHousingLength", "MinBoreRadius"},
+}
+
+
+@pytest.mark.parametrize("name", list(RESULTS), ids=list(RESULTS))
+def test_every_requirement_is_accounted_for(name):
+    """Each requirement of the model ends up as a verdict or as a gap -- none
+    simply missing from the report."""
+    assert name in EXPECTED, f"new project {name!r}: list its requirements in EXPECTED"
+    result = RESULTS[name]
+    covered = {v.requirement.requirement_id for v in result.verdicts}
+    covered |= {gap.split(":", 1)[0] for gap in result.gaps}
+    assert covered == EXPECTED[name]
+
+
 @pytest.mark.parametrize("name", list(RESULTS), ids=list(RESULTS))
 def test_run_records_its_provenance(name):
     """SRS FREQ-1: a verdict without a model state behind it is not evidence."""

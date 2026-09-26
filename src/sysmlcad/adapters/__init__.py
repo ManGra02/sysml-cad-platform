@@ -30,6 +30,7 @@ at the first draft angle. The mapping entry has to say which one it means.
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
@@ -46,6 +47,34 @@ class Unsupported(Exception):
 
     Distinct from a wrong answer: callers report it as a gap in the model.
     """
+
+
+def check_args(method: str, fn, *leading, **args) -> None:
+    """Refuse `args` that `fn` does not take, before calling it.
+
+    `args:` comes from a hand-edited mapping entry, so a typo there is a mapping
+    fault and must surface as `Unsupported` -- one gap -- rather than as a
+    TypeError that takes every other verdict in the run down with it. Binding
+    the signature instead of catching TypeError around the call keeps a genuine
+    bug inside a measurement from being mistaken for a bad mapping.
+    """
+    try:
+        inspect.signature(fn).bind(*leading, **args)
+    except TypeError as exc:
+        raise Unsupported(f"{method}: {exc}") from None
+
+
+def check_density(density_g_per_cm3) -> float:
+    """A density override has to be a positive number.
+
+    Zero would make every mass requirement pass with a mass of 0 kg -- a
+    confident, wrong verdict from a typo.
+    """
+    if isinstance(density_g_per_cm3, bool) or not isinstance(density_g_per_cm3, (int, float)):
+        raise Unsupported(f"mass: density_g_per_cm3 must be a number, not {density_g_per_cm3!r}")
+    if not density_g_per_cm3 > 0:
+        raise Unsupported(f"mass: density_g_per_cm3 must be positive, not {density_g_per_cm3!r}")
+    return float(density_g_per_cm3)
 
 
 @dataclass(frozen=True)

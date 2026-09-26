@@ -21,20 +21,6 @@ from .sysml_client import SysMLClient
 OUT = Path("out/elements.json")
 
 
-def fetch_all(client: SysMLClient, project_id: str, commit_id: str) -> list[dict]:
-    """Follows every page. The API returns 100 elements per page and links
-    the next one in the Link header."""
-    url = f"/projects/{project_id}/commits/{commit_id}/elements?page[size]=200"
-    out: list[dict] = []
-    while url:
-        r = client._c.get(url)
-        r.raise_for_status()
-        out.extend(r.json())
-        nxt = r.links.get("next")
-        url = nxt["url"] if nxt else None
-    return out
-
-
 def index(elements: list[dict]) -> dict[str, dict]:
     return {e["@id"]: e for e in elements if "@id" in e}
 
@@ -91,16 +77,17 @@ def main(argv: list[str] | None = None) -> int:
 
     client = SysMLClient()
     try:
-        projects = [p for p in client.projects() if p.get("name") == project.sysml_project]
-        if not projects:
-            print(f"No project named {project.sysml_project!r} on the server.")
+        # By name, and the newest of same-named ones with a warning -- the
+        # same rule `verify api` follows.
+        try:
+            proj = client.project_named(project.sysml_project)
+        except LookupError as exc:
+            print(exc)
             return 1
-        # Same name published twice: the newest of those, and say so.
-        proj = sorted(projects, key=lambda p: p.get("created", ""))[-1]
         print(f"Project: {proj.get('name')} ({proj['@id']})")
 
         commit = client.head_commit(proj["@id"])
-        elements = fetch_all(client, proj["@id"], commit)
+        elements = client.all_elements(proj["@id"], commit)
     finally:
         client.close()
 

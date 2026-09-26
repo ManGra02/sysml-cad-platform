@@ -66,8 +66,10 @@ def describe(path: str) -> int:
     if without_material:
         print(
             f"\nno material in the file for: {', '.join(without_material)}\n"
-            f"  -> `mass` needs `args: {{density_g_per_cm3: ...}}` in the mapping,\n"
-            f"     otherwise the run reports a gap instead of inventing a density."
+            f"  -> `mass` from this file is a gap, not an invented density. Measure\n"
+            f"     it where the material is declared (a build123d script), or pass\n"
+            f"     `args: {{density_g_per_cm3: ...}}` for a what-if study -- a density\n"
+            f"     committed to mapping.yaml fails the test suite on purpose."
         )
     print()
     return 0

@@ -2,7 +2,7 @@
 
 Two stores, two jobs. `projects/<name>/mapping.yaml` is design intent: hand-written,
 commented, reviewed, and the only thing a verification run reads.
-`mapping/proposals.yaml` is a machine's suggestions: appended to by a proposer,
+`projects/<name>/proposals.yaml` is a machine's suggestions: appended to by a proposer,
 emptied of nothing, and read by no run at all. Keeping them apart is what makes
 FREQ-5 structural rather than a matter of discipline -- a proposer cannot
 accidentally influence a verdict, because nothing that reads verdicts ever opens
@@ -119,10 +119,15 @@ def merged_mapping(mapping: Mapping, proposal: Proposal) -> Mapping:
     What the gates are pointed at before a confirmation: the proposal is checked
     in the company it would keep, so a duplicate of an existing confirmed entry
     is caught by the uniqueness gate rather than discovered afterwards.
+
+    The part entry is the proposal's own, even where `mapping` already has one
+    for that part -- the gates must measure the object the proposal names, not
+    the one a reviewer is not looking at. Whether the two disagree is
+    `gates.check_proposal`'s question.
     """
     part, attribute = proposal.as_mapping_entries()
     parts = dict(mapping.parts)
-    parts.setdefault(proposal.sysml_part, part)
+    parts[proposal.sysml_part] = part
     return Mapping(
         parts=parts,
         attributes=[*mapping.attributes, attribute],

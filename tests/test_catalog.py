@@ -1,7 +1,7 @@
 """The structural excerpt of both models.
 
-The SysML half runs against `fixtures/elements.json`, a captured API response,
-so it needs no server -- the same approach `test_extract.py` takes. The CAD half
+The SysML half runs against each project's `elements.json`, a captured API
+response, so it needs no server -- the same approach `test_extract.py` takes. The CAD half
 runs against the committed STEP fixtures and the CAD scripts.
 
 What these tests are really protecting is the input to everything downstream: a
