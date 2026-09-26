@@ -4,7 +4,7 @@ One continuous thread from a SysML v2 requirement to a red CI pipeline.
 Deliberately narrow: two small models, six requirements, and a mapping that a
 human confirms entry by entry.
 
-**Status:** Stages A, A2, E and H complete — 247 tests green. Two models are
+**Status:** Stages A, A2, E and H complete — 254 tests green. Two models are
 published and verified against CAD: `MotorHousing` (one part) and `Gearbox`
 (three parts, an interface dimension, an assembly mass budget). Requirements are
 read from the live SysML v2 API or from a fixture; geometry is measured either
@@ -29,7 +29,7 @@ make cad                   # run the CAD scripts, write STEP to out/
 make verify                # verify the default project (motor_housing)
 make verify PROJECT=gearbox   # ...or another one, against ITS mapping
 make gates                 # is the MAPPING sound? (a different question)
-make test                  # pytest, JUnit XML to out/ (247 tests)
+make test                  # pytest, JUnit XML to out/ (254 tests)
 make catalog               # what exists on each side, as data
 make explore-cad FILE=fixtures/step/gearbox.step   # what is in a STEP file
 make step-fixtures  # regenerate fixtures/step/ after changing a CAD script
@@ -190,7 +190,8 @@ tests/
 ├── test_confirm.py           the store, and writing YAML without rewriting it
 ├── test_propose.py           the baseline, and the dimension filter
 ├── test_propose_ai.py        every AI backend, from a recorded response
-└── test_propose_openai.py    the OpenAI-protocol call, against a stub client
+├── test_propose_openai.py    the OpenAI-protocol call, against a stub client
+└── test_sysml_client.py      which project a name means, which commit is current
 out/                          STEP, JUnit XML, dumps. *.step and *.xml are
                               ignored; relevant.txt and llm_request.txt are
                               committed reference payloads

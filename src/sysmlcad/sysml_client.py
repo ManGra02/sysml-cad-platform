@@ -13,9 +13,16 @@ from .config import SYSML_API_URL
 
 
 class SysMLClient:
-    def __init__(self, base_url: str | None = None, timeout: float = 30.0):
+    def __init__(
+        self,
+        base_url: str | None = None,
+        timeout: float = 30.0,
+        transport: httpx.BaseTransport | None = None,
+    ):
+        """`transport` exists for tests: an `httpx.MockTransport` stands in for
+        the server, so the client's own logic runs with no network."""
         base_url = base_url or SYSML_API_URL
-        self._c = httpx.Client(base_url=base_url, timeout=timeout)
+        self._c = httpx.Client(base_url=base_url, timeout=timeout, transport=transport)
 
     def ping(self) -> bool:
         try:
@@ -50,11 +57,37 @@ class SysMLClient:
         return sorted(matching, key=lambda p: p.get("created", ""))[-1]
 
     def head_commit(self, project_id: str) -> str:
+        """The head of the project's default branch -- the model state a run
+        should cite.
+
+        It used to be `commits[0]` of `/projects/{id}/commits`, which assumes the
+        server lists the newest commit first. Checked against the live server
+        (2026-09-26): with one commit per project the two agree, but nothing
+        promises that order once a project has several. The branch names its
+        head explicitly. The commit list is only a fallback, and only when it
+        has exactly one entry -- picking one of several would be guessing
+        which model state gets verified.
+        """
+        r = self._c.get(f"/projects/{project_id}")
+        r.raise_for_status()
+        branch_id = (r.json().get("defaultBranch") or {}).get("@id")
+        if branch_id:
+            r = self._c.get(f"/projects/{project_id}/branches/{branch_id}")
+            r.raise_for_status()
+            head = (r.json().get("head") or {}).get("@id")
+            if head:
+                return head
+
         r = self._c.get(f"/projects/{project_id}/commits")
         r.raise_for_status()
         commits = r.json()
         if not commits:
             raise RuntimeError(f"project {project_id} has no commits")
+        if len(commits) > 1:
+            raise RuntimeError(
+                f"project {project_id} has {len(commits)} commits and no default "
+                f"branch head -- refusing to guess which one is current"
+            )
         return commits[0]["@id"]
 
     def elements(self, project_id: str, commit_id: str) -> list[dict]:

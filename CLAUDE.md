@@ -5,7 +5,7 @@ Check SysML v2 requirements automatically against CAD geometry. CI turns red whe
 the CAD model violates a system requirement. Later: a mapping store, AI-assisted
 mapping proposals, bidirectional sync, SMT-based verification.
 
-**Status: stages A, A2, E and H complete; 247 tests pass** (233 plus 14
+**Status: stages A, A2, E and H complete; 254 tests pass** (240 plus 14
 skipped without the optional AI SDKs, which is how CI's first step runs). The verification
 chain runs end to end (SysML v2 API → extractor → CAD adapter → verdict → exit
 code), and on top of it the mapping can now be *proposed*: a catalogue of both
@@ -116,7 +116,7 @@ make catalog                    # what exists on each side, as data
 make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
 make step-fixtures              # regenerate fixtures/step/ (they are committed)
 python -m sysmlcad.verify -p gearbox api   # same as make verify-api PROJECT=gearbox
-make test                       # pytest, JUnit XML to out/ (247 tests)
+make test                       # pytest, JUnit XML to out/ (254 tests)
 
 # Mapping proposals -- nothing here can change a verdict
 make propose                    # baseline proposer -> projects/<name>/proposals.yaml
@@ -200,7 +200,7 @@ tests/             test_extract.py, test_requirements.py, test_verify.py,
                    test_project.py, test_build123d_adapter.py,
                    test_step_adapter.py, test_catalog.py, test_gates.py,
                    test_confirm.py, test_propose.py, test_propose_ai.py,
-                   test_propose_openai.py
+                   test_propose_openai.py, test_sysml_client.py
 pyproject.toml     package metadata + pytest config (pytest.ini is gone)
 out/               STEP, JUnit XML, dumps. Only *.step and *.xml are
                    gitignored; out/relevant.txt (a real API payload excerpt)
@@ -275,8 +275,21 @@ first:
 - Play's `AllowedHostsFilter` rejects `Host: sysml-api:9000` with a 400, and the
   fork's own CMD does not account for it. Compose overrides the command with
   `/app/start-sysml -Dhttp.address=0.0.0.0 -Dhttp.port=9000
-  -Dplay.filters.hosts.allowed.0=. -Dplay.http.secret.key=${PLAY_SECRET}`.
-- The first start takes minutes (schema creation, ~8200 tables). It is ready once
+  -Dpidfile.path=/dev/null -Dplay.filters.hosts.allowed.0=.
+  -Dplay.http.secret.key=${PLAY_SECRET}`.
+- **`-Dpidfile.path=/dev/null` is load-bearing.** Play writes `RUNNING_PID`
+  into the container's filesystem; after an unclean stop (a closed VS Code
+  window with `shutdownAction: stopCompose`, a host shutdown) the file
+  survives, and restarting the SAME container dies at once with "This
+  application is already running (Or delete .../RUNNING_PID)", exit 255.
+  `make logs` hides it: it replays the old run's Hibernate output first, so
+  the container looks busy while it is down -- `docker ps -a` and
+  `docker logs --tail 30 sysml2-api` tell the truth. A container stuck in that
+  state is fixed by recreating it (`docker rm sysml2-api && make api`); the
+  database lives in the `pgdata` volume and survives.
+- The first start takes minutes (schema creation, ~8200 tables), and every
+  start after that still takes about 2-3 minutes: with `hbm2ddl.auto=update`
+  Hibernate compares the whole schema before Play opens port 9000. It is ready once
   `Listening for HTTP` appears in the log and `curl localhost:9000/projects`
   returns 200.
 
@@ -402,10 +415,19 @@ first:
 - Finding the server project BY NAME lives in one place,
   `SysMLClient.project_named()`; `verify api`, `catalog api` and `explore`
   used to carry three copies of it.
-- `head_commit()` takes `commits[0]` of `/projects/{id}/commits`. With one
-  commit per published project that is the only one; whether the server
-  orders commits newest-first once a project has several is **unverified**
-  -- `defaultBranch` → branch `head` would be the unambiguous route.
+- `head_commit()` reads the project's `defaultBranch` and returns that
+  branch's `head`. It used to take `commits[0]` of `/projects/{id}/commits`,
+  which assumes newest-first order. Checked against the live server on
+  2026-09-26: each project has one commit, so both routes agreed -- but only
+  the branch says which commit is current. The commit list is a fallback for
+  exactly one commit; several without a branch head is an error, not a pick.
+  `tests/test_sysml_client.py` pins this against an `httpx.MockTransport`.
+- **The motor_housing capture predates the server's current publish.** Same
+  164 elements with the same content, but different element ids: the capture
+  was taken on 2026-09-03 19:03, the server project republished at 23:15.
+  Verdicts are identical; the element id an offline VIOLATED line cites
+  (`72f3b6a1…`) does not exist on the server. The gearbox capture matches the
+  server id for id.
 - `/projects/{id}/commits/{cid}/elements` paginates — 100 per page by default,
   and the client asks for `page[size]=200`. The next page is in the Link header.
   `SysMLClient.all_elements()` follows it; `elements()` returns the first page
