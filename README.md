@@ -474,23 +474,34 @@ baseline:difflib      11/11 (100%) 11/11 (100%)         0        0
 Watch `wrong@1`, not the hit rate: a confident wrong answer costs more than a
 missing one, because it looks exactly like a right one.
 
-**Measured on 2026-09-26, per project, with a request budget of five per API
-key.** One request per row; `old` is the prompt of commit `bb8f3d7`, `new` the
-current one. Every answer is kept in `out/ai_eval_2026-09-26.json`.
+**Measured on 2026-09-26, per project, on a small request budget.** One
+request per cell; `old` is the prompt of commit `bb8f3d7`, `new` the current
+one. Every answer is kept in `out/ai_eval_2026-09-26.json`.
 
 ```
 gearbox (11 attributes, 2 of them correctly left empty)
-                              old prompt                 new prompt
-gwdg.qwen3.5-397b-a17b     3/11  wrong@1 0  missed 8    11/11  wrong@1 0  missed 0
-gwdg.gemma-4-31b-it        5/11  wrong@1 0  missed 6    11/11  wrong@1 0  missed 0
-gemini-3.8-flash          11/11  wrong@1 0  missed 0    11/11  wrong@1 0  missed 0
+                                old prompt                  new prompt
+hs-de.openai-gpt-oss-120b    9/11  wrong@1 2  missed 0    11/11  wrong@1 0  missed 0
+gwdg.qwen3.5-397b-a17b       3/11  wrong@1 0  missed 8    11/11  wrong@1 0  missed 0 *
+gwdg.gemma-4-31b-it          5/11  wrong@1 0  missed 6    11/11  wrong@1 0  missed 0 *
+gemini-3.8-flash            11/11  wrong@1 0  missed 0    11/11  wrong@1 0  missed 0 *
 
 box2 (Chili3D axes: length Y, width Z, height X), new prompt only
-gemini-3.8-flash           3/3                          gwdg.gemma-4-31b-it   0/3 (empty answer)
+hs-de.openai-gpt-oss-120b    3/3
+gemini-3.8-flash             3/3 *
+gwdg.gemma-4-31b-it          0/3 * (empty answer)  ->  3/3 after the step-1 fix below
+
+* run before the last wording fix to step 1 (object matching)
 ```
 
 What changed and why, each against a failure seen in a real answer:
 
+- **gpt-oss-120b proposed `boreRadius` as the bounding box along X, at 0.93
+  confidence** -- twice, for housing and cover. The one dangerous kind of
+  answer: right dimension, so it passes the gates and reaches a reviewer
+  looking exactly like a right one (90 mm read as a radius). The new prompt
+  says a radius or bore is not a bounding-box extent, and that a named
+  parameter (`BORE_RADIUS_MM`) is evidence, not a measurement.
 - **Qwen returned one candidate for eleven attributes.** "Propose the mappings
   you are confident about" read as permission to stay silent. The new prompt
   asks for one candidate per attribute that passes three stated steps, and
@@ -505,13 +516,14 @@ What changed and why, each against a failure seen in a real answer:
 - **Gemma answered nothing on box2.** The new step 1 told it to match the
   part's name to the object's *name* -- for a Chili3D export that is the
   exporter's "Open CASCADE STEP translator 8.0 2", and only the file name
-  matches. The wording now says so; that fix is **not yet re-measured** (the
-  UPB budget was spent).
+  matches. The wording now says so, and Gemma's re-run on box2 scored 3/3.
 
 Read these with care: one run per cell, and model output varies between
 runs. What the table does show is that none of the three models made a
 confident wrong proposal under either prompt, and that the two weaker models
-went from mostly silent or mostly rejected to complete. The earlier numbers
+went from mostly silent or mostly rejected to complete -- and that the only
+confident wrong answers of the whole round, gpt-oss's two bore radii, came
+under the old prompt and are gone under the new one. The earlier numbers
 (qwen 3/13 with five wrong, against the merged two-model set) are superseded.
 
 One honest caveat: the baseline was tuned *after* seeing this gold set, so its
@@ -519,9 +531,8 @@ One honest caveat: the baseline was tuned *after* seeing this gold set, so its
 
 ## Next steps
 
-Re-measure Gemma on the Chili3D projects with the corrected step 1, and repeat
-the gearbox rows a few times: one run per cell says what a model *can* do,
-not how reliably it does it.
+Repeat the gearbox rows a few times with the final prompt: one run per cell
+says what a model *can* do, not how reliably it does it.
 
 Then stage B: change-impact analysis — given a change on either side, derive the
 affected requirements and verification cases from the model links instead of

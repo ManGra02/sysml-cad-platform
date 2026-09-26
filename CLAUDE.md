@@ -34,19 +34,28 @@ no code difference: the University of Paderborn gateway
 `/workspaces/conf/google_ai_studio_api_key.txt`), both accepting the strict
 proposal schema unchanged.
 
-**Latest measurement, 2026-09-26, per project, at most five requests per key**
--- one request per cell, `old` = prompt of commit `bb8f3d7`, `new` = current.
-Raw answers and scores: `out/ai_eval_2026-09-26.json`.
+**Latest measurement, 2026-09-26, per project, on a small budget** (UPB 9
+requests, Google 4) -- one request per cell, `old` = prompt of commit
+`bb8f3d7`, `new` = current. Raw answers, scores and which prompt revision each
+run used: `out/ai_eval_2026-09-26.json`.
 
 | gearbox (11) | old prompt | new prompt |
 |---|---|---|
-| `gwdg.qwen3.5-397b-a17b` | 3/11, wrong@1 0, missed 8 | **11/11**, wrong@1 0 |
-| `gwdg.gemma-4-31b-it` | 5/11, wrong@1 0, missed 6 (6 gate drops) | **11/11**, wrong@1 0 |
-| `gemini-3.8-flash` | 11/11, wrong@1 0 | 11/11, wrong@1 0 |
+| `hs-de.openai-gpt-oss-120b` | 9/11, **wrong@1 2** | **11/11**, wrong@1 0 |
+| `gwdg.qwen3.5-397b-a17b` | 3/11, wrong@1 0, missed 8 | **11/11**, wrong@1 0 * |
+| `gwdg.gemma-4-31b-it` | 5/11, wrong@1 0, missed 6 (6 gate drops) | **11/11**, wrong@1 0 * |
+| `gemini-3.8-flash` | 11/11, wrong@1 0 | 11/11, wrong@1 0 * |
 
-On box2 (Chili3D axes), new prompt: Gemini 3/3; Gemma returned an empty list.
+On box2 (Chili3D axes), new prompt: gpt-oss 3/3, Gemini 3/3 *, Gemma 0/3 *
+(empty answer) and 3/3 after the step-1 fix. `*` = run before the last
+wording fix to step 1.
 
 Failure -> fix, each seen in a real answer:
+- gpt-oss-120b (old) proposed `boreRadius` as `bbox_size` X at 0.93, for
+  housing and cover -- the only confident wrong answers of the round, and the
+  dangerous kind: right dimension, so they pass the gates. The prompt now says
+  a radius or bore is not a bounding-box extent and a named parameter is
+  evidence, not a measurement.
 - Qwen (old) returned ONE candidate for eleven attributes: "propose the
   mappings you are confident about" read as permission to stay silent. The
   prompt now asks for one candidate per attribute that passes three stated
@@ -61,7 +70,7 @@ Failure -> fix, each seen in a real answer:
 - Gemma (new) answered nothing on box2: step 1 said "match the part's name to
   the object's name", and a Chili3D export's name is the exporter's generic
   "Open CASCADE STEP translator 8.0 2". Step 1 now says to match the reference
-  (file name, #node) too. **Not re-measured** -- the UPB budget was spent.
+  (file name, #node) too; Gemma's re-run on box2 then scored 3/3.
 
 The closing instruction is `propose_ai.INSTRUCTION`, shared by both backends
 (it used to be two copies). `score.score_ranked()` scores answers already
