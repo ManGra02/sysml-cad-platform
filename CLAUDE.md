@@ -5,7 +5,7 @@ Check SysML v2 requirements automatically against CAD geometry. CI turns red whe
 the CAD model violates a system requirement. Later: a mapping store, AI-assisted
 mapping proposals, bidirectional sync, SMT-based verification.
 
-**Status: stages A, A2, E and H complete; 280 tests pass** (266 plus 14
+**Status: stages A, A2, E and H complete; 285 tests pass** (271 plus 14
 skipped without the optional AI SDKs, which is how CI's first step runs). The verification
 chain runs end to end (SysML v2 API → extractor → CAD adapter → verdict → exit
 code), and on top of it the mapping can now be *proposed*: a catalogue of both
@@ -26,50 +26,50 @@ stored with the project"); every command works on exactly one, chosen with
 `PROJECT=<name>`, and no run ever merges two. The baseline proposer scores
 **2/2 and 11/11 with zero false positives** against each project's own gold set.
 
-The AI path has now been run for real, against the University of Paderborn
-gateway (`https://ai-gateway.uni-paderborn.de/v1/`, OpenAI protocol, 74 models).
-Three models measured — against the **former merged gold set** (13 attributes
-across both models, before projects existed; the baseline row is from the same
-run). Not directly comparable to today's per-project 2/2 and 11/11, and part of
-every model's difficulty was the merged excerpt itself: two `Housing`s from two
-models with nothing to tell them apart. Re-measuring per project is the obvious
-next run.
+The AI path has been run for real, through two gateways with one backend and
+no code difference: the University of Paderborn gateway
+(`https://ai-gateway.uni-paderborn.de/v1/`, key in
+`/workspaces/conf/upb_ai_api_key.txt`) and Google AI Studio
+(`https://generativelanguage.googleapis.com/v1beta/openai/`, key in
+`/workspaces/conf/google_ai_studio_api_key.txt`), both accepting the strict
+proposal schema unchanged.
 
-| proposer | hit@1 | wrong@1 | missed | gateway |
-|---|---|---|---|---|
-| `baseline:difflib` (then) | **11/13** | 2 | 0 | — |
-| `gwdg.gemma-4-31b-it` | 4/13 | 1 | 8 | UPB |
-| `gwdg.qwen3.5-397b-a17b` | 3/13 | **5** | 5 | UPB |
-| `gemini-3.8-flash` | 4/13 | **0** | 9 | AI Studio |
+**Latest measurement, 2026-09-26, per project, at most five requests per key**
+-- one request per cell, `old` = prompt of commit `bb8f3d7`, `new` = current.
+Raw answers and scores: `out/ai_eval_2026-09-26.json`.
 
-Two gateways, one backend, no code difference: Google AI Studio speaks the same
-protocol at `https://generativelanguage.googleapis.com/v1beta/openai/` and
-accepts the project's real proposal schema unchanged.
+| gearbox (11) | old prompt | new prompt |
+|---|---|---|
+| `gwdg.qwen3.5-397b-a17b` | 3/11, wrong@1 0, missed 8 | **11/11**, wrong@1 0 |
+| `gwdg.gemma-4-31b-it` | 5/11, wrong@1 0, missed 6 (6 gate drops) | **11/11**, wrong@1 0 |
+| `gemini-3.8-flash` | 11/11, wrong@1 0 | 11/11, wrong@1 0 |
 
-**Three models, three different failure modes, and the interesting axis is not
-hit rate.** Gemini 3.8 Flash returned exactly two candidates for thirteen
-attributes -- and both were right, with nothing invented and nothing dropped.
-Perfect precision, poor recall: it takes the prompt's "a gap a human fills is
-cheaper than a wrong mapping a human has to detect" literally, where
-qwen3.5-397b ignored it entirely. By `wrong@1`, the column that actually costs
-review time, Gemini is the best model tested and the largest one is the worst.
-Whether the prompt is now *too* conservative is an open question and a
-prompt-tuning experiment, not a code change.
+On box2 (Chili3D axes), new prompt: Gemini 3/3; Gemma returned an empty list.
 
-**Model size predicted nothing.** The largest model scored worst and in the
-dangerous direction -- five confident wrong answers against Gemma's one and
-Gemini's none. Its systematic error is the same
-one the difflib baseline made before identity scoring was added: it proposes the
-`gearbox` module (the whole assembly) for `housing.length`, `housing.width` and
-`housing.height`. The assembly's X extent happens to equal the housing's, so
-three of those would have produced *plausible numbers from the wrong object*.
+Failure -> fix, each seen in a real answer:
+- Qwen (old) returned ONE candidate for eleven attributes: "propose the
+  mappings you are confident about" read as permission to stay silent. The
+  prompt now asks for one candidate per attribute that passes three stated
+  steps (object, method by dimension, axis), and says a gap is not free.
+- Gemma (old) proposed `mass` for every length and radius -- six candidates,
+  all stopped by the dimension gate. The prompt now spells out dimension ->
+  method.
+- Qwen (earlier, merged set) measured the `gearbox` assembly for
+  `housing.length`. The excerpt now marks `(inside gearbox)` on nested parts
+  (`CatalogPart.container`), `contains:` on assemblies, and lists a
+  component's shared module parameters once instead of under each component.
+- Gemma (new) answered nothing on box2: step 1 said "match the part's name to
+  the object's name", and a Chili3D export's name is the exporter's generic
+  "Open CASCADE STEP translator 8.0 2". Step 1 now says to match the reference
+  (file name, #node) too. **Not re-measured** -- the UPB budget was spent.
 
-In a live `make propose` run, Gemma's five candidates were **all rejected by the
-gates**, four for proposing a *volume* where the model asks for a length.
-Nothing reached the proposal store. That is the ordering constraint paying off
-in production rather than in a test: a weak model here is useless, not
-dangerous -- and "bigger model" is not a synonym for "better proposer", which
-is precisely why the scoreboard was built before the AI was.
+The closing instruction is `propose_ai.INSTRUCTION`, shared by both backends
+(it used to be two copies). `score.score_ranked()` scores answers already
+received, so one paid request is never asked twice. One run per cell measures
+what a model *can* do, not how reliably: repeat before trusting a difference.
+The earlier merged-set numbers (qwen 3/13 with five wrong, Gemini 4/13) are
+superseded; what held across both measurements is that a weak answer ends as
+gate drops or silence, never as a stored wrong mapping.
 
 Stage A re-anchored the mapping on *parts* (resolved through the model's own
 `satisfy` link), put a `CadAdapter` seam under the CAD side, made verdicts
@@ -121,7 +121,7 @@ make catalog                    # what exists on each side, as data
 make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
 make step-fixtures              # regenerate fixtures/step/ (they are committed)
 python -m sysmlcad.verify -p gearbox api   # same as make verify-api PROJECT=gearbox
-make test                       # pytest, JUnit XML to out/ (280 tests)
+make test                       # pytest, JUnit XML to out/ (285 tests)
 
 # Mapping proposals -- nothing here can change a verdict
 make propose                    # baseline proposer -> projects/<name>/proposals.yaml
@@ -465,12 +465,13 @@ first:
   the branch says which commit is current. The commit list is a fallback for
   exactly one commit; several without a branch head is an error, not a pick.
   `tests/test_sysml_client.py` pins this against an `httpx.MockTransport`.
-- **The motor_housing capture predates the server's current publish.** Same
-  164 elements with the same content, but different element ids: the capture
-  was taken on 2026-09-03 19:03, the server project republished at 23:15.
-  Verdicts are identical; the element id an offline VIOLATED line cites
-  (`72f3b6a1…`) does not exist on the server. The gearbox capture matches the
-  server id for id.
+- **A capture must come from the server's CURRENT publish.** Republishing a
+  model gives every element a new id. The motor_housing capture was taken from
+  an earlier publish and had the same 164 elements with the same content but
+  other ids, so an offline VIOLATED line cited an element (`72f3b6a1…`) that no
+  longer existed on the server. Refreshed on 2026-09-26 with
+  `make capture PROJECT=motor_housing`; all four captures now match the server
+  id for id. After every `make publish`, run `make capture` too.
 - `/projects/{id}/commits/{cid}/elements` paginates — 100 per page by default,
   and the client asks for `page[size]=200`. The next page is in the Link header.
   `SysMLClient.all_elements()` follows it; `elements()` returns the first page

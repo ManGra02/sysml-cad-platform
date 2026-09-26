@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Literal
 
 from .catalog import Catalog, load_catalog
@@ -56,31 +57,48 @@ MAX_TOKENS = 16000
 SYSTEM = """\
 You map systems-engineering model attributes onto CAD measurements.
 
-You are one half of a two-part process. You propose; a human confirms. Every
-candidate you return is checked by machine afterwards -- dimensional
-compatibility, whether the measurement is possible at all, uniqueness, order of
-magnitude -- and then reviewed by an engineer. So a wrong suggestion is not
-caught by you being confident; it is caught by those checks, and it costs a
-person time either way.
+You propose; a human confirms. Every candidate is checked by machine before a
+person sees it -- dimension, whether the measurement exists, uniqueness, order
+of magnitude -- and then reviewed. A wrong candidate costs that person more
+than a missing one, but a missing one is not free: someone maps it by hand.
 
-Two rules that matter more than coverage:
+Decide each attribute in three steps:
 
-* Only ever name a `sysml_part`, `attribute` and `cad_object` that appear
-  verbatim in the excerpt. Never invent, complete or correct a name.
-* If nothing in the CAD model plausibly corresponds to an attribute, return no
-  candidate for it. A gap a human fills is cheaper than a wrong mapping a human
-  has to detect. Low confidence is not a substitute for silence.
+1. The object. An attribute of a part is measured on the cad_object that IS
+   that part: match the part's name and type against the cad_object reference
+   (file name and #node) as well as its name. An exporter's generic name --
+   "COMPOUND", "Open CASCADE STEP translator ..." -- says nothing; the file
+   name then decides. A part marked "inside X" is a component of X. A cad_object that "contains" others
+   is an assembly, and stands only for a part that is itself the assembly.
+   Never measure a component on the assembly around it, even where the numbers
+   would agree -- that is a plausible number from the wrong object.
+2. The method, by the attribute's dimension: [length] -> bbox_size,
+   [mass] -> mass, [length] ** 3 -> volume, dimensionless -> face_count. Use
+   only a method the object lists as measurable.
+3. The axis, for bbox_size: look up the attribute's name in the "axes" line.
+   CAD systems differ, so never assume X, Y, Z. A name that is not in that
+   line gets no bbox_size candidate.
 
-`bbox_size` measures the bounding box along one axis, which is not the same
-thing as a named feature dimension -- say so in the rationale when you use it.
-Take the axis for a named dimension from the excerpt's "axes" line; CAD systems
-differ, and it is not always X, Y, Z.
-`mass` is listed as measurable only where the excerpt names the object's
-material, and the density comes from that material. Never supply a density.
+Return one candidate for every attribute that passes all three steps, and
+nothing for an attribute no listed measurement can express: a radius or a bore
+is not a bounding-box extent, and a named parameter is evidence, not a
+measurement -- no method reads it.
 
-Keep each rationale to one sentence naming the actual evidence -- the names that
-matched, the parameter you relied on. "Seems related" is not a rationale.\
+Only name a sysml_part, attribute and cad_object that appear verbatim in the
+excerpt; never invent, complete or correct a name. Never supply a density:
+`mass` is listed only where the object's material is known.
+
+Confidence: about 0.9 when name, type and a matching parameter agree, about
+0.7 on the name alone. Rationale: one sentence naming that evidence, and say
+when an extent is a bounding box rather than a named feature dimension.\
 """
+
+#: The closing instruction, after the excerpt. One constant for every backend,
+#: so the part of the prompt that varies between runs is the excerpt alone.
+INSTRUCTION = (
+    "Return one candidate per attribute that passes the three steps, and none "
+    "for the others. Use only names that appear above."
+)
 
 
 # --------------------------------------------------------------------------
@@ -149,12 +167,22 @@ def render_catalog(catalog: Catalog) -> str:
 
     Deterministic on purpose: same catalogue, same bytes. That makes the prompt
     digest meaningful as provenance and lets the prefix be cached across runs.
+
+    Three things in it answer failures measured on real models: which part is
+    nested in which ("inside gearbox"), which CAD object is an assembly of
+    which others ("contains"), and which axis carries which named dimension.
+    A component's parameters are the module's and are listed once, on the
+    module -- repeated under every component they read as that component's.
     """
     lines = ["# SYSTEM MODEL", ""]
+    used: set[str] = set()
     for part in catalog.parts:
-        lines.append(f"part {part.name} : {part.definition or '?'}")
+        where = f"   (inside {part.container})" if part.container else ""
+        lines.append(f"part {part.name} : {part.definition or '?'}{where}")
         for attribute in part.attributes:
             dimension = attribute.dimensionality
+            words = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", attribute.name).lower().split()
+            used.update(words[-1:])
             lines.append(
                 f"    attribute {attribute.name} : {attribute.type_name or 'unknown'}"
                 f"  [dimension: {dimension if dimension else 'unknown to this tool'}]"
@@ -162,23 +190,34 @@ def render_catalog(catalog: Catalog) -> str:
         lines.append("")
 
     lines += ["# CAD MODEL", ""]
-    # How this CAD side is oriented. Without it a model can only guess which
-    # axis a "length" lies along -- and a CAD system that puts it on Y would
-    # have every such guess wrong in the same, plausible-looking way.
+    # How this CAD side is oriented, for the names this model uses. Without it
+    # a model can only guess which axis a "length" lies along -- and a CAD
+    # system that puts it on Y would have every such guess wrong in the same,
+    # plausible-looking way.
+    shown = [n for n in catalog.axes if n in ("length", "width", "height") or n in used]
     lines.append(
-        "axes for bbox_size: "
-        + ", ".join(f"{name} {axis}" for name, axis in catalog.axes.items())
+        "axes for bbox_size: " + ", ".join(f"{n} {catalog.axes[n]}" for n in shown)
     )
     lines.append("")
+
+    references = {target.reference: target for target in catalog.targets}
     for target in catalog.targets:
         if not target.addressable:
             lines.append(f"cad_object {target.reference}  -- NOT ADDRESSABLE: {target.note}")
             continue
         lines.append(f"cad_object {target.reference}")
         lines.append(f"    name {target.name}   kind {target.kind}   {target.note}")
+        members = [r for r in references if r.startswith(target.reference + "#")]
+        if members:
+            lines.append(f"    contains: {', '.join(members)} -- this is their assembly")
         lines.append(f"    measurable: {', '.join(target.methods) or 'nothing'}")
-        for name, value in sorted(target.parameters.items()):
-            lines.append(f"    parameter {name} = {value:~P}")
+        parent = references.get(target.reference.split("#", 1)[0])
+        if parent is not None and parent is not target and parent.parameters == target.parameters:
+            if target.parameters:
+                lines.append(f"    parameters: those of {parent.reference}, listed there")
+        else:
+            for name, value in sorted(target.parameters.items()):
+                lines.append(f"    parameter {name} = {value:~P}")
         lines.append("")
 
     return "\n".join(lines)
@@ -394,11 +433,7 @@ class ClaudeProposer(LlmProposer):
             }],
             messages=[{
                 "role": "user",
-                "content": (
-                    f"{excerpt}\n\n"
-                    f"Propose the mappings you are confident about. Use only "
-                    f"names that appear above."
-                ),
+                "content": f"{excerpt}\n\n{INSTRUCTION}",
             }],
             output_format=_schema(),
         )

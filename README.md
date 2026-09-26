@@ -4,7 +4,7 @@ One continuous thread from a SysML v2 requirement to a red CI pipeline.
 Deliberately narrow: two small models, six requirements, and a mapping that a
 human confirms entry by entry.
 
-**Status:** Stages A, A2, E and H complete — 280 tests green. Four models are
+**Status:** Stages A, A2, E and H complete — 285 tests green. Four models are
 published and verified against CAD: `MotorHousing` (one part), `Gearbox`
 (three parts, an interface dimension, an assembly mass budget), and `Box1` and
 `Box2`, two cuboids checked against STEP files exported from Chili3D (see
@@ -31,7 +31,7 @@ make cad                   # run the CAD scripts, write STEP to out/
 make verify                # verify the default project (motor_housing)
 make verify PROJECT=gearbox   # ...or another one, against ITS mapping
 make gates                 # is the MAPPING sound? (a different question)
-make test                  # pytest, JUnit XML to out/ (280 tests)
+make test                  # pytest, JUnit XML to out/ (285 tests)
 make catalog               # what exists on each side, as data
 make explore-cad FILE=fixtures/step/gearbox.step   # what is in a STEP file
 make step-fixtures  # regenerate fixtures/step/ after changing a CAD script
@@ -102,7 +102,7 @@ MaxMass    mass               0.7753 kg            0.9 kg        -0.1247 kg  OK
 1 compliant, 0 within tolerance, 1 violated, 0 not checked
 
   VIOLATED MaxLength: length = 123 mm <= 120 mm is false (over by 3 mm;
-  source 72f3b6a1-..., bbox_size({'axis': 'X'}) on build123d:motor_housing)
+  source 2d9018f3-..., bbox_size({'axis': 'X'}) on build123d:motor_housing)
 Exit: 1
 ```
 
@@ -474,57 +474,54 @@ baseline:difflib      11/11 (100%) 11/11 (100%)         0        0
 Watch `wrong@1`, not the hit rate: a confident wrong answer costs more than a
 missing one, because it looks exactly like a right one.
 
-Three real models have been measured through this — against the **former
-merged gold set** of thirteen attributes across both projects, before each
-model got its own. The numbers are kept because the finding is what matters,
-and they are not directly comparable to the per-project baseline above:
+**Measured on 2026-09-26, per project, with a request budget of five per API
+key.** One request per row; `old` is the prompt of commit `bb8f3d7`, `new` the
+current one. Every answer is kept in `out/ai_eval_2026-09-26.json`.
 
 ```
-baseline:difflib (then)   11/13 (85%)   wrong@1 2   missed 0
-gwdg.gemma-4-31b-it        4/13 (31%)   wrong@1 1   missed 8
-gwdg.qwen3.5-397b-a17b     3/13 (23%)   wrong@1 5   missed 5
-gemini-3.8-flash           4/13 (31%)   wrong@1 0   missed 9
+gearbox (11 attributes, 2 of them correctly left empty)
+                              old prompt                 new prompt
+gwdg.qwen3.5-397b-a17b     3/11  wrong@1 0  missed 8    11/11  wrong@1 0  missed 0
+gwdg.gemma-4-31b-it        5/11  wrong@1 0  missed 6    11/11  wrong@1 0  missed 0
+gemini-3.8-flash          11/11  wrong@1 0  missed 0    11/11  wrong@1 0  missed 0
+
+box2 (Chili3D axes: length Y, width Z, height X), new prompt only
+gemini-3.8-flash           3/3                          gwdg.gemma-4-31b-it   0/3 (empty answer)
 ```
 
-Part of every model's difficulty was the merged set itself: two unrelated
-`Housing`s in one excerpt, with nothing saying they came from different models.
-That is gone — a project's excerpt now contains one model — so re-measuring
-the models is the obvious next run.
+What changed and why, each against a failure seen in a real answer:
 
-Model size predicted nothing. The largest is worst, and worst in the column that
-costs the most: it proposes the whole `gearbox` assembly for the housing's
-length, width and height — and since the assembly's X extent equals the
-housing's, that is a plausible number from the wrong object, which is the
-failure this project exists to prevent.
+- **Qwen returned one candidate for eleven attributes.** "Propose the mappings
+  you are confident about" read as permission to stay silent. The new prompt
+  asks for one candidate per attribute that passes three stated steps, and
+  says a gap is not free either.
+- **Gemma proposed `mass` for length, width, height and radius** -- six
+  candidates, all stopped by the dimension gate. The new prompt spells out
+  dimension -> method (`[length]` -> `bbox_size`, `[mass]` -> `mass`, ...).
+- **Qwen had earlier measured the whole `gearbox` assembly for the housing.**
+  The excerpt now says which part is `inside` which, which CAD object
+  `contains` which, and lists a component's shared parameters once instead of
+  under every component (`HOUSING_LENGTH_MM` read as the cover's).
+- **Gemma answered nothing on box2.** The new step 1 told it to match the
+  part's name to the object's *name* -- for a Chili3D export that is the
+  exporter's "Open CASCADE STEP translator 8.0 2", and only the file name
+  matches. The wording now says so; that fix is **not yet re-measured** (the
+  UPB budget was spent).
 
-Gemini 3.8 Flash failed the other way: two candidates for thirteen attributes,
-both correct, nothing invented. Perfect precision, poor recall. By `wrong@1` it
-is the best model tested; by usefulness it barely dents the work. Which of those
-two failure modes you prefer is a real decision, and the scoreboard is what lets
-you make it deliberately.
-
-More telling still is what happened in a live `make propose` run with Gemma:
-every one of its five candidates was rejected by a gate, four for proposing a
-*volume* where the model asks for a length:
-
-```
-0 candidate(s) past the gates, 5 rejected by them, 0 new to the store
-  housing.width -> gearbox via volume: volume yields [length] ** 3,
-                   but width : LengthValue is [length]
-```
-
-That is the whole design in one line of output. A weak model is useless here,
-not dangerous — and the scoreboard is how you tell which model you have.
+Read these with care: one run per cell, and model output varies between
+runs. What the table does show is that none of the three models made a
+confident wrong proposal under either prompt, and that the two weaker models
+went from mostly silent or mostly rejected to complete. The earlier numbers
+(qwen 3/13 with five wrong, against the merged two-model set) are superseded.
 
 One honest caveat: the baseline was tuned *after* seeing this gold set, so its
 85% is a training score.
 
 ## Next steps
 
-Re-measure the three language models per project: the numbers above predate
-projects, and the merged excerpt was part of every model's difficulty. The
-prompt has changed since as well — it no longer mentions supplying a density,
-which the verification now refuses.
+Re-measure Gemma on the Chili3D projects with the corrected step 1, and repeat
+the gearbox rows a few times: one run per cell says what a model *can* do,
+not how reliably it does it.
 
 Then stage B: change-impact analysis — given a change on either side, derive the
 affected requirements and verification cases from the model links instead of

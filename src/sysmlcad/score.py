@@ -122,14 +122,22 @@ def score(project: Project, proposer: Proposer, gold: list[GoldEntry], catalog: 
         catalog=catalog,
         mapping=Mapping(parts={}, attributes=[], digest="empty"),
     )
+    return score_ranked(getattr(proposer, "name", "?"), gold, ranked)
 
+
+def score_ranked(name: str, gold: list[GoldEntry], ranked: list[Proposal]) -> Score:
+    """Score suggestions that have already been made.
+
+    Split from `score()` so that one model answer -- one paid request -- can
+    be stored and scored again, instead of asked for twice.
+    """
     by_attribute: dict[tuple[str, str], list[Proposal]] = {}
     for proposal in ranked:
         by_attribute.setdefault((proposal.sysml_part, proposal.attribute), []).append(proposal)
     for group in by_attribute.values():
         group.sort(key=lambda p: p.confidence, reverse=True)
 
-    result = Score(proposer=getattr(proposer, "name", "?"), gold_entries=len(gold))
+    result = Score(proposer=name, gold_entries=len(gold))
     expected = {entry.key for entry in gold}
 
     for entry in gold:

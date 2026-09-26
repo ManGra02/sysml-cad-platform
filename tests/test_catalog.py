@@ -225,3 +225,8 @@ def test_another_project_s_step_file_stays_out():
 def test_the_catalogue_carries_the_project_s_axis_convention():
     assert load_catalog(load_project("box2")).axes["length"] == "Y"
     assert load_catalog(MOTOR).axes["length"] == "X"
+
+
+def test_a_nested_part_knows_its_container(gearbox_parts):
+    containers = {p.name: p.container for p in gearbox_parts}
+    assert containers == {"housing": "gearbox", "cover": "gearbox", "gearbox": ""}

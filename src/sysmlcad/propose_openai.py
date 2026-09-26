@@ -53,7 +53,7 @@ import json
 import os
 from pathlib import Path
 
-from .propose_ai import SYSTEM, LlmProposer, json_schema
+from .propose_ai import INSTRUCTION, SYSTEM, LlmProposer, json_schema
 
 #: Failures worth continuing past: the server was busy, slow or briefly gone.
 #: A wrong key, a wrong model name or a malformed request is NOT in here on
@@ -183,11 +183,7 @@ class OpenAIProposer(LlmProposer):
                 {"role": "system", "content": SYSTEM},
                 {
                     "role": "user",
-                    "content": (
-                        f"{excerpt}\n\n"
-                        f"Propose the mappings you are confident about. Use only "
-                        f"names that appear above.{schema_note}"
-                    ),
+                    "content": f"{excerpt}\n\n{INSTRUCTION}{schema_note}",
                 },
             ],
             response_format=response_format,

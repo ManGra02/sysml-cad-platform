@@ -105,6 +105,11 @@ class CatalogPart:
     definition_id: str = ""
     package: str = ""
     attributes: tuple[CatalogAttribute, ...] = ()
+    #: The part usage this one is nested in (`gearbox` for `gearbox.housing`),
+    #: or "" at package level. What tells a proposer that `housing` is a
+    #: component and `gearbox` the assembly around it -- without it, both are
+    #: just parts, and measuring the assembly for a component looks plausible.
+    container: str = ""
 
     @property
     def qualified(self) -> str:
@@ -202,6 +207,21 @@ def _package_of(element: dict, by_id: dict[str, dict], limit: int = 12) -> str:
     return ""
 
 
+def _container_of(element: dict, by_id: dict[str, dict]) -> str:
+    """The nearest part usage above this one, walking `owner` upward -- the
+    same upward walk as `_package_of`, stopping at the first PartUsage."""
+    current = element
+    for _ in range(12):
+        owner_id = (current.get("owner") or {}).get("@id")
+        current = by_id.get(owner_id or "") or {}
+        kind = current.get("@type")
+        if kind == "PartUsage":
+            return current.get("declaredName") or current.get("declaredShortName") or ""
+        if kind in (None, "Package"):
+            return ""
+    return ""
+
+
 def sysml_catalog(elements: list[dict]) -> tuple[CatalogPart, ...]:
     """Every non-library PartUsage with its definition and attributes.
 
@@ -225,6 +245,7 @@ def sysml_catalog(elements: list[dict]) -> tuple[CatalogPart, ...]:
             definition=(definition or {}).get("declaredName") or "",
             definition_id=(definition or {}).get("@id", ""),
             package=_package_of(element, by_id),
+            container=_container_of(element, by_id),
             attributes=_attributes_of(definition, by_id) if definition else (),
         ))
     return tuple(out)

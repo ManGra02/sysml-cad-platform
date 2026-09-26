@@ -332,3 +332,48 @@ def test_the_excerpt_states_the_axis_convention():
     chili = Catalog(parts=(PART,), targets=(SCRIPT,), axes={"length": "Y", "width": "Z", "height": "X"})
     assert "axes for bbox_size: length Y, width Z, height X" in render_catalog(chili)
     assert "length X" in render_catalog(CATALOG)
+
+
+# --------------------------------------------------------------------------
+# What the excerpt tells a model -- each line answers a measured failure
+# --------------------------------------------------------------------------
+
+_ASSEMBLY = Catalog(
+    parts=(
+        CatalogPart(name="gearbox", element_id="g", definition="GearboxAssembly",
+                    attributes=(CatalogAttribute("mass", "a", "MassValue"),)),
+        CatalogPart(name="housing", element_id="h", definition="Housing", container="gearbox",
+                    attributes=(CatalogAttribute("length", "b", "LengthValue"),)),
+    ),
+    targets=(
+        CadTarget(adapter="build123d", reference="gearbox", kind="module", name="gearbox",
+                  parameters={"HOUSING_LENGTH_MM": 90.0 * ureg.mm}, note="material AlSi10Mg"),
+        CadTarget(adapter="build123d", reference="gearbox#Housing", kind="part", name="Housing",
+                  parameters={"HOUSING_LENGTH_MM": 90.0 * ureg.mm}, note="material AlSi10Mg"),
+    ),
+)
+
+
+def test_the_excerpt_says_which_part_is_inside_which():
+    """Without it, qwen3.5-397b proposed the whole `gearbox` assembly for the
+    housing's length -- a plausible number from the wrong object."""
+    excerpt = render_catalog(_ASSEMBLY)
+    assert "part housing : Housing   (inside gearbox)" in excerpt
+    assert "part gearbox : GearboxAssembly\n" in excerpt
+
+
+def test_the_excerpt_marks_an_assembly_by_what_it_contains():
+    assert "contains: gearbox#Housing -- this is their assembly" in render_catalog(_ASSEMBLY)
+
+
+def test_a_component_s_shared_parameters_are_listed_once():
+    """Listed under every component, HOUSING_LENGTH_MM read as the cover's."""
+    excerpt = render_catalog(_ASSEMBLY)
+    assert excerpt.count("parameter HOUSING_LENGTH_MM") == 1
+    assert "parameters: those of gearbox, listed there" in excerpt
+
+
+def test_every_backend_closes_with_the_same_instruction():
+    from sysmlcad.propose_ai import INSTRUCTION
+
+    assert "one candidate per attribute" in INSTRUCTION
