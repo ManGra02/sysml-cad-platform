@@ -5,12 +5,13 @@ kennt. Importiert FreeCAD NIE -- das CAD-Modell wird ausschliesslich ueber die
 HTTP-Schnittstelle der Bruecke angefasst. Deshalb laeuft dieser Prozess in
 einer normalen venv und auch dort, wo FreeCAD gar nicht installiert ist.
 
-Aufgaben in M5 (Geruest):
+Aufgaben:
   1. die Oberflaeche ausliefern
   2. die Verbindung zur Bruecke verwalten (vier Zustaende, Resync)
   3. /api/cad/* an die Bruecke durchreichen -- das Token bleibt hier
   4. einen gebuendelten Ereignisstrom zum Browser liefern
-Spaeter: Projekt-Registry (M7) und die Fachlogik der Projektmodule.
+  5. die Projektmodule beherbergen (app/projects/): Registry, aktives
+     Projekt, deren Routen unter /api/projects/<id>/* und ihre Fachlogik
 """
 
 import contextlib
@@ -22,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from app import config
 from app.bridge_client import BridgeClient, BridgeUnavailable
 from app.events import BrowserHub
+from app.projects.registry import ProjectRegistry, UnknownProject
 from app.security import LocalOnlyMiddleware
 from cad_contract.version import CONTRACT_VERSION
 
@@ -30,20 +32,26 @@ from cad_contract.version import CONTRACT_VERSION
 FORWARDED_REQUEST_HEADERS = ("content-type", "x-request-id", "if-match")
 
 
-def create_app(bridge_client_factory=BridgeClient):
+def create_app(bridge_client_factory=BridgeClient, project_modules=None):
     hub = BrowserHub()
-    bridge = bridge_client_factory(
-        on_events=hub.publish_events,
-        on_status=hub.publish_status,
-    )
+    registry = None
+
+    def on_events(events):
+        hub.publish_events(events)
+        registry.on_events(events)  # nur das aktive Projekt bekommt sie
+
+    bridge = bridge_client_factory(on_events=on_events, on_status=hub.publish_status)
+    registry = ProjectRegistry(bridge, hub.publish, modules=project_modules)
 
     @contextlib.asynccontextmanager
     async def lifespan(_app):
+        await registry.start()
         await bridge.start()
         try:
             yield
         finally:
             await bridge.stop()
+            await registry.stop()
 
     app = FastAPI(
         title="SysML-CAD Platform",
@@ -54,6 +62,7 @@ def create_app(bridge_client_factory=BridgeClient):
     )
     app.state.bridge = bridge
     app.state.hub = hub
+    app.state.registry = registry
     # Keine CORSMiddleware -- Begruendung in security.py.
     app.add_middleware(LocalOnlyMiddleware)
 
@@ -65,6 +74,26 @@ def create_app(bridge_client_factory=BridgeClient):
             "backend": {"contract_version": CONTRACT_VERSION, "clients": hub.client_count},
             "bridge": bridge.status(),
         }
+
+    # -- Projekte ---------------------------------------------------------
+
+    @app.get("/api/projects")
+    async def projects():
+        return registry.describe()
+
+    @app.post("/api/projects/{project_id}/activate")
+    async def activate_project(project_id: str):
+        try:
+            await registry.activate(project_id)
+        except UnknownProject:
+            return JSONResponse(
+                {"error": {"code": "project_not_found",
+                           "message": "Unbekanntes Projekt %r" % project_id}},
+                status_code=404,
+            )
+        return registry.describe()
+
+    registry.mount(app)  # /api/projects/<id>/* der Module
 
     # -- CAD: Durchreichen an die Bruecke --------------------------------
 
@@ -122,6 +151,7 @@ def create_app(bridge_client_factory=BridgeClient):
                 "type": "hello",
                 "contract_version": CONTRACT_VERSION,
                 "bridge": bridge.status(),
+                "project": registry.active_id,
             },
         )
 

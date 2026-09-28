@@ -10,6 +10,7 @@ Beweis der Entkopplung.
 """
 
 import asyncio
+import contextlib
 import json
 import os
 import secrets
@@ -212,6 +213,14 @@ class BrowserClient:
             await self._session.close()
 
 
+@pytest.fixture(autouse=True)
+def state_dir(tmp_path, monkeypatch):
+    """Kein Test schreibt in ~/.sysml-cad-platform des Entwicklers."""
+    path = tmp_path / "state"
+    monkeypatch.setenv("PLATFORM_STATE_DIR", str(path))
+    return path
+
+
 @pytest.fixture
 def handshake(tmp_path, monkeypatch):
     path = tmp_path / "bridge.json"
@@ -229,12 +238,12 @@ async def bridge(handshake):
     await mock.stop()
 
 
-@pytest_asyncio.fixture
-async def backend(handshake):
+@contextlib.asynccontextmanager
+async def running_backend(**create_kwargs):
     """Echter uvicorn-Server mit dem echten Backend."""
     from app.main import create_app
 
-    app = create_app()
+    app = create_app(**create_kwargs)
     port = free_port()
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port,
                                            log_level="warning", lifespan="on"))
@@ -253,14 +262,25 @@ async def backend(handshake):
             async with session.get(base + path, **kw) as response:
                 return response.status, await response.json(content_type=None)
 
+        async def post(self, path, **kw):
+            async with session.post(base + path, **kw) as response:
+                return response.status, await response.json(content_type=None)
+
         async def status(self):
             return (await self.get("/api/status"))[1]["bridge"]
 
-    yield Handle()
+    try:
+        yield Handle()
+    finally:
+        await session.close()
+        server.should_exit = True
+        await task
 
-    await session.close()
-    server.should_exit = True
-    await task
+
+@pytest_asyncio.fixture
+async def backend(handshake):
+    async with running_backend() as handle:
+        yield handle
 
 
 @pytest_asyncio.fixture

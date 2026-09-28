@@ -9,6 +9,7 @@ import { createRoot } from "react-dom/client"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { handleFrame } from "@/features/cad/sync"
+import { handleProjectFrame } from "@/features/projects/queries"
 import { queryClient } from "@/lib/queryClient"
 import { eventSocket } from "@/lib/ws"
 import { routeTree } from "./routeTree.gen"
@@ -28,6 +29,7 @@ declare module "@tanstack/react-router" {
 }
 
 eventSocket.onFrame((frame) => handleFrame(queryClient, frame))
+eventSocket.onFrame((frame) => handleProjectFrame(queryClient, frame))
 eventSocket.start()
 
 createRoot(document.getElementById("root")!).render(

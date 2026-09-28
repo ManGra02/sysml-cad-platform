@@ -76,6 +76,10 @@ class BrowserHub:
                     {"type": ev.BATCH, "events": [{"type": ev.RESYNC, "reason": "overflow"}]}
                 ))
 
+    def publish(self, frame):
+        """Beliebiger Frame, etwa von einem Projektmodul ({"type": "bds.*"})."""
+        self._push(frame)
+
     def publish_events(self, events):
         if events:
             self._push({"type": ev.BATCH, "events": list(events)})

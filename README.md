@@ -112,6 +112,8 @@ cd backend && uv run pytest
 # Ende-zu-Ende: echte Bruecke, echtes Backend, simulierter Browser
 cd backend && uv run python ../scripts/e2e/m5_acceptance.py
 
+# (Backend-Tests enthalten die Projekt-Registry: tests/backend/test_projects.py)
+
 # Frontend -- reine Logik (Baum, Ereignisse, Drehung, Formate) und Typen
 cd frontend && pnpm test && pnpm typecheck
 ```
@@ -140,6 +142,35 @@ trotzdem Exit-Code 0. Eine CI darauf wäre dauerhaft grün.
 | `scripts/` | Verlinken, Diagnose, Entwicklungsstart. |
 | `tests/` | `bridge/` (FreeCADs Python), `backend/` (gegen Mock), `contract/`. |
 
+### Wo die eigene Logik hinkommt: Projektmodule
+
+Jedes Projekt ist ein Python-Paket unter `backend/app/projects/<id>/` plus eine Oberfläche
+unter `frontend/src/features/<id>/`. Die Startseite `/` wählt das aktive Projekt; die
+Wahl gilt für alle Tabs und wird im Backend gemerkt (`~/.sysml-cad-platform/state.json`).
+
+```python
+class BdsModule(ProjectModule):
+    id = "bds"
+
+    def register_routes(self, router):          # -> /api/projects/bds/*
+        @router.get("/mapping")
+        async def mapping(): ...
+
+    async def on_cad_event(self, event):         # jede Änderung aus FreeCAD (nur aktiv)
+        if self.ctx.cad.is_own(event):            # Echo eigener Schreibvorgänge
+            return
+        obj = await self.ctx.cad.object(event["doc"], event["obj"])
+        self.ctx.publish("mapping_changed", {...})   # -> Browser, WS-Typ "bds.mapping_changed"
+```
+
+- `self.ctx.cad` liest und schreibt das CAD-Modell über die Brücke (ein `patch` ist ein
+  Undo-Schritt, `if_match=` für optimistische Sperre). Fehler kommen als `CadError`.
+- Neue Projekte werden **ausdrücklich** in `backend/app/projects/registry.py` (`MODULES`)
+  eingetragen und bekommen eine Route `frontend/src/routes/projects.<id>.tsx` plus einen
+  Eintrag in `PROJECT_ROUTES` (`frontend/src/features/projects/queries.ts`).
+- Namensraum: alles eines Moduls trägt seine id — Routen, WebSocket-Typen, Query-Keys, Ordner.
+- `bridge/` wird dafür **nie** angefasst.
+
 ### Die eine Regel für `bridge/`
 
 **Alles, was die FreeCAD-API nicht anfasst, gehört nicht in die Brücke.** Keine
@@ -167,7 +198,7 @@ Junction nicht erreichbar, weil FreeCAD nur `Mod/SysMLCadPlatform` sieht.
 | M4 Brücke: Events | ✅ |
 | M5 Backend verbindet sich, Resync | ✅ |
 | M6 Frontend: Explorer + Property-Editor, `If-Match` | ✅ |
-| M7 Launcher + Projekt-Registry | offen |
+| M7 Launcher + Projekt-Registry | ✅ |
 | M8 Objekt-Lifecycle + Speichern | offen |
 | M9 Produktions-Build | offen |
 

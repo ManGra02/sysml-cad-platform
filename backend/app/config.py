@@ -10,6 +10,8 @@ Overrides per Umgebungsvariable:
   BRIDGE_URL         Bruecke direkt ansprechen (Tests, Mock) ...
   BRIDGE_TOKEN       ... dann zusammen mit dem Token
   PLATFORM_DEV       "1" erlaubt zusaetzlich den Vite-Dev-Server als Origin
+  PLATFORM_STATE_DIR wohin das Backend seinen kleinen Zustand schreibt
+                     (aktives Projekt); Standard ~/.sysml-cad-platform
 """
 
 import os
@@ -72,6 +74,14 @@ def allowed_origins():
 
 def allowed_hosts():
     return ["127.0.0.1", "localhost", "[::1]"]
+
+
+def state_dir():
+    """Kleiner, dauerhafter Zustand des Backends -- ueberlebt --reload und Neustarts."""
+    override = os.environ.get("PLATFORM_STATE_DIR")
+    if override:
+        return Path(override)
+    return Path.home() / ".sysml-cad-platform"
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
