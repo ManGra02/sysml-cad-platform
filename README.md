@@ -37,52 +37,66 @@ Web-Angreifer strukturell unerreichbar.
 
 ## Einrichtung
 
-Voraussetzungen: FreeCAD 1.1, git, [uv](https://docs.astral.sh/uv/), node ≥ 20, pnpm.
+Voraussetzungen: **FreeCAD 1.1**, git, [uv](https://docs.astral.sh/uv/), **Node 22 LTS**
+(oder ≥ 20.19). pnpm ≥ 10 ist schön, aber nicht nötig: fehlt es oder ist es älter, nehmen die
+Skripte `corepack pnpm` (kommt mit Node) in genau der Version aus `frontend/package.json`.
 
 ```bash
 git clone <repo> && cd sysml-cad-platform
-
-# Addon verlinken (Junction/Symlink, keine Kopie)
-pwsh scripts/link-addon.ps1        # Windows
-bash scripts/link-addon.sh         # macOS / Linux
-
-# Diagnose -- sagt bei jedem Problem, was zu tun ist
-"<FreeCAD>/bin/python.exe" scripts/doctor.py
+pwsh scripts/setup.ps1        # Windows
+bash scripts/setup.sh         # macOS / Linux
 ```
 
-Alternative zum Verlinken, gut zum Ausprobieren:
+`setup` erledigt alles in einem Lauf und ist wiederholbar (auch nach `git pull`):
+Python-Umgebung (`uv sync`), Frontend-Abhängigkeiten, Oberfläche bauen, Addon nach FreeCAD
+verlinken, Diagnose. Für eine zweite Arbeitskopie ohne Addon-Link: `-SkipLink` bzw.
+`--skip-link`. Liegt FreeCAD nicht am üblichen Ort: `-FreeCadPython <pfad>` bzw.
+`FREECAD_PYTHON=<pfad>`.
+
+**Starten** — ein Prozess, eine Adresse:
 
 ```bash
-freecad -M "<repo>/bridge"
+pwsh scripts/start.ps1        # bzw. bash scripts/start.sh   -> http://127.0.0.1:8000
 ```
+
+Das Backend liefert die gebaute Oberfläche selbst aus. Ist sie veraltet (nach `git pull`
+oder eigenen Änderungen), baut `start` sie vorher neu. Dann FreeCAD starten, Workbench
+„SysML-CAD Brücke“ wählen, Brücke starten — die Reihenfolge ist egal.
+
+**Wenn etwas nicht geht:** `cd backend && uv run python ../scripts/doctor.py` (und für die
+FreeCAD-Seite `"<FreeCAD>/bin/python.exe" scripts/doctor.py`). Jede Meldung nennt die Behebung —
+auch „laufende Brücke hat einen anderen Vertrag → FreeCAD neu starten“ nach einem `git pull`.
+
+Alternative zum Verlinken, gut zum Ausprobieren: `freecad -M "<repo>/bridge"`.
 
 > **Das Repo gehört nicht in einen Cloud-Mirror** (Google Drive, OneDrive, Dropbox).
 > `.git/objects`, `node_modules` und eine Addon-Junction darin erzeugen EPERM-Fehler,
 > „datei (1)"-Duplikate und im schlimmsten Fall ein korruptes `.git`.
 
+> **Windows: `pnpm` meldet „OpenSSL configuration error“?** Eine andere Installation
+> (z. B. PostgreSQL) hat `OPENSSL_CONF` auf eine fehlende Datei gesetzt. Die Skripte
+> leeren die Variable für sich; von Hand: `$env:OPENSSL_CONF=""` vor `pnpm`.
+
 ---
 
 ## Entwickeln
 
-Drei Dinge laufen: FreeCAD, Backend, Vite.
+Mit Hot-Reload laufen drei Dinge: FreeCAD, Backend (`--reload --dev`), Vite.
 
 ```bash
-# 1. FreeCAD starten, Workbench "SysML-CAD Brücke" wählen, Brücke starten
-# 2. Backend
-cd backend && uv sync && uv run python -m app --reload --dev
-# oder alles auf einmal: scripts/dev.ps1 bzw. scripts/dev.sh
-# 3. Frontend (einmalig: cd frontend && pnpm install)
-cd frontend && pnpm dev            # -> http://127.0.0.1:5173
+pwsh scripts/dev.ps1          # bzw. bash scripts/dev.sh   -> http://127.0.0.1:5173
 ```
 
 Im Dev-Betrieb öffnet man **http://127.0.0.1:5173**: Vite reicht `/api` und `/ws` an das
-Backend weiter, das dafür mit `--dev` laufen muss (erlaubt den Origin `:5173`). Ohne Vite
-liefert das Backend die gebaute Oberfläche selbst aus (`cd frontend && pnpm build`, dann
-**http://127.0.0.1:8000**).
+Backend weiter, das dafür mit `--dev` laufen muss (erlaubt den Origin `:5173`). Von Hand:
+`cd backend && uv run python -m app --reload --dev` und `cd frontend && pnpm dev`.
 
-> **Windows: `pnpm` meldet „OpenSSL configuration error“?** Eine andere Installation
-> (z. B. PostgreSQL) hat `OPENSSL_CONF` auf eine fehlende Datei gesetzt. Die Startskripte
-> leeren die Variable für sich; von Hand: `$env:OPENSSL_CONF=""` vor `pnpm`.
+| | `start` | `dev` |
+| --- | --- | --- |
+| Adresse | http://127.0.0.1:8000 | http://127.0.0.1:5173 |
+| Prozesse | Backend | Backend + Vite |
+| Oberfläche | gebaut, bei Bedarf neu | live, Hot-Reload |
+| Backend-Code | Neustart nötig | lädt selbst neu |
 
 ### Im Browser bearbeiten
 
@@ -111,6 +125,8 @@ cd backend && uv run pytest
 
 # Ende-zu-Ende: echte Bruecke, echtes Backend, simulierter Browser
 cd backend && uv run python ../scripts/e2e/m5_acceptance.py
+# ... und ein Projektmodul, das programmatisch am CAD-Modell arbeitet
+cd backend && uv run python ../scripts/e2e/m8_acceptance.py
 
 # (Backend-Tests enthalten die Projekt-Registry: tests/backend/test_projects.py)
 
@@ -163,8 +179,35 @@ class BdsModule(ProjectModule):
         self.ctx.publish("mapping_changed", {...})   # -> Browser, WS-Typ "bds.mapping_changed"
 ```
 
-- `self.ctx.cad` liest und schreibt das CAD-Modell über die Brücke (ein `patch` ist ein
-  Undo-Schritt, `if_match=` für optimistische Sperre). Fehler kommen als `CadError`.
+- `self.ctx.cad` liest und schreibt das CAD-Modell über die Brücke. Fehler kommen als
+  `CadError` (`code`, `status`, `detail`, bei Vorgängen `failed_op`).
+
+**Mehrere Änderungen als ein Vorgang** — in FreeCAD genau ein Undo-Schritt, alles oder nichts:
+
+```python
+async with self.ctx.cad.transaction("Doc", "BDS: Motor anlegen") as tx:
+    group = tx.create("App::DocumentObjectGroup", name="Antrieb")
+    motor = tx.create("Part::Box", name="Motor", group=group, props={"Width": "12 mm"})
+    tx.add_property(motor, "App::PropertyString", "SysMLId", value=element_id, group="SysML")
+    tx.set_cells("Params", {"A1": "40 mm"}, aliases={"A1": "motor_laenge"})
+    tx.set_expression(motor, "Length", "Params.motor_laenge")
+name = tx.result.name(motor)   # echter Name -- FreeCAD benennt bei Kollision um ("Motor001")
+```
+
+| Operation | Zweck |
+| --- | --- |
+| `create(type, name, label=, group=, props=)` | Objekt anlegen (keine `*FeaturePython*`), optional in Gruppe/Part/Body |
+| `delete(obj, force=False)` | löschen; hängen andere Objekte davon ab → `CadError("has_dependents")` |
+| `patch(obj, props, if_match=)` | Properties setzen |
+| `set_expression(obj, prop, expr)` | Formel binden (`None` entfernt sie) — die Bindung lebt in FreeCAD |
+| `set_cells(sheet, cells, aliases)` | Tabellenzellen und Aliase (`None` leert) |
+| `add_property` / `remove_property` | eigene Properties, z. B. die SysML-ID; werden in der `.FCStd` gespeichert |
+
+Lesen: `documents()`, `tree(doc)`, `object(doc, name)`, `cells(doc, sheet, "A1:D100")`.
+Jede Operation gibt es auch als Kurzform (`await cad.create(doc, ...)`), dann als eigener
+Vorgang. Wird ein Objekt durch den Vorgang ungültig (etwa Formel auf einen unbekannten
+Alias), wird alles zurückgenommen (`recompute_failed`); `transaction(..., strict=False)`
+meldet es nur. Die Ereignisse eines Vorgangs erkennt `self.ctx.cad.is_own(event)`.
 - Neue Projekte werden **ausdrücklich** in `backend/app/projects/registry.py` (`MODULES`)
   eingetragen und bekommen eine Route `frontend/src/routes/projects.<id>.tsx` plus einen
   Eintrag in `PROJECT_ROUTES` (`frontend/src/features/projects/queries.ts`).
@@ -199,8 +242,8 @@ Junction nicht erreichbar, weil FreeCAD nur `Mod/SysMLCadPlatform` sieht.
 | M5 Backend verbindet sich, Resync | ✅ |
 | M6 Frontend: Explorer + Property-Editor, `If-Match` | ✅ |
 | M7 Launcher + Projekt-Registry | ✅ |
-| M8 Objekt-Lifecycle + Speichern | offen |
-| M9 Produktions-Build | offen |
+| M8 Programmatische CAD-Schnittstelle für Projektmodule | ✅ |
+| M9 Produktions-Build, Einrichtung von Null | ✅ |
 
 SysML v2 ist bewusst **nicht** Teil dieser Grundlage. Der Zugriff darauf ist reines HTTP
 und gehört später ins Backend, ohne die Brücke zu berühren.

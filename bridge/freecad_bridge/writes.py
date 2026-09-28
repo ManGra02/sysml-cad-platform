@@ -62,7 +62,7 @@ class RevisionConflict(BridgeError):
 # -- Idempotenz --------------------------------------------------------
 
 
-def _cached(request_id):
+def cached_response(request_id):
     if not request_id or request_id not in _replay_cache:
         return None
     response = dict(_replay_cache[request_id])
@@ -70,7 +70,7 @@ def _cached(request_id):
     return response
 
 
-def _remember(request_id, response):
+def remember_response(request_id, response):
     if not request_id:
         return
     _replay_cache[request_id] = response
@@ -88,14 +88,14 @@ def _transaction_name(obj, names):
     return "Browser: %s (%d Properties)" % (obj.Label, len(names))
 
 
-def _active_transaction_id():
+def active_transaction_id():
     active = FreeCAD.getActiveTransaction()
     if not active:
         return None
     return active[1]
 
 
-def _state_errors(objs):
+def state_errors(objs):
     """Objekte, die nach dem Recompute fehlerhaft sind.
 
     Sonst meldete die Bruecke 200, waehrend ein Feature ungueltig geworden ist.
@@ -121,7 +121,7 @@ def _affected(obj):
     return [obj] + dependents
 
 
-def _same(current, new):
+def same_value(current, new):
     """Ist ``new`` derselbe Wert wie ``current``?
 
     Noetig, weil FreeCAD das nicht einheitlich erkennt: bei Bool und Text
@@ -145,7 +145,7 @@ def _same(current, new):
         return False
 
 
-def _decode_all(obj, changes):
+def decode_all(obj, changes):
     """Alle Felder pruefen, bevor irgendetwas angefasst wird."""
     decoded = collections.OrderedDict()
     failures = []
@@ -168,7 +168,7 @@ def _decode_all(obj, changes):
 # -- Oeffentliche Operationen ------------------------------------------
 
 
-def _check_revision(obj, if_match):
+def check_revision(obj, if_match):
     """Optimistische Sperre: nur schreiben, wenn der Client den aktuellen Stand kennt.
 
     Vorher wird geflusht: eine Aenderung in FreeCAD, deren Flush noch aussteht
@@ -195,7 +195,7 @@ def patch_object(doc_name, obj_name, changes, request_id=None, recompute=True, i
     ``if_match`` ist der ``rev``, den der Client gesehen hat. Weicht er ab,
     wird nichts geschrieben (409 rev_mismatch). None = ohne Pruefung.
     """
-    replay = _cached(request_id)
+    replay = cached_response(request_id)
     if replay is not None:
         return replay
 
@@ -205,8 +205,8 @@ def patch_object(doc_name, obj_name, changes, request_id=None, recompute=True, i
     obj = objects.get_object(doc_name, obj_name)
     doc = obj.Document
     if if_match is not None:
-        _check_revision(obj, if_match)
-    decoded = _decode_all(obj, changes)
+        check_revision(obj, if_match)
+    decoded = decode_all(obj, changes)
 
     documents.ensure_undo_enabled(doc)
     if doc.UndoMode == 0:
@@ -214,12 +214,12 @@ def patch_object(doc_name, obj_name, changes, request_id=None, recompute=True, i
             "Undo ist fuer %r abgeschaltet -- ohne Undo waere kein Abbruch moeglich" % doc.Name
         )
 
-    if _active_transaction_id() is not None:
+    if active_transaction_id() is not None:
         # Ein FreeCAD-Befehl des Nutzers laeuft gerade. Hineinzuschreiben
         # wuerde unsere Aenderung in SEINE Undo-Einheit mischen.
         raise CadBusyError("In FreeCAD ist gerade eine Transaktion offen", "transaction_open")
 
-    unchanged = [name for name, value in decoded.items() if _same(getattr(obj, name), value)]
+    unchanged = [name for name, value in decoded.items() if same_value(getattr(obj, name), value)]
     for name in unchanged:
         del decoded[name]
 
@@ -232,11 +232,11 @@ def patch_object(doc_name, obj_name, changes, request_id=None, recompute=True, i
             "applied": [],
             "unchanged": unchanged,
             "recomputed": 0,
-            "errors": _state_errors(_affected(obj)),
+            "errors": state_errors(_affected(obj)),
             "rev": revisions.current(doc.Name, obj.Name),
             "ref": {"doc": doc.Name, "name": obj.Name},
         }
-        _remember(request_id, response)
+        remember_response(request_id, response)
         return response
 
     state = bridge_state.get_state()
@@ -256,7 +256,7 @@ def patch_object(doc_name, obj_name, changes, request_id=None, recompute=True, i
     else:
         response["rev"] = revisions.current(doc.Name, obj.Name)
 
-    _remember(request_id, response)
+    remember_response(request_id, response)
     return response
 
 
@@ -274,7 +274,7 @@ def _apply(doc, obj, decoded, unchanged, request_id, recompute):
         changed = bool(doc.HasPendingTransaction)
         recomputed = doc.recompute() if (recompute and changed) else 0
     except Exception as exc:
-        ours = _active_transaction_id() == tid
+        ours = active_transaction_id() == tid
         if ours:
             FreeCAD.closeActiveTransaction(True)
             try:
@@ -293,7 +293,7 @@ def _apply(doc, obj, decoded, unchanged, request_id, recompute):
             {"rolledBack": ours, "applied": applied},
         )
 
-    atomic = _active_transaction_id() == tid
+    atomic = active_transaction_id() == tid
     if atomic:
         FreeCAD.closeActiveTransaction()
     else:
@@ -310,7 +310,7 @@ def _apply(doc, obj, decoded, unchanged, request_id, recompute):
         "applied": applied,
         "unchanged": unchanged,
         "recomputed": recomputed,
-        "errors": _state_errors(_affected(obj)),
+        "errors": state_errors(_affected(obj)),
         "rev": None,  # setzt patch_object nach dem Flush
         "ref": {"doc": doc.Name, "name": obj.Name},
     }
@@ -319,7 +319,7 @@ def _apply(doc, obj, decoded, unchanged, request_id, recompute):
 @main_thread_only
 def recompute_document(doc_name, request_id=None):
     """Dokument neu berechnen -- ohne Transaktion, denn es aendert keine Eingaben."""
-    replay = _cached(request_id)
+    replay = cached_response(request_id)
     if replay is not None:
         return replay
 
@@ -328,7 +328,7 @@ def recompute_document(doc_name, request_id=None):
     response = {
         "status": "done",
         "recomputed": count,
-        "errors": _state_errors(list(doc.Objects)),
+        "errors": state_errors(list(doc.Objects)),
     }
-    _remember(request_id, response)
+    remember_response(request_id, response)
     return response

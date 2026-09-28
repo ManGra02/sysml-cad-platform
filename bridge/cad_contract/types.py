@@ -170,3 +170,24 @@ def property_entry(name, type_id, status, value, group=None, doc=None,
         "dynamic": bool(dynamic),
         "expression": expression,  # gebunden -> Schreiben waere wirkungslos
     }
+
+
+# -- Operationen eines Vorgangs (POST .../operations) --------------------
+
+OP_CREATE = "create"
+OP_DELETE = "delete"
+OP_PATCH = "patch"
+OP_SET_EXPRESSION = "set_expression"
+OP_SET_CELLS = "set_cells"
+OP_ADD_PROPERTY = "add_property"
+OP_REMOVE_PROPERTY = "remove_property"
+
+OPERATIONS = (
+    OP_CREATE,
+    OP_DELETE,
+    OP_PATCH,
+    OP_SET_EXPRESSION,
+    OP_SET_CELLS,
+    OP_ADD_PROPERTY,
+    OP_REMOVE_PROPERTY,
+)

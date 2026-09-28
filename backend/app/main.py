@@ -15,6 +15,7 @@ Aufgaben:
 """
 
 import contextlib
+import os
 
 from fastapi import FastAPI, Request, WebSocket
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
@@ -72,6 +73,7 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None):
     async def status():
         return {
             "backend": {"contract_version": CONTRACT_VERSION, "clients": hub.client_count},
+            "frontend": frontend_build_info(),
             "bridge": bridge.status(),
         }
 
@@ -165,18 +167,51 @@ _PLACEHOLDER = """<!doctype html><html lang="de"><meta charset="utf-8">
 <title>SysML-CAD Platform</title>
 <body style="font-family:system-ui;max-width:40rem;margin:4rem auto;line-height:1.5">
 <h1>SysML-CAD Platform</h1>
-<p>Das Backend laeuft. Die Oberflaeche ist noch nicht gebaut
-(<code>pnpm build</code> im Ordner <code>frontend/</code>).</p>
+<p>Das Backend laeuft. Die Oberflaeche ist noch nicht gebaut:
+<code>scripts/setup</code> ausfuehren oder <code>pnpm build</code> im Ordner
+<code>frontend/</code>.</p>
 <p><a href="/api/status">/api/status</a> &middot; <a href="/api/docs">API-Dokumentation</a></p>
 </body></html>"""
 
+#: Vite versieht jede Datei unter assets/ mit einem Inhalts-Hash im Namen --
+#: sie aendert sich nie und darf beliebig lange zwischengespeichert werden.
+IMMUTABLE = "public, max-age=31536000, immutable"
+#: index.html dagegen verweist auf die aktuellen Hash-Namen und muss nach
+#: jedem Build neu geholt werden, sonst laedt der Browser eine alte Oberflaeche.
+REVALIDATE = "no-cache"
+
+
+class _HashedAssets(StaticFiles):
+    async def check_config(self):
+        # Fehlt das Verzeichnis (noch nicht gebaut), ist das kein Serverfehler,
+        # sondern schlicht 404 -- Starlette wuerde hier sonst mit 500 abbrechen.
+        if os.path.isdir(self.directory):
+            await super().check_config()
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 200:
+            response.headers["Cache-Control"] = IMMUTABLE
+        return response
+
+
+def frontend_build_info():
+    """Ob und wann die Oberflaeche gebaut wurde -- fuer /api/status und doctor."""
+    index = config.STATIC_DIR / "index.html"
+    if not index.is_file():
+        return {"built": False, "builtAt": None}
+    return {"built": True, "builtAt": index.stat().st_mtime}
+
 
 def _mount_frontend(app):
-    index = config.STATIC_DIR / "index.html"
-    assets = config.STATIC_DIR / "assets"
-
-    if assets.is_dir():
-        app.mount("/assets", StaticFiles(directory=assets), name="assets")
+    # check_dir=False: das Verzeichnis darf beim Start fehlen oder waehrend
+    # eines Builds kurz verschwinden. Ein spaeterer Build wird ohne
+    # Backend-Neustart ausgeliefert.
+    app.mount(
+        "/assets",
+        _HashedAssets(directory=config.STATIC_DIR / "assets", check_dir=False),
+        name="assets",
+    )
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa(full_path: str):
@@ -191,9 +226,10 @@ def _mount_frontend(app):
                 {"error": {"code": "not_found", "message": "Unbekannte API-Route"}},
                 status_code=404,
             )
+        index = config.STATIC_DIR / "index.html"
         if index.is_file():
-            return FileResponse(index)
-        return HTMLResponse(_PLACEHOLDER)
+            return FileResponse(index, headers={"Cache-Control": REVALIDATE})
+        return HTMLResponse(_PLACEHOLDER, headers={"Cache-Control": REVALIDATE})
 
 
 app = create_app()

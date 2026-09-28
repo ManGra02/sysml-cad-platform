@@ -49,8 +49,13 @@ if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
     exit 1
   fi
   if [ "$FORCE" != "--force" ]; then
-    echo "Link existiert bereits -> $(readlink "$TARGET")"
-    echo "Mit --force neu anlegen."
+    CURRENT="$(readlink "$TARGET")"
+    if [ "$(cd "$CURRENT" 2>/dev/null && pwd -P)" != "$(cd "$SOURCE" && pwd -P)" ]; then
+      echo "Link zeigt auf ein ANDERES Repo: $CURRENT"
+      echo "FreeCAD laedt dann die Bruecke von dort. Mit --force auf dieses Repo umbiegen."
+    else
+      echo "Link existiert bereits -> $CURRENT"
+    fi
     exit 0
   fi
   rm "$TARGET"

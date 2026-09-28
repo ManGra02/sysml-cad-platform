@@ -75,8 +75,13 @@ Bitte manuell pruefen und loeschen, dann dieses Skript erneut ausfuehren.
 "@
     }
     if (-not $Force) {
-        Write-Host "Link existiert bereits -> $($item.Target)"
-        Write-Host "Mit -Force neu anlegen."
+        $current = @($item.Target)[0]
+        if ($current -and ((Resolve-Path $current -ErrorAction SilentlyContinue).Path -ne (Resolve-Path $source).Path)) {
+            Write-Host "Link zeigt auf ein ANDERES Repo: $current" -ForegroundColor Yellow
+            Write-Host "FreeCAD laedt dann die Bruecke von dort. Mit -Force auf dieses Repo umbiegen."
+        } else {
+            Write-Host "Link existiert bereits -> $current"
+        }
         exit 0
     }
     Remove-Item $target -Force

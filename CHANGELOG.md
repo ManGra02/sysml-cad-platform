@@ -3,6 +3,19 @@
 Jede Aenderung an `cad_contract` bumpt `CONTRACT_VERSION` und bekommt hier eine
 Zeile. Die Mismatch-Meldung des Backends verweist auf diese Datei.
 
+## cad_contract 0.5.0 -- 2026-09-28
+
+- `POST /api/cad/documents/{doc}/operations` -- mehrere Aenderungen als EIN Vorgang (ein
+  Undo-Schritt, alles oder nichts): `create`, `delete`, `patch`, `set_expression`,
+  `set_cells`, `add_property`, `remove_property`. Platzhalter `"as": "m"` / `"$m"`;
+  Antwort `{created, results, revs, errors, atomic, recomputed}`. Fehler tragen
+  `detail.failedOp`. `strict` (Standard): neu ungueltige Objekte -> `409 recompute_failed`.
+- Neue Fehlercodes: `invalid_operation`, `type_not_allowed`, `has_dependents`,
+  `invalid_expression`, `property_exists`, `not_dynamic`, `recompute_failed`, `invalid_range`.
+- `GET /api/cad/documents/{doc}/sheets/{sheet}/cells?range=A1:D100` -- benutzte Zellen mit
+  Inhalt, Wert und Alias.
+- `types.OPERATIONS` mit den Operationsnamen.
+
 ## cad_contract 0.4.0 -- 2026-09-25
 
 - `PATCH .../objects/{name}` versteht `If-Match: <rev>` (auch `"12"`, `W/"12"`, `*`).

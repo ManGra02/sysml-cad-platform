@@ -200,12 +200,21 @@ def check_contract():
 # -- Laufende Bruecke ---------------------------------------------------
 
 
-def check_bridge(freecad):
-    if freecad is None:
-        return
-    path = os.path.join(
-        freecad.getUserAppDataDir(), "sysml-cad-platform", "bridge.json"
-    )
+def _handshake_path(freecad):
+    """Wie das Backend: ohne FreeCAD aus dem OS-Standardpfad (app/config.py)."""
+    if freecad is not None:
+        return os.path.join(freecad.getUserAppDataDir(), "sysml-cad-platform", "bridge.json")
+    if sys.platform.startswith("win"):
+        base = os.environ.get("APPDATA", os.path.expanduser("~/AppData/Roaming"))
+    elif sys.platform == "darwin":
+        base = os.path.expanduser("~/Library/Application Support")
+    else:
+        base = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+    return os.path.join(base, "FreeCAD", "v1-1", "sysml-cad-platform", "bridge.json")
+
+
+def check_bridge(freecad, contract_version=None):
+    path = os.environ.get("BRIDGE_HANDSHAKE") or _handshake_path(freecad)
     if not os.path.isfile(path):
         report(OK, "Bruecke", "nicht gestartet (Normalzustand)")
         return
@@ -225,6 +234,15 @@ def check_bridge(freecad):
         )
         return
     report(OK, "Bruecke", "laeuft, PID %s, Port %s" % (data.get("pid"), data.get("port")))
+
+    running = data.get("contract_version")
+    if contract_version and running and running != contract_version:
+        report(
+            WARN,
+            "Laufende Bruecke hat einen anderen Vertrag",
+            "Bruecke %s, Repo %s" % (running, contract_version),
+            "FreeCAD neu starten -- die Bruecke laedt Codeaenderungen erst dann (CHANGELOG.md).",
+        )
 
 
 def _pid_alive(pid):
@@ -259,14 +277,121 @@ def _port_free(port):
             return False
 
 
+# -- Frontend und Backend ----------------------------------------------
+
+
+def check_backend_env():
+    venv = os.path.join(REPO, "backend", ".venv")
+    if os.path.isdir(venv):
+        report(OK, "Backend-venv", venv)
+    else:
+        report(WARN, "Backend-venv fehlt", venv, "scripts/setup ausfuehren (oder: cd backend && uv sync).")
+
+
+def check_frontend():
+    if not os.path.isdir(os.path.join(REPO, "frontend", "node_modules")):
+        report(WARN, "Frontend-Abhaengigkeiten fehlen", "", "scripts/setup ausfuehren (oder: cd frontend && pnpm install).")
+
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import build_status
+
+    state, newest = build_status.status()
+    if state == "fresh":
+        report(OK, "Oberflaeche gebaut", "aktuell")
+    elif state == "stale":
+        report(
+            WARN,
+            "Oberflaeche veraltet",
+            "neuer: %s" % os.path.relpath(newest, REPO),
+            "scripts/start baut automatisch neu (oder: cd frontend && pnpm build).",
+        )
+    else:
+        report(WARN, "Oberflaeche nicht gebaut", "", "scripts/setup ausfuehren (oder: cd frontend && pnpm build).")
+
+
+def check_running_backend():
+    """Laeuft schon ein Backend auf 8000 -- und ist es unseres?"""
+    if _port_free(8000):
+        return
+    try:
+        from urllib.request import urlopen
+
+        with urlopen("http://127.0.0.1:8000/api/status", timeout=2) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        bridge = data.get("bridge", {})
+        report(OK, "Backend laeuft", "Bruecke: %s" % bridge.get("state"))
+    except Exception:
+        report(
+            WARN,
+            "Port 8000 belegt, aber nicht von diesem Backend",
+            "",
+            "Den Prozess auf Port 8000 beenden; das Backend nutzt bewusst einen festen Port.",
+        )
+
+
 # -- Werkzeuge ----------------------------------------------------------
+
+
+def check_openssl_conf():
+    """Eine andere Installation (z. B. PostgreSQL) setzt OPENSSL_CONF auf eine
+    fehlende Datei -- node und pnpm brechen dann mit 'OpenSSL configuration error' ab."""
+    value = os.environ.get("OPENSSL_CONF")
+    if value and not os.path.isfile(value):
+        report(
+            WARN,
+            "OPENSSL_CONF zeigt auf eine fehlende Datei",
+            value,
+            "Die Skripte in scripts/ leeren die Variable fuer sich; von Hand: OPENSSL_CONF leeren.",
+        )
+
+
+def check_pnpm_version():
+    """Das Lockfile ist v9 (pnpm >= 10). Ein aelteres pnpm loest es still neu auf."""
+    pnpm = shutil.which("pnpm")
+    if not pnpm:
+        return
+    try:
+        env = dict(os.environ)
+        if env.get("OPENSSL_CONF") and not os.path.isfile(env["OPENSSL_CONF"]):
+            env.pop("OPENSSL_CONF")
+        out = subprocess.run([pnpm, "--version"], capture_output=True, text=True, timeout=30, env=env)
+        major = int(out.stdout.strip().split(".")[0])
+    except Exception:
+        report(WARN, "pnpm startet nicht", pnpm, "pnpm neu installieren: npm i -g pnpm@10")
+        return
+    if major < 10:
+        report(
+            WARN,
+            "pnpm zu alt",
+            out.stdout.strip(),
+            "Die Skripte weichen auf 'corepack pnpm' aus. Von Hand: 'corepack pnpm ...' "
+            "oder pnpm aktualisieren (npm i -g pnpm@10).",
+        )
+    else:
+        report(OK, "pnpm-Version", out.stdout.strip())
+
+
+def check_node_version():
+    node = shutil.which("node")
+    if not node:
+        return
+    try:
+        out = subprocess.run([node, "-p", "process.versions.node"], capture_output=True, text=True, timeout=20)
+        major, minor = [int(part) for part in out.stdout.strip().split(".")[:2]]
+    except Exception:
+        return
+    # Vite 8 verlangt Node 20.19+ bzw. 22.12+.
+    if (major, minor) < (20, 19) or (major == 21) or (major == 22 and minor < 12):
+        report(WARN, "Node zu alt fuer Vite 8", "%d.%d" % (major, minor), "Node 22 LTS oder neuer installieren.")
+    else:
+        report(OK, "Node-Version", "%d.%d" % (major, minor))
 
 
 def check_tools():
     for tool, fix in (
         ("git", "https://git-scm.com"),
         ("node", "https://nodejs.org (>= 20)"),
-        ("pnpm", "npm i -g pnpm"),
+        ("pnpm", "npm i -g pnpm@10  (oder corepack, kommt mit node)"),
         ("uv", "https://docs.astral.sh/uv/"),
     ):
         path = shutil.which(tool)
@@ -283,11 +408,17 @@ def main():
     check_python()
     check_user_site()
     freecad = check_freecad()
-    check_contract()
+    contract = check_contract()
     check_addon_link(freecad)
-    check_bridge(freecad)
+    check_bridge(freecad, contract)
     check_ports()
+    check_running_backend()
     check_tools()
+    check_openssl_conf()
+    check_node_version()
+    check_pnpm_version()
+    check_backend_env()
+    check_frontend()
 
     fails = [r for r in _results if r[0] == FAIL]
     warns = [r for r in _results if r[0] == WARN]

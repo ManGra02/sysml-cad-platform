@@ -8,7 +8,9 @@ import json
 import aiohttp
 import pytest_asyncio
 
-from app.projects.base import ProjectModule
+import pytest
+
+from app.projects.base import CadError, ProjectModule, Ref
 from app.projects.bds import BdsModule
 from app.projects.mcr import McrModule
 from conftest import BrowserClient, running_backend, wait_for
@@ -259,3 +261,77 @@ async def test_cad_fehler_kommen_typisiert_beim_modul_an(platform):
     else:
         raise AssertionError("CadError erwartet")
 
+
+
+# -- M8: Vorgaenge ueber ctx.cad ---------------------------------------
+
+
+async def test_transaction_sendet_genau_einen_vorgang(bridge, platform):
+    await wait_for(lambda: platform.state.bridge.state == "ok")
+    cad = module(platform, "rec").ctx.cad
+    async with cad.transaction("Doc", "BDS: Motor anlegen") as tx:
+        m = tx.create("Part::Box", name="Motor", group="Antrieb", props={"Length": "40 mm"})
+        tx.add_property(m, "App::PropertyString", "SysMLId", value="elem-1", group="SysML")
+        tx.set_cells("Params", {"A1": "40 mm"}, aliases={"A1": "motor_laenge"})
+        tx.set_expression(m, "Length", "Params.motor_laenge")
+        tx.patch("Zylinder", {"Radius": "5 mm"}, if_match=3)
+    assert len(bridge.operations) == 1
+    sent = bridge.operations[0]
+    assert sent["request_id"].startswith("rec:")
+    ops = sent["body"]["ops"]
+    assert [op["op"] for op in ops] == ["create", "add_property", "set_cells", "set_expression", "patch"]
+    assert ops[1]["obj"] == ops[3]["obj"] == "$" + ops[0]["as"]
+    assert ops[4]["if_match"] == 3
+    assert sent["body"]["name"] == "BDS: Motor anlegen"
+    assert isinstance(m, Ref) and tx.result.name(m) == "Motor"
+
+
+async def test_exception_im_block_sendet_nichts(bridge, platform):
+    await wait_for(lambda: platform.state.bridge.state == "ok")
+    cad = module(platform, "rec").ctx.cad
+    with pytest.raises(RuntimeError):
+        async with cad.transaction("Doc") as tx:
+            tx.create("Part::Box")
+            raise RuntimeError("Abbruch im eigenen Code")
+    assert bridge.operations == []
+    assert tx.result is None
+
+
+async def test_fehler_nennt_die_operation(bridge, platform):
+    await wait_for(lambda: platform.state.bridge.state == "ok")
+    cad = module(platform, "rec").ctx.cad
+    with pytest.raises(CadError) as caught:
+        async with cad.transaction("Doc") as tx:
+            tx.create("Part::Box", name="ok")
+            tx.create("Part::Box", name="fail")
+    assert caught.value.failed_op == 1
+    assert caught.value.status == 400
+
+
+async def test_kurzformen(bridge, platform):
+    await wait_for(lambda: platform.state.bridge.state == "ok")
+    cad = module(platform, "rec").ctx.cad
+    assert await cad.create("Doc", "Part::Sphere", "Kugel") == "Kugel"
+    await cad.delete("Doc", "Kugel", force=True)
+    assert bridge.operations[-1]["body"]["ops"] == [{"op": "delete", "obj": "Kugel", "force": True}]
+    cells = await cad.cells("Doc", "Params", "A1:B2")
+    assert cells["range"] == "A1:B2" and cells["cells"]["A1"]["alias"] == "laenge"
+
+
+async def test_echo_eines_vorgangs_ist_eigen(bridge, platform):
+    await wait_for(lambda: platform.state.bridge.state == "ok")
+    await platform.post("/api/projects/rec/activate")
+    rec = module(platform, "rec")
+    await rec.ctx.cad.create("Doc", "Part::Box", "Neu")
+    request_id = bridge.operations[-1]["request_id"]
+    await bridge.push([{"type": "cad.created", "doc": "Doc", "obj": "Neu", "origin": "bridge:" + request_id}])
+    await wait_for(lambda: rec.own)
+    assert rec.own == [True]
+
+
+def test_objekt_muss_name_oder_ref_sein():
+    from app.projects.base import Transaction
+
+    tx = Transaction(None, "Doc")
+    with pytest.raises(TypeError):
+        tx.delete(42)

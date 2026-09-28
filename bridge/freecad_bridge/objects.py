@@ -211,14 +211,19 @@ def list_objects(doc_name, names=None, fields=None, include_geometry=False,
     return result
 
 
-@main_thread_only
-def list_types():
-    """Was in diesem Dokument erzeugt werden kann.
+def is_creatable(type_name):
+    """Darf ueber die HTTP-Schnittstelle erzeugt werden?
 
     Bewusst gefiltert: App::DocumentObjectFileIncluded zieht beliebige Dateien
     in das Dokument, und *FeaturePython*-Typen fuehren Python-Code aus dem
     Dokument aus. Beides gehoert nicht hinter eine offene HTTP-Route.
     """
+    return "FeaturePython" not in type_name and type_name != "App::DocumentObjectFileIncluded"
+
+
+@main_thread_only
+def list_types():
+    """Was in diesem Dokument erzeugt werden kann (siehe is_creatable)."""
     doc = FreeCAD.activeDocument()
     if doc is None:
         doc = FreeCAD.newDocument("__typeprobe__", hidden=True, temp=True)
@@ -229,9 +234,5 @@ def list_types():
     else:
         names = list(doc.supportedTypes())
 
-    allowed = [
-        name
-        for name in names
-        if "FeaturePython" not in name and name != "App::DocumentObjectFileIncluded"
-    ]
+    allowed = [name for name in names if is_creatable(name)]
     return {"types": sorted(allowed), "excluded": sorted(set(names) - set(allowed))}

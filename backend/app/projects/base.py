@@ -26,7 +26,11 @@ log = logging.getLogger("platform.projects")
 
 
 class CadError(Exception):
-    """Die Bruecke hat mit einem Fehler geantwortet (oder ist nicht erreichbar)."""
+    """Die Bruecke hat mit einem Fehler geantwortet (oder ist nicht erreichbar).
+
+    ``failed_op``: bei einem Vorgang der Index der gescheiterten Operation --
+    alles davor wurde zurueckgenommen.
+    """
 
     def __init__(self, status, code, message, detail=None):
         super().__init__("%s: %s" % (code, message))
@@ -34,6 +38,134 @@ class CadError(Exception):
         self.code = code
         self.message = message
         self.detail = detail
+        self.failed_op = detail.get("failedOp") if isinstance(detail, dict) else None
+
+
+class Ref:
+    """Platzhalter fuer ein Objekt, das erst im selben Vorgang angelegt wird.
+
+    FreeCAD benennt bei Kollision um ("Motor" -> "Motor001"); den echten Namen
+    liefert ``tx.result.name(ref)`` nach dem Vorgang.
+    """
+
+    def __init__(self, alias):
+        self.alias = alias
+
+    def __repr__(self):
+        return "Ref($%s)" % self.alias
+
+
+_MISSING = object()
+
+
+class TransactionResult:
+    def __init__(self, raw, refs):
+        self.raw = raw
+        self.atomic = raw.get("atomic")
+        self.results = raw.get("results", [])
+        self.revs = raw.get("revs", {})
+        self.errors = raw.get("errors", [])
+        self.created = {ref: raw.get("created", {}).get(ref.alias) for ref in refs}
+
+    def name(self, ref):
+        """Echter Objektname eines im Vorgang angelegten Objekts."""
+        return self.created[ref]
+
+
+class Transaction:
+    """Mehrere Aenderungen als EIN Vorgang: ein Undo-Schritt, alles oder nichts.
+
+        async with ctx.cad.transaction("Doc", "BDS: Motor anlegen") as tx:
+            m = tx.create("Part::Box", name="Motor", props={"Length": "40 mm"})
+            tx.add_property(m, "App::PropertyString", "SysMLId", value=element_id)
+        tx.result.name(m)   # -> "Motor" oder "Motor001"
+
+    Gesendet wird beim Verlassen des Blocks in EINER Anfrage. Wirft der Block
+    selbst eine Exception, wird nichts gesendet.
+    """
+
+    def __init__(self, cad, doc, name=None, strict=True):
+        self._cad = cad
+        self.doc = doc
+        self.name = name
+        self.strict = strict
+        self.ops = []
+        self.refs = []
+        self.result = None
+
+    @staticmethod
+    def _obj(obj):
+        if isinstance(obj, Ref):
+            return "$" + obj.alias
+        if isinstance(obj, str) and obj:
+            return obj
+        raise TypeError("Objekt als Name (str) oder Ref erwartet, nicht %r" % (obj,))
+
+    def create(self, type_id, name=None, *, label=None, group=None, props=None):
+        ref = Ref("o%d" % len(self.refs))
+        op = {"op": "create", "type": type_id, "as": ref.alias}
+        if name is not None:
+            op["name"] = name
+        if label is not None:
+            op["label"] = label
+        if group is not None:
+            op["group"] = self._obj(group)
+        if props:
+            op["props"] = props
+        self.ops.append(op)
+        self.refs.append(ref)
+        return ref
+
+    def delete(self, obj, force=False):
+        self.ops.append({"op": "delete", "obj": self._obj(obj), "force": bool(force)})
+
+    def patch(self, obj, props, if_match=None):
+        op = {"op": "patch", "obj": self._obj(obj), "props": props}
+        if if_match is not None:
+            op["if_match"] = if_match
+        self.ops.append(op)
+
+    def set_expression(self, obj, prop, expr):
+        """``expr=None`` entfernt die Formel."""
+        self.ops.append({"op": "set_expression", "obj": self._obj(obj), "prop": prop, "expr": expr})
+
+    def set_cells(self, sheet, cells=None, aliases=None):
+        """``cells={"A1": "40 mm"}``, ``aliases={"A1": "laenge"}``; None leert."""
+        op = {"op": "set_cells", "sheet": self._obj(sheet)}
+        if cells:
+            op["cells"] = cells
+        if aliases:
+            op["aliases"] = aliases
+        self.ops.append(op)
+
+    def add_property(self, obj, type_id, name, *, value=_MISSING, group=None, doc=None):
+        op = {"op": "add_property", "obj": self._obj(obj), "type": type_id, "name": name}
+        if value is not _MISSING:
+            op["value"] = value
+        if group is not None:
+            op["group"] = group
+        if doc is not None:
+            op["doc"] = doc
+        self.ops.append(op)
+
+    def remove_property(self, obj, name):
+        self.ops.append({"op": "remove_property", "obj": self._obj(obj), "name": name})
+
+    async def commit(self):
+        if not self.ops:
+            self.result = TransactionResult({}, [])
+            return self.result
+        raw = await self._cad.operations(self.doc, self.ops, name=self.name, strict=self.strict)
+        self.result = TransactionResult(raw, self.refs)
+        return self.result
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            await self.commit()
+        return False
 
 
 def seg(value):
@@ -118,6 +250,60 @@ class CadClient:
             request_id=self._new_request_id(),
             if_match=if_match,
         )
+
+    async def cells(self, doc, sheet, cell_range=None):
+        """Benutzte Zellen einer Tabelle: {"A1": {content, value, alias}}."""
+        return await self.get("/documents/%s/sheets/%s/cells" % (seg(doc), seg(sheet)), range=cell_range)
+
+    def transaction(self, doc, name=None, strict=True):
+        """Mehrere Aenderungen als ein Vorgang -- siehe Transaction."""
+        return Transaction(self, doc, name, strict)
+
+    async def operations(self, doc, ops, name=None, strict=True):
+        """Rohform von transaction(): eine Liste von Operationen senden."""
+        body = {"ops": ops, "strict": strict}
+        if name:
+            body["name"] = name
+        return await self._call(
+            "POST",
+            "/documents/%s/operations" % seg(doc),
+            body=body,
+            request_id=self._new_request_id(),
+            timeout=config.RECOMPUTE_TIMEOUT_S,
+        )
+
+    # Kurzformen: je ein Vorgang mit einer Operation.
+
+    async def create(self, doc, type_id, name=None, **kw):
+        """Ein Objekt anlegen; liefert den echten Namen."""
+        tx = self.transaction(doc)
+        ref = tx.create(type_id, name, **kw)
+        return (await tx.commit()).name(ref)
+
+    async def delete(self, doc, obj, force=False):
+        tx = self.transaction(doc)
+        tx.delete(obj, force)
+        return await tx.commit()
+
+    async def set_expression(self, doc, obj, prop, expr):
+        tx = self.transaction(doc)
+        tx.set_expression(obj, prop, expr)
+        return await tx.commit()
+
+    async def set_cells(self, doc, sheet, cells=None, aliases=None):
+        tx = self.transaction(doc)
+        tx.set_cells(sheet, cells, aliases)
+        return await tx.commit()
+
+    async def add_property(self, doc, obj, type_id, name, **kw):
+        tx = self.transaction(doc)
+        tx.add_property(obj, type_id, name, **kw)
+        return await tx.commit()
+
+    async def remove_property(self, doc, obj, name):
+        tx = self.transaction(doc)
+        tx.remove_property(obj, name)
+        return await tx.commit()
 
     async def recompute(self, doc):
         return await self._call(

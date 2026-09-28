@@ -527,6 +527,11 @@ def _decode_value(obj, name, type_id, current, payload):
             raise InvalidValue("%s: Zahl erwartet" % name, name)
         return float(payload)
 
+    if type_id == "App::PropertyStringList":
+        if not isinstance(payload, list) or not all(isinstance(item, str) for item in payload):
+            raise InvalidValue("%s: Liste aus Texten erwartet" % name, name)
+        return list(payload)
+
     if isinstance(current, str):
         if not isinstance(payload, str):
             raise InvalidValue("%s: Text erwartet" % name, name)

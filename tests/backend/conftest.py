@@ -55,6 +55,7 @@ class MockBridge:
         self.last_seq = 0
         self.contract_version = CONTRACT_VERSION
         self.requests = []
+        self.operations = []
         self._ws = set()
         self._runner = None
 
@@ -72,6 +73,8 @@ class MockBridge:
         app.router.add_get("/api/cad/documents/{doc}/objects/{name}", self._object)
         app.router.add_patch("/api/cad/documents/{doc}/objects/{name}", self._patch)
         app.router.add_post("/api/cad/documents/{doc}/recompute", self._recompute)
+        app.router.add_post("/api/cad/documents/{doc}/operations", self._operations)
+        app.router.add_get("/api/cad/documents/{doc}/sheets/{sheet}/cells", self._cells)
         app.router.add_get("/ws", self._websocket)
 
         self._runner = web.AppRunner(app)
@@ -156,6 +159,32 @@ class MockBridge:
 
     async def _recompute(self, request):
         return web.json_response({"status": "done", "recomputed": 3, "errors": []})
+
+    async def _operations(self, request):
+        """Wie die echte Bruecke: Platzhalter -> Namen; "fail_at" simuliert einen Fehler."""
+        body = await request.json()
+        self.operations.append({"body": body, "request_id": request.headers.get("X-Request-Id")})
+        for index, op in enumerate(body["ops"]):
+            if op.get("name") == "fail":
+                return web.json_response(
+                    {"error": {"code": "invalid_value", "message": "kaputt",
+                               "detail": {"failedOp": index, "op": op["op"]}}},
+                    status=400,
+                )
+        created = {op["as"]: op.get("name") or op["type"].split("::")[-1]
+                   for op in body["ops"] if op["op"] == "create"}
+        return web.json_response({
+            "status": "done", "atomic": True, "changed": True, "created": created,
+            "results": [{"op": op["op"]} for op in body["ops"]], "recomputed": 1,
+            "errors": [], "revs": {name: 1 for name in created.values()},
+        })
+
+    async def _cells(self, request):
+        return web.json_response({
+            "sheet": request.match_info["sheet"],
+            "range": request.query.get("range"),
+            "cells": {"A1": {"content": "=40 mm", "value": 40.0, "alias": "laenge"}},
+        })
 
     async def _websocket(self, request):
         ws = web.WebSocketResponse(heartbeat=20)

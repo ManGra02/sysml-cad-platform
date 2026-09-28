@@ -5,7 +5,8 @@ ueber freecad_bridge.log, alles am Dokument ueber dispatch() in den
 Adapter-Modulen.
 
 Routen: Gesundheit, Lesen (Dokumente, Baum, Objekte, Typen), Auswahl,
-Schreiben (PATCH mit optionalem If-Match, Recompute) und /ws.
+Schreiben (PATCH mit optionalem If-Match, Vorgaenge aus mehreren
+Operationen, Recompute), Tabellenzellen und /ws.
 """
 
 import json
@@ -19,6 +20,7 @@ from freecad_bridge import (
     documents,
     log,
     objects,
+    operations,
     selection,
     snapshot,
     tree,
@@ -282,6 +284,44 @@ async def handle_recompute(request):
     return web.json_response(data)
 
 
+async def handle_operations(request):
+    """Mehrere Aenderungen als EIN Vorgang (ein Undo-Schritt, alles oder nichts).
+
+    Body: {"name": "...", "strict": true, "ops": [{"op": "create", ...}, ...]}
+    Siehe freecad_bridge/operations.py fuer die Operationen.
+    """
+    doc_name = request.match_info["doc"]
+    request_id = request.headers.get("X-Request-Id")
+    try:
+        body = await request.json()
+    except Exception:
+        return error_response("bad_request", "JSON-Body erwartet", 400, request_id=request_id)
+    if not isinstance(body, dict):
+        return error_response("bad_request", "JSON-Objekt erwartet", 400, request_id=request_id)
+
+    data = await _write(
+        lambda: operations.run(
+            doc_name,
+            body.get("ops"),
+            name=body.get("name"),
+            request_id=request_id,
+            strict=body.get("strict", True) is not False,
+        ),
+        request_id,
+    )
+    return web.json_response(data)
+
+
+async def handle_cells(request):
+    """Benutzte Zellen einer Tabelle, optional ?range=A1:D100."""
+    doc_name = request.match_info["doc"]
+    sheet_name = request.match_info["sheet"]
+    cell_range = request.query.get("range")
+    return web.json_response(
+        await _read(lambda: operations.read_cells(doc_name, sheet_name, cell_range))
+    )
+
+
 async def handle_ws(request):
     """WebSocket-Geruest. Ereignisse folgen in M4.
 
@@ -326,6 +366,8 @@ def create_app():
     app.router.add_get("/api/cad/documents/{doc}/objects/{name}", handle_object_detail)
     app.router.add_patch("/api/cad/documents/{doc}/objects/{name}", handle_patch_object)
     app.router.add_post("/api/cad/documents/{doc}/recompute", handle_recompute)
+    app.router.add_post("/api/cad/documents/{doc}/operations", handle_operations)
+    app.router.add_get("/api/cad/documents/{doc}/sheets/{sheet}/cells", handle_cells)
     app.router.add_get("/api/cad/types", handle_types)
 
     app.router.add_get("/api/cad/selection", handle_get_selection)
