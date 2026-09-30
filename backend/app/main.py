@@ -12,6 +12,8 @@ Responsibilities:
   4. deliver a batched event stream to the browser
   5. host the project modules (app/projects/): registry, active
      project, their routes under /api/projects/<id>/* and their domain logic
+  6. read and write the SysML v2 model (app/sysml/): /api/sysml/* for the
+     browser, ctx.sysml for the modules
 """
 
 import contextlib
@@ -26,6 +28,8 @@ from app.bridge_client import BridgeClient, BridgeUnavailable
 from app.events import BrowserHub
 from app.projects.registry import ProjectRegistry, UnknownProject
 from app.security import LocalOnlyMiddleware
+from app.sysml import SysmlService
+from app.sysml import routes as sysml_routes
 from cad_contract.version import CONTRACT_VERSION
 
 #: Headers that are forwarded to the bridge. Everything else stays here --
@@ -33,8 +37,9 @@ from cad_contract.version import CONTRACT_VERSION
 FORWARDED_REQUEST_HEADERS = ("content-type", "x-request-id", "if-match")
 
 
-def create_app(bridge_client_factory=BridgeClient, project_modules=None):
+def create_app(bridge_client_factory=BridgeClient, project_modules=None, sysml_service=None):
     hub = BrowserHub()
+    sysml = sysml_service or SysmlService()
     registry = None
 
     def on_events(events):
@@ -42,10 +47,11 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None):
         registry.on_events(events)  # only the active project receives them
 
     bridge = bridge_client_factory(on_events=on_events, on_status=hub.publish_status)
-    registry = ProjectRegistry(bridge, hub.publish, modules=project_modules)
+    registry = ProjectRegistry(bridge, hub.publish, modules=project_modules, sysml=sysml)
 
     @contextlib.asynccontextmanager
     async def lifespan(_app):
+        await sysml.start()
         await registry.start()
         await bridge.start()
         try:
@@ -53,6 +59,7 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None):
         finally:
             await bridge.stop()
             await registry.stop()
+            await sysml.stop()
 
     app = FastAPI(
         title="SysML-CAD Platform",
@@ -64,6 +71,7 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None):
     app.state.bridge = bridge
     app.state.hub = hub
     app.state.registry = registry
+    app.state.sysml = sysml
     # No CORSMiddleware -- rationale in security.py.
     app.add_middleware(LocalOnlyMiddleware)
 
@@ -96,6 +104,10 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None):
         return registry.describe()
 
     registry.mount(app)  # the modules' /api/projects/<id>/*
+
+    # -- SysML: the model from the SysML v2 repository -------------------
+
+    sysml_routes.install(app, sysml)  # /api/sysml/*
 
     # -- CAD: pass-through to the bridge ---------------------------------
 

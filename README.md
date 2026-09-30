@@ -12,8 +12,9 @@ Browser (React + shadcn/ui)
    │  HTTP + WebSocket
    ▼
 Platform backend   :8000     own process, own venv
-   │  HTTP + WebSocket, token in the Authorization header
-   ▼
+   │  HTTP + WebSocket,                     │  HTTP (SysML v2 API)
+   │  token in the Authorization header     ▼
+   ▼                                    SysML v2 repository :8083   Flexo MMS, Docker (flexo/)
 FreeCAD bridge     :8765     addon inside the FreeCAD process
 ```
 
@@ -160,7 +161,8 @@ cd backend && uv run python ../scripts/e2e/m5_acceptance.py
 # ... and a project module that works on the CAD model programmatically
 cd backend && uv run python ../scripts/e2e/m8_acceptance.py
 
-# (Backend tests include the project registry: tests/backend/test_projects.py)
+# (Backend tests include the project registry: tests/backend/test_projects.py,
+#  and the SysML adapter against an in-memory Flexo: tests/backend/test_sysml.py)
 
 # Frontend -- pure logic (tree, events, rotation, formats) and types
 cd frontend && pnpm test && pnpm typecheck
@@ -185,6 +187,9 @@ returns exit code 0. A CI based on it would be permanently green.
 | `bridge/` | The FreeCAD addon. Gets linked into `Mod/`. |
 | `bridge/cad_contract/` | Shared, dependency-free contract — imported by both Pythons. |
 | `backend/` | Platform backend (FastAPI), own venv. |
+| `backend/app/sysml/` | SysML adapter: SysML v2 API client, parser, common engineering model, `/api/sysml/*`. |
+| `flexo/` | Docker setup of the SysML v2 repository (Flexo MMS). |
+| `data/examples/sysml/` | SysML v2 test models (e-bike demo, Flexo's own test model). |
 | `frontend/` | React + shadcn/ui, built into `backend/app/static/`. |
 | `scripts/` | Linking, diagnostics, dev startup. |
 | `tests/` | `bridge/` (FreeCAD's Python), `backend/` (against a mock), `contract/`. |
@@ -239,6 +244,26 @@ Every operation also exists in short form (`await cad.create(doc, ...)`), then a
 operation. If an object becomes invalid through the operation (e.g. a formula referencing an
 unknown alias), everything is rolled back (`recompute_failed`); `transaction(..., strict=False)`
 only reports it. The events of an operation are recognized by `self.ctx.cad.is_own(event)`.
+**The SysML model** — `self.ctx.sysml` (the same for all modules):
+
+```python
+snap = await self.ctx.sysml.snapshot("EBike Demo")   # project name or id; head of the default branch
+snap.version                                          # commit id -- record it with every result
+for part in snap.leaf_parts():                        # physical parts, i.e. the ones that need CAD
+    for attr in snap.attributes_of(part.id):          # value as modelled + in SI
+        print(part.name, attr.name, attr.expression, attr.value_si, attr.unit_si)
+snap.requirements()                                   # with extra["req_id"], extra["text"]
+[r for r in snap.relations if r.kind == "satisfies"]  # requirement <- part
+
+await self.ctx.sysml.write_attribute_value("EBike Demo", attr.id, 11200, unit="g")  # -> new commit (11.2 kg)
+await self.ctx.sysml.diff("EBike Demo", old_commit, new_commit)                     # what changed
+```
+
+Errors arrive as `SysmlError` (`code`, `status`, `message`, `detail`) — e.g. `sysml_unreachable`
+when Flexo isn't running, which is a normal state like a stopped bridge. The browser gets the
+same data under `/api/sysml/*` (see `/api/docs`). Setup of the repository and test data:
+[`flexo/README.md`](flexo/README.md); command line: `cd backend && uv run python -m app.sysml --help`.
+
 - New projects are registered **explicitly** in `backend/app/projects/registry.py` (`MODULES`)
   and get a route `frontend/src/routes/projects.<id>.tsx` plus an
   entry in `PROJECT_ROUTES` (`frontend/src/features/projects/queries.ts`).
@@ -275,6 +300,7 @@ be reachable through the junction, because FreeCAD only sees `Mod/SysMLCadPlatfo
 | M7 Launcher + project registry | ✅ |
 | M8 Programmatic CAD interface for project modules | ✅ |
 | M9 Production build, setup from scratch | ✅ |
+| M10 SysML adapter: read/write the SysML v2 model via Flexo, `ctx.sysml`, `/api/sysml/*` | ✅ |
 
-SysML v2 is deliberately **not** part of this foundation. Accessing it is plain HTTP
-and belongs in the backend later, without touching the bridge.
+SysML v2 access lives in the backend (`backend/app/sysml/`), as plain HTTP to the SysML v2
+API -- the bridge is not touched. Not yet in the UI: a SysML view in the frontend.
