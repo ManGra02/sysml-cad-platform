@@ -38,8 +38,8 @@ jobs:
       # The same AI tests again, now with the SDKs present, so their request-
       # building and error handling are covered too. No key is needed: every
       # one of them replays a recorded response or uses a stub client.
-      - name: Install the optional AI SDKs
-        run: pip install "anthropic>=1.3.0" "openai>=1.60.0"
+      - name: Install the optional AI SDK
+        run: pip install "openai>=1.60.0"
       - name: AI proposers (with SDKs, no key)
         run: PYTHONPATH=src:cad pytest tests/test_propose_ai.py tests/test_propose_openai.py --junitxml=out/ai-proposers.xml
       - uses: actions/upload-artifact@v4

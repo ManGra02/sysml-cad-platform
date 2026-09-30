@@ -30,7 +30,7 @@ import pytest
 from sysmlcad.adapters import CadTarget
 from sysmlcad.catalog import Catalog, CatalogAttribute, CatalogPart
 from sysmlcad.propose import AI_PROPOSERS
-from sysmlcad.propose_ai import ClaudeProposer, json_schema, prompt_digest, render_catalog
+from sysmlcad.propose_ai import json_schema, prompt_digest, render_catalog
 from sysmlcad.propose_openai import OpenAIProposer
 from sysmlcad.units import ureg
 
@@ -59,7 +59,7 @@ CATALOG = Catalog(parts=(PART,), targets=(SCRIPT, STEP_NODE), source="test")
 #: Every backend, driven the same way. `recorded` short-circuits the network
 #: call each one would otherwise make, leaving exactly the shared half under
 #: test -- which is the half that decides whether a candidate is safe.
-BACKENDS = [ClaudeProposer, OpenAIProposer]
+BACKENDS = [OpenAIProposer]
 
 
 @pytest.fixture(params=BACKENDS, ids=lambda c: c.provider)
@@ -267,7 +267,7 @@ def test_every_backend_shares_the_verification():
 
 def test_the_registry_lists_every_backend():
     """A backend nobody can select is a backend nobody will maintain."""
-    assert set(AI_PROPOSERS) == {"claude", "openai"}
+    assert set(AI_PROPOSERS) == {"openai"}
 
 
 def test_the_baseline_is_still_the_default():
@@ -304,26 +304,6 @@ def test_a_model_without_a_name_is_refused_rather_than_guessed():
     finally:
         if saved is not None:
             os.environ["SYSMLCAD_OPENAI_MODEL"] = saved
-
-
-def test_a_truncated_claude_answer_yields_nothing_and_says_why():
-    """`max_tokens` leaves `parsed_output` empty. It used to raise an
-    AttributeError; half an answer is dropped, like on the OpenAI path."""
-    pytest.importorskip("pydantic", reason="the Claude call builds its schema with pydantic")
-
-    class _Response:
-        stop_reason = "max_tokens"
-        parsed_output = None
-        id = "msg-1"
-
-    class _Messages:
-        def parse(self, **kwargs):
-            return _Response()
-
-    proposer = ClaudeProposer(client=type("Client", (), {"messages": _Messages()})())
-    assert proposer.propose(CATALOG) == []
-    assert any("max_tokens" in reason for reason in proposer.dropped)
-
 
 
 def test_the_excerpt_states_the_axis_convention():

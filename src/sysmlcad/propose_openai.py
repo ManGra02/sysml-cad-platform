@@ -25,8 +25,8 @@ WHAT THIS MODULE IS, AND WHAT IT DELIBERATELY IS NOT
 ----------------------------------------------------
 It is `_ask` and nothing else. The excerpt, the prompt, the schema, the
 provenance and -- most importantly -- the verification of every candidate
-against the catalogue all live in `LlmProposer`, shared with the Claude
-backend. That is not tidiness: those checks are the reason an arbitrary model
+against the catalogue all live in `LlmProposer`, shared with any backend
+added later. That is not tidiness: those checks are the reason an arbitrary model
 can be pointed at this system at all, and a second copy of them here would be a
 second chance to get them subtly wrong.
 

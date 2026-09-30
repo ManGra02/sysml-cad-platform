@@ -4,7 +4,7 @@ One continuous thread from a SysML v2 requirement to a red CI pipeline.
 Deliberately narrow: two small models, six requirements, and a mapping that a
 human confirms entry by entry.
 
-**Status:** Stages A, A2, E and H complete — 285 tests green. Four models are
+**Status:** Stages A, A2, E and H complete — 265 tests green. Four models are
 published and verified against CAD: `MotorHousing` (one part), `Gearbox`
 (three parts, an interface dimension, an assembly mass budget), and `Box1` and
 `Box2`, two cuboids checked against STEP files exported from Chili3D (see
@@ -31,7 +31,7 @@ make cad                   # run the CAD scripts, write STEP to out/
 make verify                # verify the default project (motor_housing)
 make verify PROJECT=gearbox   # ...or another one, against ITS mapping
 make gates                 # is the MAPPING sound? (a different question)
-make test                  # pytest, JUnit XML to out/ (285 tests)
+make test                  # pytest, JUnit XML to out/ (265 tests)
 make catalog               # what exists on each side, as data
 make explore-cad FILE=fixtures/step/gearbox.step   # what is in a STEP file
 make step-fixtures  # regenerate fixtures/step/ after changing a CAD script
@@ -189,7 +189,7 @@ src/sysmlcad/
 ├── gates.py                  is the mapping sound (≠ is the design ok)
 ├── proposals.py              the proposal store
 ├── propose.py                Proposer protocol + the stdlib baseline
-├── propose_ai.py             LlmProposer base + the Claude backend
+├── propose_ai.py             LlmProposer base: prompt, schema, verification
 ├── propose_openai.py         any OpenAI-protocol server (local included)
 ├── confirm.py                human confirmation → mapping.yaml
 ├── score.py                  hit rate against the gold set
@@ -393,8 +393,7 @@ only through an explicit confirmation.
 ```bash
 make catalog            # what is on each side: parts, attributes, CAD targets
 make propose            # stdlib name matching -> projects/<name>/proposals.yaml
-make propose AI=claude   # ask Claude instead  (pip install anthropic)
-make propose AI=openai   # ...or any OpenAI-protocol server, local included
+make propose AI=openai   # ask an LLM on any OpenAI-protocol server (pip install openai)
 make proposals          # what is waiting for a decision
 make confirm ID=p-01    # gate it again, then write it into mapping.yaml
 ```

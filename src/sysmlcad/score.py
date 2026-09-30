@@ -220,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Score mapping proposers against the hand-mapped gold set.",
     )
     add_project_argument(parser)
-    parser.add_argument("--ai", nargs="?", const="claude", metavar="BACKEND",
+    parser.add_argument("--ai", nargs="?", const="openai", metavar="BACKEND",
                         help=f"also score a language model: "
                              f"{', '.join(sorted(AI_PROPOSERS))}. Needs that "
                              f"backend's SDK and credentials")

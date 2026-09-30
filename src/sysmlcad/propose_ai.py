@@ -13,8 +13,8 @@ AI safe to have here at all.
 
 FOUR THINGS THAT KEEP IT HONEST
 -------------------------------
-1. **Structured output, not prose.** `messages.parse` validates the response
-   against a schema, so a malformed answer is a validation error rather than a
+1. **Structured output, not prose.** The server validates the response
+   against a strict JSON schema, so a malformed answer is a validation error rather than a
    plausible-looking wrong mapping.
 2. **Every field is checked against the catalogue.** A model that names a CAD
    object which does not exist, or an attribute the part does not have, gets
@@ -28,9 +28,9 @@ FOUR THINGS THAT KEEP IT HONEST
    the thing that made it is not evidence of anything.
 
 Those four hold for *any* model, which is why they live in `LlmProposer` and a
-backend only implements `_ask`. `ClaudeProposer` is here; `propose_openai.py`
-holds the OpenAI-compatible one, which reaches OpenAI, Azure, vLLM, Ollama, LM
-Studio and anything else speaking that protocol. Swapping the model changes the
+backend only implements `_ask`. The one backend, in `propose_openai.py`, is
+OpenAI-compatible and so reaches OpenAI, Azure, vLLM, Ollama, LM Studio, the
+UPB gateway, Google AI Studio and anything else speaking that protocol. Swapping the model changes the
 scoreboard, never the safety properties.
 
 CI never calls any of them. The tests drive them with a recorded response, and
@@ -47,12 +47,6 @@ from typing import Literal
 
 from .catalog import Catalog, load_catalog
 from .proposals import Proposal
-
-MODEL = "claude-opus-5"
-
-#: Keep well clear of the response cap: a truncated JSON body is a parse error,
-#: and on a large catalogue the candidate list is the long part of the answer.
-MAX_TOKENS = 16000
 
 SYSTEM = """\
 You map systems-engineering model attributes onto CAD measurements.
@@ -132,8 +126,7 @@ def _schema():
 def json_schema() -> dict:
     """The same schema as plain JSON Schema, in the strict dialect.
 
-    The Anthropic SDK takes the pydantic model directly; an OpenAI-compatible
-    server wants JSON Schema with `additionalProperties: false` and every
+    An OpenAI-compatible server wants JSON Schema with `additionalProperties: false` and every
     property listed in `required`. Deriving it from the one pydantic model keeps
     a single definition -- two hand-written schemas would drift, and the drift
     would show up as a model that suddenly cannot answer.
@@ -240,7 +233,9 @@ class LlmProposer:
     can be swapped at all, so they must not live in a backend where a second
     implementation could quietly do them differently.
 
-    Subclasses set `provider` and `default_model`.
+    Subclasses set `provider` and `default_model` (empty means the backend
+    names its model some other way, as `propose_openai` does from the
+    environment).
     """
 
     provider: str = "llm"
@@ -395,76 +390,3 @@ class LlmProposer:
             proposed_by=self.name,
             provenance=provenance,
         )
-
-
-class ClaudeProposer(LlmProposer):
-    """Asks Claude for candidates, then throws away everything it cannot verify."""
-
-    provider = "anthropic"
-    default_model = MODEL
-
-    def client(self):
-        if self._client is None:
-            try:
-                import anthropic
-            except ImportError as exc:  # pragma: no cover - depends on the env
-                raise RuntimeError(
-                    "the Claude proposer needs the Anthropic SDK: pip install anthropic"
-                ) from exc
-            # Credentials resolve the SDK's own way -- ANTHROPIC_API_KEY, or a
-            # profile from `ant auth login`. No bespoke key handling here.
-            self._client = anthropic.Anthropic()
-        return self._client
-
-    def _ask(self, excerpt: str) -> tuple[dict, str]:
-        replayed = self._replay()
-        if replayed is not None:
-            return replayed
-
-        response = self.client().messages.parse(
-            model=self.model,
-            max_tokens=MAX_TOKENS,
-            system=[{
-                "type": "text",
-                "text": SYSTEM,
-                # The system prompt and the excerpt are the stable prefix; only
-                # the closing instruction varies between runs.
-                "cache_control": {"type": "ephemeral"},
-            }],
-            messages=[{
-                "role": "user",
-                "content": f"{excerpt}\n\n{INSTRUCTION}",
-            }],
-            output_format=_schema(),
-        )
-
-        if getattr(response, "stop_reason", None) == "refusal":
-            details = getattr(response, "stop_details", None)
-            self.dropped.append(
-                f"the model declined to answer "
-                f"({getattr(details, 'category', 'no category given')})"
-            )
-            return {"candidates": []}, getattr(response, "id", "")
-
-        parsed = getattr(response, "parsed_output", None)
-        if parsed is None:
-            # Typically `max_tokens`: the answer was cut off and nothing could
-            # be validated. Nothing is salvaged from half a candidate list.
-            self.dropped.append(
-                f"the model returned no parseable answer "
-                f"(stop_reason {getattr(response, 'stop_reason', None)!r})"
-            )
-            return {"candidates": []}, getattr(response, "id", "")
-
-        return parsed.model_dump(), getattr(response, "id", "")
-
-
-def main() -> int:  # pragma: no cover - needs credentials
-    """`python -m sysmlcad.propose_ai` -- the same flow as `propose`, one model."""
-    from .propose import main as propose_main
-
-    return propose_main(["--ai"])
-
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())

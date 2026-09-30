@@ -72,7 +72,6 @@ class Proposer(Protocol):
 #: deliberately does not carry, and naming one here must not make CI need a key.
 #: Adding a backend is one row plus one `_ask`; see `propose_ai.LlmProposer`.
 AI_PROPOSERS: dict[str, tuple[str, str]] = {
-    "claude": (".propose_ai", "ClaudeProposer"),
     "openai": (".propose_openai", "OpenAIProposer"),
 }
 
@@ -458,10 +457,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     add_project_argument(parser)
     parser.add_argument("--list", action="store_true", help="show the stored proposals")
-    parser.add_argument("--ai", nargs="?", const="claude", metavar="BACKEND",
+    parser.add_argument("--ai", nargs="?", const="openai", metavar="BACKEND",
                         help="ask a language model instead of the stdlib "
-                             "baseline: claude (default) or openai. Needs that "
-                             "backend's SDK and credentials")
+                             "baseline: openai (the default, any OpenAI-protocol "
+                             "server). Needs that backend's SDK and credentials")
     parser.add_argument("--top", type=int, default=1,
                         help="how many candidates to keep per attribute (default 1)")
     parser.add_argument("--dry-run", action="store_true",

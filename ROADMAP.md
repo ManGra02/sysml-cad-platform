@@ -298,7 +298,9 @@ candidates; everything after that is identical whichever proposer produced them.
   nothing but the standard library. It exists to answer "does the AI help?" —
   without a baseline, a hit rate is a number with nothing to beat. It is also
   the offline fallback, so CI never needs a key.
-* **`propose_ai.py`** — `claude-opus-5` through `messages.parse` with a schema.
+* **`propose_ai.py`** — the shared LLM half: prompt, excerpt, strict schema,
+  verification. `propose_openai.py` is the one backend (any OpenAI-protocol
+  server); the Claude backend was removed on purpose.
 * **`score.py`** — hit@1, hit@3, and the column that matters: **wrong@1**, the
   confident answers that survived the gates. A proposer that finds nine of ten
   mappings and invents one plausible wrong one has saved nobody any work,

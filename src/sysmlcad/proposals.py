@@ -64,7 +64,7 @@ class Proposal:
     #: FREQ-4: every candidate carries a confidence value and a short rationale.
     confidence: float = 0.0
     rationale: str = ""
-    #: Who suggested it -- "baseline:difflib", "ai:claude-opus-5". Recorded so a
+    #: Who suggested it -- "baseline:difflib", "ai:hs-de.openai-gpt-oss-120b". Recorded so a
     #: later hit-rate comparison can tell the proposers apart, and so a bad run
     #: can be traced to the thing that produced it (NFREQ-1).
     proposed_by: str = ""
