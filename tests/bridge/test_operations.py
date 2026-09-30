@@ -1,7 +1,7 @@
-"""M8: Vorgaenge -- mehrere Aenderungen als ein Undo-Schritt, alles oder nichts.
+"""M8: Operations -- multiple changes as one undo step, all or nothing.
 
-Die Operationen, die ein Projektmodul (BDS) programmatisch braucht: anlegen,
-loeschen, Properties setzen, Formeln binden, Tabellenzellen, eigene Properties.
+The operations a project module (BDS) needs programmatically: create,
+delete, set properties, bind expressions, spreadsheet cells, custom properties.
 """
 
 import os
@@ -60,7 +60,7 @@ class OperationsTest(unittest.TestCase):
     def names(self):
         return sorted(o.Name for o in self.doc.Objects)
 
-    # -- Der BDS-Fall in einem Vorgang ---------------------------------------
+    # -- The BDS case in a single operation -----------------------------------
 
     def test_teil_mit_sysml_id_und_formel_in_einem_vorgang(self):
         result = run(
@@ -84,7 +84,7 @@ class OperationsTest(unittest.TestCase):
         self.assertTrue(result["atomic"] and result["changed"])
         self.assertIn(motor.Name, result["revs"])
 
-        # Die Bindung lebt in FreeCAD: Zelle aendern -> Laenge folgt.
+        # The binding lives in FreeCAD: change the cell -> the length follows.
         run([{"op": "set_cells", "sheet": "Params", "cells": {"A1": "55 mm"}}])
         self.assertEqual(motor.Length.Value, 55.0)
 
@@ -95,7 +95,7 @@ class OperationsTest(unittest.TestCase):
         self.assertEqual(self.doc.getObject("Box001").Height.Value, 3.0)
         self.assertEqual(self.doc.getObject("Box").Height.Value, 10.0)
 
-    # -- Alles oder nichts ---------------------------------------------------
+    # -- All or nothing -------------------------------------------------------
 
     def test_fehler_nimmt_alles_zurueck_auch_angelegte_objekte(self):
         before = self.names()
@@ -108,6 +108,9 @@ class OperationsTest(unittest.TestCase):
             ])
         self.assertEqual(caught.exception.detail["failedOp"], 3)
         self.assertEqual(caught.exception.code, "invalid_value")
+        # Same shape as for PATCH: the UI translates based on reason.
+        self.assertEqual(caught.exception.detail["reason"], "unit_mismatch")
+        self.assertEqual(caught.exception.detail["field"], "Length")
         self.assertEqual(self.names(), before)
         self.assertEqual(self.doc.getObject("Params").getUsedCells(), [])
         self.assertEqual(self.doc.UndoCount, 0)
@@ -136,7 +139,7 @@ class OperationsTest(unittest.TestCase):
         result = run([{"op": "patch", "obj": "Box", "props": {"Height": "4 mm"}}])
         self.assertTrue(result["changed"])
 
-    # -- Loeschen ------------------------------------------------------------
+    # -- Deleting ------------------------------------------------------------
 
     def test_loeschen_mit_abhaengigen_wird_abgewiesen(self):
         with self.assertRaises(BridgeError) as caught:
@@ -156,7 +159,7 @@ class OperationsTest(unittest.TestCase):
         run([{"op": "delete", "obj": "Kugel"}])
         self.assertIsNone(self.doc.getObject("Kugel"))
 
-    # -- Formeln und Tabellen ------------------------------------------------
+    # -- Expressions and spreadsheets ----------------------------------------
 
     def test_formel_entfernen(self):
         run([{"op": "set_cells", "sheet": "Params", "cells": {"A1": "20 mm"}, "aliases": {"A1": "lang"}},
@@ -203,7 +206,7 @@ class OperationsTest(unittest.TestCase):
         with self.assertRaises(BridgeError):
             operations.parse_range("A1:B2:C3")
 
-    # -- Eigene Properties ---------------------------------------------------
+    # -- Custom properties ---------------------------------------------------
 
     def test_eigene_properties_und_entfernen(self):
         run([{"op": "add_property", "obj": "Box", "type": "App::PropertyStringList", "name": "Tags",
@@ -242,7 +245,7 @@ class OperationsTest(unittest.TestCase):
         finally:
             FreeCAD.closeDocument(reopened.Name)
 
-    # -- Anlegen: Grenzen ----------------------------------------------------
+    # -- Creating: limits ----------------------------------------------------
 
     def test_gesperrte_und_unbekannte_typen(self):
         with self.assertRaises(BridgeError) as caught:
@@ -255,7 +258,7 @@ class OperationsTest(unittest.TestCase):
         with self.assertRaises(BridgeError):
             run([{"op": "create", "type": "Part::Box", "group": "Box"}])
 
-    # -- Vorgang als Ganzes --------------------------------------------------
+    # -- The operation as a whole --------------------------------------------
 
     def test_eingaben_werden_vorab_geprueft(self):
         for ops in ([], "x", [{"op": "zaubern"}], [{"op": "patch", "as": "p", "obj": "Box", "props": {}}],
@@ -290,7 +293,7 @@ class OperationsTest(unittest.TestCase):
 
 
 class OperationEventsTest(unittest.TestCase):
-    """Die Ereignisse eines Vorgangs tragen seine Herkunft -- Grundlage fuer is_own."""
+    """The events of an operation carry its origin -- the basis for is_own."""
 
     def setUp(self):
         self.doc = build_document()

@@ -1,6 +1,6 @@
-"""M7: Projekt-Registry -- Auswahl, Zustellung der CAD-Ereignisse, CAD-Zugang der Module.
+"""M7: project registry -- selection, delivery of CAD events, the modules' CAD access.
 
-Gegen die nachgebaute Bruecke, ohne FreeCAD.
+Against the mock bridge, without FreeCAD.
 """
 
 import json
@@ -17,7 +17,7 @@ from conftest import BrowserClient, running_backend, wait_for
 
 
 class RecordingModule(ProjectModule):
-    """Protokolliert alle Haken -- und schreibt auf Wunsch selbst ins CAD."""
+    """Records all hooks -- and writes to CAD itself on request."""
 
     id = "rec"
     title = "Recorder"
@@ -53,10 +53,10 @@ class RecordingModule(ProjectModule):
 
 class BrokenModule(ProjectModule):
     id = "broken"
-    title = "Kaputt"
+    title = "Broken"
 
     async def on_cad_event(self, event):
-        raise RuntimeError("Modulfehler darf die Plattform nicht stoppen")
+        raise RuntimeError("A module error must not stop the platform")
 
 
 MODULES = [BdsModule, McrModule, RecordingModule, BrokenModule]
@@ -73,7 +73,7 @@ def module(platform, module_id):
     return platform.state.registry.modules[module_id]
 
 
-# -- Registry und Umschalten -------------------------------------------
+# -- Registry and switching --------------------------------------------
 
 
 async def test_standardmodule_sind_registriert(backend):
@@ -92,7 +92,7 @@ async def test_aktivieren(platform):
 
 
 async def test_unbekanntes_projekt_404(platform):
-    code, body = await platform.post("/api/projects/gibtsnicht/activate")
+    code, body = await platform.post("/api/projects/doesnotexist/activate")
     assert code == 404
     assert body["error"]["code"] == "project_not_found"
 
@@ -131,7 +131,7 @@ async def test_hello_nennt_das_aktive_projekt(platform):
 
 
 async def test_wahl_ueberlebt_den_neustart(handshake, state_dir):
-    """--reload startet das Backend bei jeder Codeaenderung neu."""
+    """--reload restarts the backend on every code change."""
     RecordingModule.calls = []
     async with running_backend(project_modules=MODULES) as first:
         await first.post("/api/projects/rec/activate")
@@ -139,19 +139,19 @@ async def test_wahl_ueberlebt_den_neustart(handshake, state_dir):
     async with running_backend(project_modules=MODULES) as second:
         _, body = await second.get("/api/projects")
         assert body["active"] == "rec"
-        assert RecordingModule.calls == [("activate", "rec")]  # Modul wird wieder aktiv
+        assert RecordingModule.calls == [("activate", "rec")]  # module becomes active again
     assert json.loads((state_dir / "state.json").read_text())["active"] == "rec"
 
 
 async def test_kaputte_zustandsdatei_ist_kein_absturz(handshake, state_dir):
     state_dir.mkdir(parents=True)
-    (state_dir / "state.json").write_text("{kaputt")
+    (state_dir / "state.json").write_text("{broken")
     async with running_backend(project_modules=MODULES) as handle:
         _, body = await handle.get("/api/projects")
         assert body["active"] is None
 
 
-# -- Routen der Module -------------------------------------------------
+# -- Module routes ------------------------------------------------------
 
 
 async def test_modulrouten_unter_eigenem_praefix(platform):
@@ -161,14 +161,14 @@ async def test_modulrouten_unter_eigenem_praefix(platform):
 
 
 async def test_modulrouten_sind_abgesichert(platform):
-    """Die Origin-Pruefung gilt auch fuer die Routen der Module."""
+    """The Origin check also applies to the modules' routes."""
     async with aiohttp.ClientSession() as session:
         async with session.get(platform.url + "/api/projects/bds/info",
                                headers={"Origin": "https://evil.example"}) as response:
             assert response.status == 403
 
 
-# -- Ereignisse aus FreeCAD --------------------------------------------
+# -- Events from FreeCAD -----------------------------------------------
 
 
 async def test_nur_das_aktive_projekt_bekommt_ereignisse(bridge, platform):
@@ -180,7 +180,7 @@ async def test_nur_das_aktive_projekt_bekommt_ereignisse(bridge, platform):
     assert module(platform, "rec").events[0]["obj"] == "Box"
 
     await platform.post("/api/projects/bds/activate")
-    await bridge.push([{"type": "cad.changed", "doc": "Doc", "obj": "Zylinder", "origin": "freecad:user"}])
+    await bridge.push([{"type": "cad.changed", "doc": "Doc", "obj": "Cylinder", "origin": "freecad:user"}])
     await wait_for(lambda: module(platform, "bds").events_seen == 1)
     assert len(module(platform, "rec").events) == 1
 
@@ -189,9 +189,9 @@ async def test_ohne_aktives_projekt_wird_nichts_zugestellt(bridge, platform):
     await wait_for(lambda: platform.state.bridge.state == "ok")
     await bridge.push([{"type": "cad.changed", "doc": "Doc", "obj": "Box", "origin": "freecad:user"}])
     await platform.post("/api/projects/rec/activate")
-    await bridge.push([{"type": "cad.changed", "doc": "Doc", "obj": "Zweites", "origin": "freecad:user"}])
+    await bridge.push([{"type": "cad.changed", "doc": "Doc", "obj": "Second", "origin": "freecad:user"}])
     await wait_for(lambda: module(platform, "rec").events)
-    assert [e["obj"] for e in module(platform, "rec").events] == ["Zweites"]
+    assert [e["obj"] for e in module(platform, "rec").events] == ["Second"]
 
 
 async def test_modulfehler_stoppt_die_zustellung_nicht(bridge, platform):
@@ -218,7 +218,7 @@ async def test_stub_meldet_sich_beim_browser(bridge, platform):
         await browser.close()
 
 
-# -- CAD-Zugang der Module ---------------------------------------------
+# -- The modules' CAD access -------------------------------------------
 
 
 async def test_modul_liest_ueber_das_backend(bridge, platform):
@@ -237,21 +237,21 @@ async def test_modul_schreibt_mit_eigener_request_id(bridge, platform):
 
 
 async def test_modul_erkennt_das_echo_seiner_eigenen_aenderung(bridge, platform):
-    """Grundlage jeder Synchronisation in beide Richtungen: sonst Ping-Pong."""
+    """Foundation of any bidirectional synchronization: otherwise ping-pong."""
     await wait_for(lambda: platform.state.bridge.state == "ok")
     await platform.post("/api/projects/rec/activate")
     _, body = await platform.post("/api/projects/rec/write")
     await bridge.push([
         {"type": "cad.changed", "doc": "Doc", "obj": "Box", "origin": "bridge:" + body["request_id"]},
         {"type": "cad.changed", "doc": "Doc", "obj": "Box", "origin": "freecad:user"},
-        {"type": "cad.changed", "doc": "Doc", "obj": "Box", "origin": "bridge:fremder-browser"},
+        {"type": "cad.changed", "doc": "Doc", "obj": "Box", "origin": "bridge:other-browser"},
     ])
     await wait_for(lambda: len(module(platform, "rec").own) == 3)
     assert module(platform, "rec").own == [True, False, False]
 
 
 async def test_cad_fehler_kommen_typisiert_beim_modul_an(platform):
-    """Ohne Bruecke: CadError statt einer rohen Exception."""
+    """Without a bridge: CadError instead of a raw exception."""
     from app.projects.base import CadError
 
     try:
@@ -259,22 +259,22 @@ async def test_cad_fehler_kommen_typisiert_beim_modul_an(platform):
     except CadError as exc:
         assert exc.status == 503 and exc.code == "bridge_unconfigured"
     else:
-        raise AssertionError("CadError erwartet")
+        raise AssertionError("CadError expected")
 
 
 
-# -- M8: Vorgaenge ueber ctx.cad ---------------------------------------
+# -- M8: transactions via ctx.cad --------------------------------------
 
 
 async def test_transaction_sendet_genau_einen_vorgang(bridge, platform):
     await wait_for(lambda: platform.state.bridge.state == "ok")
     cad = module(platform, "rec").ctx.cad
-    async with cad.transaction("Doc", "BDS: Motor anlegen") as tx:
-        m = tx.create("Part::Box", name="Motor", group="Antrieb", props={"Length": "40 mm"})
+    async with cad.transaction("Doc", "BDS: create motor") as tx:
+        m = tx.create("Part::Box", name="Motor", group="Drive", props={"Length": "40 mm"})
         tx.add_property(m, "App::PropertyString", "SysMLId", value="elem-1", group="SysML")
-        tx.set_cells("Params", {"A1": "40 mm"}, aliases={"A1": "motor_laenge"})
-        tx.set_expression(m, "Length", "Params.motor_laenge")
-        tx.patch("Zylinder", {"Radius": "5 mm"}, if_match=3)
+        tx.set_cells("Params", {"A1": "40 mm"}, aliases={"A1": "motor_length"})
+        tx.set_expression(m, "Length", "Params.motor_length")
+        tx.patch("Cylinder", {"Radius": "5 mm"}, if_match=3)
     assert len(bridge.operations) == 1
     sent = bridge.operations[0]
     assert sent["request_id"].startswith("rec:")
@@ -282,7 +282,7 @@ async def test_transaction_sendet_genau_einen_vorgang(bridge, platform):
     assert [op["op"] for op in ops] == ["create", "add_property", "set_cells", "set_expression", "patch"]
     assert ops[1]["obj"] == ops[3]["obj"] == "$" + ops[0]["as"]
     assert ops[4]["if_match"] == 3
-    assert sent["body"]["name"] == "BDS: Motor anlegen"
+    assert sent["body"]["name"] == "BDS: create motor"
     assert isinstance(m, Ref) and tx.result.name(m) == "Motor"
 
 
@@ -292,7 +292,7 @@ async def test_exception_im_block_sendet_nichts(bridge, platform):
     with pytest.raises(RuntimeError):
         async with cad.transaction("Doc") as tx:
             tx.create("Part::Box")
-            raise RuntimeError("Abbruch im eigenen Code")
+            raise RuntimeError("Abort in own code")
     assert bridge.operations == []
     assert tx.result is None
 
@@ -311,20 +311,20 @@ async def test_fehler_nennt_die_operation(bridge, platform):
 async def test_kurzformen(bridge, platform):
     await wait_for(lambda: platform.state.bridge.state == "ok")
     cad = module(platform, "rec").ctx.cad
-    assert await cad.create("Doc", "Part::Sphere", "Kugel") == "Kugel"
-    await cad.delete("Doc", "Kugel", force=True)
-    assert bridge.operations[-1]["body"]["ops"] == [{"op": "delete", "obj": "Kugel", "force": True}]
+    assert await cad.create("Doc", "Part::Sphere", "Sphere") == "Sphere"
+    await cad.delete("Doc", "Sphere", force=True)
+    assert bridge.operations[-1]["body"]["ops"] == [{"op": "delete", "obj": "Sphere", "force": True}]
     cells = await cad.cells("Doc", "Params", "A1:B2")
-    assert cells["range"] == "A1:B2" and cells["cells"]["A1"]["alias"] == "laenge"
+    assert cells["range"] == "A1:B2" and cells["cells"]["A1"]["alias"] == "length"
 
 
 async def test_echo_eines_vorgangs_ist_eigen(bridge, platform):
     await wait_for(lambda: platform.state.bridge.state == "ok")
     await platform.post("/api/projects/rec/activate")
     rec = module(platform, "rec")
-    await rec.ctx.cad.create("Doc", "Part::Box", "Neu")
+    await rec.ctx.cad.create("Doc", "Part::Box", "New")
     request_id = bridge.operations[-1]["request_id"]
-    await bridge.push([{"type": "cad.created", "doc": "Doc", "obj": "Neu", "origin": "bridge:" + request_id}])
+    await bridge.push([{"type": "cad.created", "doc": "Doc", "obj": "New", "origin": "bridge:" + request_id}])
     await wait_for(lambda: rec.own)
     assert rec.own == [True]
 

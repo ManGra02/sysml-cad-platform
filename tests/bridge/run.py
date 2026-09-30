@@ -1,15 +1,15 @@
-"""Einstiegspunkt der Bruecken-Tests.
+"""Entry point for the bridge tests.
 
-Aufruf:
+Usage:
     PYTHONNOUSERSITE=1 "<FreeCAD>/bin/python.exe" tests/bridge/run.py
 
-WARUM NICHT ``freecadcmd -t``: das druckt "FAILED (errors=1)" und liefert
-trotzdem Exit-Code 0. Eine CI darauf waere dauerhaft gruen. Hier wird der
-Exit-Code explizit aus dem Ergebnis gebildet.
+WHY NOT ``freecadcmd -t``: it prints "FAILED (errors=1)" and still returns
+exit code 0. A CI built on that would be permanently green. Here the exit
+code is derived explicitly from the result.
 
-WARUM NICHT pytest: in FreeCADs Python ist pytest nicht installiert, und in
-FreeCADs Python wird nichts installiert. aiohttp.test_utils und stdlib-unittest
-reichen vollstaendig.
+WHY NOT pytest: pytest is not installed in FreeCAD's Python, and nothing gets
+installed into FreeCAD's Python. aiohttp.test_utils and stdlib unittest are
+entirely sufficient.
 """
 
 import os
@@ -30,8 +30,8 @@ def main():
         import FreeCAD
     except ImportError:
         sys.stderr.write(
-            "FreeCAD ist nicht importierbar.\n"
-            "Diese Tests muessen mit FreeCADs gebuendeltem Python laufen:\n"
+            "FreeCAD cannot be imported.\n"
+            "These tests must run with FreeCAD's bundled Python:\n"
             '  "<FreeCAD>/bin/python.exe" tests/bridge/run.py\n'
         )
         return 2

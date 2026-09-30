@@ -1,8 +1,9 @@
-"""M3: Schreiben -- Rundreise, Atomaritaet, Undo, ehrliche Fehler.
+"""M3: Writing -- round trip, atomicity, undo, honest errors.
 
-Die Tests pruefen genau die Zusagen, die an FreeCADs Transaktionsmodell leicht
-lautlos scheitern: ein PATCH ist genau ein Undo; ein Teilfehler rollt alles
-zurueck; ohne Undo wird abgewiesen statt Atomaritaet vorzutaeuschen.
+The tests check exactly the guarantees that easily fail silently with
+FreeCAD's transaction model: a PATCH is exactly one undo; a partial failure
+rolls everything back; without undo, writes are rejected instead of faking
+atomicity.
 """
 
 import unittest
@@ -52,7 +53,7 @@ def close_document():
 
 
 class RoundTripTest(unittest.TestCase):
-    """Was gelesen wird, laesst sich unveraendert zurueckschreiben."""
+    """What is read can be written back unchanged."""
 
     def setUp(self):
         self.doc = build_document()
@@ -104,15 +105,15 @@ class PatchSemanticsTest(unittest.TestCase):
 
         self.doc.undo()
         self.assertEqual(self.box.Length.Value, 30.0)
-        self.assertEqual(self.box.Width.Value, 20.0, "Undo muss BEIDE Felder zuruecknehmen")
+        self.assertEqual(self.box.Width.Value, 20.0, "undo must revert BOTH fields")
 
     def test_gleicher_wert_ist_ein_no_op(self):
-        """FreeCAD legt fuer einen unveraenderten Wert keine Transaktion an."""
+        """FreeCAD does not create a transaction for an unchanged value."""
         result = writes.patch_object(DOC_NAME, "Box", {"Length": "30 mm"})
         self.assertFalse(result["changed"])
         self.assertEqual(result["recomputed"], 0)
-        self.assertEqual(result["rev"], 0, "ohne Aenderung keine neue Revision")
-        self.assertEqual(self.doc.UndoCount, 0, "kein leerer Undo-Eintrag")
+        self.assertEqual(result["rev"], 0, "no change, no new revision")
+        self.assertEqual(self.doc.UndoCount, 0, "no empty undo entry")
         self.assertIsNone(FreeCAD.getActiveTransaction())
 
     def test_unveraenderte_felder_werden_uebersprungen(self):
@@ -154,7 +155,7 @@ class PatchSemanticsTest(unittest.TestCase):
 
 
 class RejectionTest(unittest.TestCase):
-    """Abgewiesen wird VOR dem ersten Schreibzugriff -- nichts wird angefasst."""
+    """Rejection happens BEFORE the first write -- nothing is touched."""
 
     def setUp(self):
         self.doc = build_document()
@@ -168,24 +169,32 @@ class RejectionTest(unittest.TestCase):
         self.assertEqual(self.doc.UndoCount, 0)
 
     def test_falsche_einheit(self):
-        with self.assertRaises(properties.InvalidValue):
+        with self.assertRaises(properties.InvalidValue) as ctx:
             writes.patch_object(DOC_NAME, "Box", {"Length": "3 kg"})
         self.assert_untouched()
+        # Machine-readable, so the UI can translate the message.
+        self.assertEqual(
+            ctx.exception.detail,
+            {"field": "Length", "reason": "unit_mismatch", "expected": "Length"},
+        )
 
     def test_unparsbarer_text(self):
-        with self.assertRaises(properties.InvalidValue):
+        with self.assertRaises(properties.InvalidValue) as ctx:
             writes.patch_object(DOC_NAME, "Box", {"Length": "abc"})
         self.assert_untouched()
+        self.assertEqual(ctx.exception.detail["reason"], "quantity_invalid")
 
     def test_ein_ungueltiges_feld_blockiert_alle(self):
         with self.assertRaises(properties.InvalidValue):
             writes.patch_object(DOC_NAME, "Box", {"Width": "5 mm", "Length": "3 kg"})
-        self.assertEqual(self.box.Width.Value, 20.0, "Width darf nicht vorab geschrieben sein")
+        self.assertEqual(self.box.Width.Value, 20.0, "Width must not have been written beforehand")
         self.assert_untouched()
 
     def test_mehrere_ungueltige_felder_werden_gesammelt(self):
         with self.assertRaises(writes.InvalidPatch) as ctx:
             writes.patch_object(DOC_NAME, "Box", {"Width": "x", "Length": "3 kg"})
+        reasons = {entry["field"]: entry["reason"] for entry in ctx.exception.detail}
+        self.assertEqual(reasons, {"Width": "quantity_invalid", "Length": "unit_mismatch"})
         self.assertEqual(len(ctx.exception.detail), 2)
 
     def test_shape_ist_nicht_schreibbar(self):
@@ -211,7 +220,7 @@ class RejectionTest(unittest.TestCase):
             writes.patch_object(DOC_NAME, "Box", {})
 
     def test_fremde_offene_transaktion(self):
-        """Sonst landete unsere Aenderung in der Undo-Einheit des Nutzers."""
+        """Otherwise our change would end up in the user's undo unit."""
         FreeCAD.setActiveTransaction("Nutzerbefehl")
         try:
             with self.assertRaises(CadBusyError) as ctx:
@@ -222,7 +231,7 @@ class RejectionTest(unittest.TestCase):
         self.assertEqual(self.box.Length.Value, 30.0)
 
     def test_ohne_undo_wird_abgewiesen(self):
-        """Bei UndoMode 0 waere ein Abbruch wirkungslos -- also gar nicht erst schreiben."""
+        """With UndoMode 0 an abort would have no effect -- so do not write at all."""
         original = documents.ensure_undo_enabled
         documents.ensure_undo_enabled = lambda doc: False
         self.doc.UndoMode = 0
@@ -235,7 +244,7 @@ class RejectionTest(unittest.TestCase):
         self.assertEqual(self.box.Length.Value, 30.0)
 
     def test_undo_mode_wird_nachgezogen(self):
-        """Vom Nutzer geoeffnete Dokumente haben oft UndoMode 0."""
+        """Documents opened by the user often have UndoMode 0."""
         self.doc.UndoMode = 0
         result = writes.patch_object(DOC_NAME, "Box", {"Length": "40 mm"})
         self.assertTrue(result["atomic"])
@@ -243,7 +252,7 @@ class RejectionTest(unittest.TestCase):
 
 
 class RollbackTest(unittest.TestCase):
-    """Scheitert ein Wert MITTEN im Schreiben, wird alles zurueckgerollt."""
+    """If a value fails IN THE MIDDLE of writing, everything is rolled back."""
 
     def setUp(self):
         self.doc = build_document()
@@ -257,7 +266,7 @@ class RollbackTest(unittest.TestCase):
 
         def sabotage(obj, name, payload):
             if name == "Length":
-                return "kein gueltiger Wert"  # setattr wirft erst in der Transaktion
+                return "kein gueltiger Wert"  # setattr only raises inside the transaction
             return original(obj, name, payload)
 
         properties.decode_for_write = sabotage
@@ -268,9 +277,9 @@ class RollbackTest(unittest.TestCase):
             properties.decode_for_write = original
 
         self.assertTrue(ctx.exception.detail["rolledBack"])
-        self.assertEqual(self.box.Width.Value, 20.0, "Width muss zurueckgerollt sein")
-        self.assertEqual(self.doc.UndoCount, 0, "Kein halber Undo-Eintrag")
-        self.assertIsNone(FreeCAD.getActiveTransaction(), "Transaktion muss geschlossen sein")
+        self.assertEqual(self.box.Width.Value, 20.0, "Width must be rolled back")
+        self.assertEqual(self.doc.UndoCount, 0, "No half undo entry")
+        self.assertIsNone(FreeCAD.getActiveTransaction(), "Transaction must be closed")
 
 
 class ReplayTest(unittest.TestCase):
@@ -289,7 +298,7 @@ class ReplayTest(unittest.TestCase):
 
 
 class IfMatchTest(unittest.TestCase):
-    """M6: optimistische Sperre -- ein Konflikt wird sichtbar statt ueberschrieben."""
+    """M6: optimistic locking -- a conflict becomes visible instead of being overwritten."""
 
     def setUp(self):
         self.doc = build_document()
@@ -311,7 +320,7 @@ class IfMatchTest(unittest.TestCase):
         self.assertEqual(self.doc.UndoCount, 1)
         detail = caught.exception.detail
         self.assertEqual((detail["expected"], detail["current"]), (0, 1))
-        # Der aktuelle Stand reist mit -- die UI braucht keinen zweiten Request.
+        # The current state travels along -- the UI needs no second request.
         length = [p for p in detail["object"]["properties"] if p["name"] == "Length"][0]
         self.assertEqual(length["value"]["value"], 41.0)
 
@@ -321,7 +330,7 @@ class IfMatchTest(unittest.TestCase):
         self.assertEqual(self.box.Length.Value, 42.0)
 
     def test_replay_gewinnt_vor_der_pruefung(self):
-        """Ein Retry nach Erfolg traegt den alten rev -- er darf nicht als Konflikt enden."""
+        """A retry after success carries the old rev -- it must not end as a conflict."""
         first = writes.patch_object(DOC_NAME, "Box", {"Length": "43 mm"}, request_id="im-1", if_match=0)
         again = writes.patch_object(DOC_NAME, "Box", {"Length": "43 mm"}, request_id="im-1", if_match=0)
         self.assertTrue(again["replayed"])
@@ -350,9 +359,9 @@ class RecomputeErrorTest(unittest.TestCase):
         close_document()
 
     def test_fehlerhaftes_feature_erscheint_in_errors(self):
-        """Sonst meldete die Bruecke 200, waehrend ein Feature ungueltig ist."""
+        """Otherwise the bridge would report 200 while a feature is invalid."""
         cut = self.doc.getObject("Schnitt")
-        cut.Tool = None  # ein Cut ohne Werkzeug ist ungueltig
+        cut.Tool = None  # a Cut without a tool is invalid
         result = writes.recompute_document(DOC_NAME)
         names = [e["name"] for e in result["errors"]]
         self.assertIn("Schnitt", names)

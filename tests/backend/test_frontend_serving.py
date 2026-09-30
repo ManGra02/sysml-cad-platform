@@ -1,4 +1,4 @@
-"""M9: Auslieferung der gebauten Oberflaeche durch das Backend."""
+"""M9: serving the built UI from the backend."""
 
 import pytest_asyncio
 
@@ -27,7 +27,7 @@ def build(static, marker="v1"):
 async def test_ohne_build_hinweisseite_und_status(served):
     async with served.http.get(served.url + "/") as response:
         assert response.status == 200
-        assert "noch nicht gebaut" in await response.text()
+        assert "has not been built yet" in await response.text()
     _, status = await served.get("/api/status")
     assert status["frontend"] == {"built": False, "builtAt": None}
 
@@ -38,7 +38,7 @@ async def test_fehlende_assets_sind_404_nicht_500(served):
 
 
 async def test_build_ohne_neustart_ausgeliefert(served):
-    """pnpm build bei laufendem Backend -- die neue Oberflaeche ist sofort da."""
+    """pnpm build while the backend is running -- the new UI is available immediately."""
     async with served.http.get(served.url + "/assets/index-v1.js") as response:
         assert response.status == 404
     build(served.static)
@@ -63,7 +63,7 @@ async def test_cache_regeln(served):
 
 async def test_assets_bleiben_im_verzeichnis(served):
     build(served.static)
-    (served.static / "geheim.txt").write_text("nicht ausliefern", encoding="utf-8")
-    for path in ("/assets/../geheim.txt", "/assets/..%2Fgeheim.txt", "/assets/%2e%2e/geheim.txt"):
+    (served.static / "secret.txt").write_text("do not serve", encoding="utf-8")
+    for path in ("/assets/../secret.txt", "/assets/..%2Fsecret.txt", "/assets/%2e%2e/secret.txt"):
         async with served.http.get(served.url + path) as response:
-            assert "nicht ausliefern" not in await response.text(), path
+            assert "do not serve" not in await response.text(), path

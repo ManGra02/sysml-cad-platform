@@ -1,1 +1,1 @@
-"""FreeCAD-spezifische Oberflaeche des Addons (Workbench, Befehle, Dock-Panel)."""
+"""FreeCAD-specific UI of the addon (workbench, commands, dock panel)."""

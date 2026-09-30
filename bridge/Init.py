@@ -1,2 +1,2 @@
-# Konsolen-Phase (App). Die Bruecke braucht die GUI, daher hier bewusst nichts.
-# Siehe InitGui.py.
+# Console phase (App). The bridge needs the GUI, so deliberately nothing here.
+# See InitGui.py.

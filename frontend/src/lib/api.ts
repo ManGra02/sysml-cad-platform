@@ -1,5 +1,5 @@
-// Der einzige Weg des Browsers nach draussen: das Backend, same-origin.
-// Der Browser kennt die Bruecke nicht und sieht nie ihr Token.
+// The browser's only way out: the backend, same-origin.
+// The browser doesn't know about the bridge and never sees its token.
 
 export class ApiError extends Error {
   readonly status: number
@@ -30,12 +30,12 @@ export type RequestOptions = {
   signal?: AbortSignal
 }
 
-/** Pro Mutation eine eigene ID: sie macht Wiederholungen idempotent und das Echo erkennbar. */
+/** A separate ID per mutation: it makes retries idempotent and the echo recognizable. */
 export function newRequestId(): string {
   return crypto.randomUUID()
 }
 
-/** Pfadsegmente IMMER kodieren: Objektnamen duerfen beliebiges Unicode enthalten. */
+/** ALWAYS encode path segments: object names may contain arbitrary Unicode. */
 export function seg(value: string): string {
   return encodeURIComponent(value)
 }
@@ -66,7 +66,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     })
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") throw error
-    throw new ApiError(0, "backend_unreachable", "Backend nicht erreichbar", undefined, options.requestId)
+    throw new ApiError(0, "backend_unreachable", "Backend not reachable", undefined, options.requestId)
   }
 
   const text = await response.text()
@@ -92,7 +92,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   return payload as T
 }
 
-/** Fehler, bei denen eine Wiederholung nichts aendert (4xx) -- nicht automatisch neu versuchen. */
+/** Errors where a retry changes nothing (4xx) -- don't retry automatically. */
 export function isFinal(error: unknown): boolean {
   return error instanceof ApiError && error.status >= 400 && error.status < 500
 }

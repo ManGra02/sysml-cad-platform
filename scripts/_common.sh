@@ -1,14 +1,14 @@
-# Gemeinsame Helfer der Shell-Skripte (per "source" eingebunden).
+# Shared helpers for the shell scripts (included via "source").
 
-# Das user-site schattet FreeCADs gebuendelte Pakete.
+# The user site shadows FreeCAD's bundled packages.
 export PYTHONNOUSERSITE=1
-# Zeigt OPENSSL_CONF auf eine fehlende Datei, brechen node und pnpm ab.
+# If OPENSSL_CONF points to a missing file, node and pnpm abort.
 if [ -n "${OPENSSL_CONF:-}" ] && [ ! -f "$OPENSSL_CONF" ]; then unset OPENSSL_CONF; fi
-# corepack soll die in package.json festgelegte pnpm-Version ohne Rueckfrage holen.
+# corepack should fetch the pnpm version pinned in package.json without prompting.
 export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
-# pnpm >= 10, passend zum Lockfile (v9). Ein aelteres pnpm wuerde das Lockfile
-# still neu aufloesen -- dann nimmt corepack genau die Version aus "packageManager".
+# pnpm >= 10, matching the lockfile (v9). An older pnpm would silently re-resolve the
+# lockfile -- in that case corepack uses exactly the version from "packageManager".
 pnpm_cmd() {
   local major=0
   if command -v pnpm >/dev/null 2>&1; then
@@ -20,7 +20,7 @@ pnpm_cmd() {
   elif command -v corepack >/dev/null 2>&1; then
     corepack pnpm "$@"
   else
-    echo "pnpm >= 10 wird gebraucht (gefunden: $major). Installieren: npm install -g pnpm@10" >&2
+    echo "pnpm >= 10 is required (found: $major). Install: npm install -g pnpm@10" >&2
     return 1
   fi
 }

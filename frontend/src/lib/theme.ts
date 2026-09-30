@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react"
 
-// Hell/Dunkel/System, gemerkt im localStorage. Bewusst ohne Zusatzpaket.
+// Light/dark/system, remembered in localStorage. Deliberately without an extra package.
 
 export type Theme = "light" | "dark" | "system"
 
@@ -38,7 +38,7 @@ export function setTheme(theme: Theme) {
     if (theme === "system") localStorage.removeItem(STORAGE_KEY)
     else localStorage.setItem(STORAGE_KEY, theme)
   } catch {
-    // ohne Speicher gilt die Wahl nur fuer diese Sitzung
+    // without storage the choice only applies to this session
   }
   apply()
 }

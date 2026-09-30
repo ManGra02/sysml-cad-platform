@@ -5,16 +5,21 @@ import {
   OctagonXIcon,
   TriangleAlertIcon,
 } from "lucide-react"
+import { useTranslation } from "react-i18next"
+
 import { useTheme } from "@/lib/theme"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme } = useTheme()
+  const { t } = useTranslation()
 
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      containerAriaLabel={t("common.notifications")}
+      toastOptions={{ closeButtonAriaLabel: t("common.close") }}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,

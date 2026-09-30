@@ -1,1 +1,1 @@
-"""Plattform-Backend. Importiert FreeCAD nie."""
+"""Platform backend. Never imports FreeCAD."""

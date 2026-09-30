@@ -1,1 +1,1 @@
-"""Projektmodule -- siehe base.py (was ein Modul ist) und registry.py (welche es gibt)."""
+"""Project modules -- see base.py (what a module is) and registry.py (which ones exist)."""

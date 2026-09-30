@@ -1,18 +1,18 @@
-"""M5-Abnahme: echte Bruecke, echtes Backend, simulierter Browser.
+"""M5 acceptance: real bridge, real backend, simulated browser.
 
     cd backend
     uv run python ../scripts/e2e/m5_acceptance.py
 
-Der Ablauf aus dem Plan -- M5 gilt erst dann als erreicht:
-    Bruecke stoppen -> in FreeCAD drei Objekte anlegen -> Bruecke starten
-    -> der Browser ist aktuell, OHNE neu zu laden.
+The flow from the plan -- only then is M5 considered achieved:
+    stop the bridge -> create three objects in FreeCAD -> start the bridge
+    -> the browser is up to date WITHOUT reloading.
 
-Dazu kommen die Wege, die das Zusammenspiel aller drei Teile zeigen:
-Aenderung in FreeCAD erreicht den Browser; PATCH aus dem Browser erreicht
-FreeCAD und kommt als eigenes Echo zurueck.
+Plus the paths that show all three parts working together:
+a change in FreeCAD reaches the browser; a PATCH from the browser reaches
+FreeCAD and comes back as our own echo.
 
-Voraussetzung: Ports 8000 und 8765 frei (FreeCAD mit laufender Bruecke vorher
-beenden) und FreeCAD 1.1 unter dem ueblichen Pfad oder in FREECAD_PYTHON.
+Prerequisite: ports 8000 and 8765 free (quit FreeCAD with a running bridge
+first) and FreeCAD 1.1 at the usual path or in FREECAD_PYTHON.
 """
 
 import asyncio
@@ -42,10 +42,10 @@ results = []
 
 
 def replace_with_retry(src, dst, attempts=50):
-    """os.replace mit Wiederholung.
+    """os.replace with retries.
 
-    Windows verweigert das Ersetzen, solange der andere Prozess die Zieldatei
-    gerade zum Lesen offen hat -- ein Harness-Detail, keines der Plattform.
+    Windows refuses the replace while the other process has the target file
+    open for reading -- a harness detail, not one of the platform.
     """
     for _ in range(attempts):
         try:
@@ -61,7 +61,7 @@ def check(name, condition, info=""):
 
 
 class FreeCADProcess:
-    """Steuert freecad_driver.py ueber Befehlsdateien."""
+    """Controls freecad_driver.py via command files."""
 
     def __init__(self):
         self.dir = tempfile.mkdtemp(prefix="e2e_m5_")
@@ -90,7 +90,7 @@ class FreeCADProcess:
             except (OSError, ValueError, KeyError):
                 pass
             await asyncio.sleep(0.05)
-        raise TimeoutError("FreeCAD antwortet nicht auf %r" % command)
+        raise TimeoutError("FreeCAD does not respond to %r" % command)
 
     def kill(self):
         if self.process.poll() is None:
@@ -116,7 +116,7 @@ async def main():
     frames = []
     session = aiohttp.ClientSession(headers=ORIGIN)
     try:
-        print("\n[1] FreeCAD starten, Bruecke starten, Dokument anlegen")
+        print("\n[1] Start FreeCAD, start the bridge, create a document")
         await freecad.run("start")
         await freecad.run("newdoc")
 
@@ -139,7 +139,7 @@ async def main():
             return states[-1] if states else None
 
         ok = await wait_for(lambda: bridge_state() == "ok")
-        check("Browser sieht Bruecke als verbunden", ok, bridge_state())
+        check("Browser sees the bridge as connected", ok, bridge_state())
 
         async def tree_count():
             async with session.get(BACKEND + "/api/cad/documents/%s/tree" % DOC) as response:
@@ -147,50 +147,50 @@ async def main():
                 return response.status, len(body.get("nodes", {}))
 
         status, before = await tree_count()
-        check("Baum ueber das Backend lesbar", status == 200, "%d Objekte" % before)
+        check("Tree readable via the backend", status == 200, "%d objects" % before)
 
-        print("\n[2] Aenderung in FreeCAD erreicht den Browser")
+        print("\n[2] A change in FreeCAD reaches the browser")
         await freecad.run("set Box Length 55")
         got = await wait_for(lambda: [e for e in events("cad.changed")
                                       if e.get("obj") == "Box" and e["origin"] == "freecad:user"])
-        check("cad.changed mit Herkunft freecad:user", got)
+        check("cad.changed with origin freecad:user", got)
 
-        print("\n[3] PATCH aus dem Browser erreicht FreeCAD")
+        print("\n[3] A PATCH from the browser reaches FreeCAD")
         async with session.patch(BACKEND + "/api/cad/documents/%s/objects/Box" % DOC,
                                  json={"Length": "66 mm"},
                                  headers={"X-Request-Id": "e2e-1"}) as response:
             patch_body = await response.json()
-        check("PATCH erfolgreich", response.status == 200 and patch_body.get("atomic"), patch_body.get("applied"))
+        check("PATCH successful", response.status == 200 and patch_body.get("atomic"), patch_body.get("applied"))
         value = await freecad.run("get Box Length")
-        check("Wert in FreeCAD gesetzt", value == 66.0, value)
+        check("Value set in FreeCAD", value == 66.0, value)
         echo = await wait_for(lambda: [e for e in events("cad.changed") if e["origin"] == "bridge:e2e-1"])
-        check("eigenes Echo erkennbar (bridge:e2e-1)", echo)
+        check("own echo recognizable (bridge:e2e-1)", echo)
         echo_rev = [e["rev"] for e in events("cad.changed")
                     if e["origin"] == "bridge:e2e-1" and e["obj"] == "Box"]
-        check("Antwort und Ereignis tragen dieselbe Revision",
+        check("Response and event carry the same revision",
               echo_rev and echo_rev[-1] == patch_body.get("rev"), (echo_rev, patch_body.get("rev")))
 
-        print("\n[4] ABNAHME: Bruecke stoppen -> 3 Objekte anlegen -> Bruecke starten")
+        print("\n[4] ACCEPTANCE: stop the bridge -> create 3 objects -> start the bridge")
         await freecad.run("stop")
         down = await wait_for(lambda: bridge_state() in ("unreachable", "unconfigured"))
-        check("Browser erfaehrt: Bruecke weg", down, bridge_state())
+        check("Browser learns: bridge gone", down, bridge_state())
 
         async with session.get(BACKEND + "/api/status") as response:
-            check("Backend laeuft weiter", response.status == 200)
+            check("Backend keeps running", response.status == 200)
 
         count = await freecad.run("add 3")
-        check("drei Objekte in FreeCAD angelegt (ohne Bruecke)", count == before + 3, count)
+        check("three objects created in FreeCAD (without bridge)", count == before + 3, count)
 
         resyncs_before = len(events("cad.resync"))
         await freecad.run("start")
         back = await wait_for(lambda: bridge_state() == "ok", timeout=15)
-        check("Backend verbindet sich selbst neu", back)
+        check("Backend reconnects on its own", back)
         resynced = await wait_for(lambda: len(events("cad.resync")) > resyncs_before)
         reason = events("cad.resync")[-1]["reason"] if events("cad.resync") else None
-        check("Browser bekommt cad.resync", resynced, reason)
+        check("Browser receives cad.resync", resynced, reason)
 
         status, after = await tree_count()
-        check("Browser sieht alle drei neuen Objekte -- ohne Neuladen",
+        check("Browser sees all three new objects -- without reloading",
               after == before + 3, "%d -> %d" % (before, after))
 
         collector.cancel()

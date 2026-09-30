@@ -1,7 +1,7 @@
-// Das Wertformat der Bruecke, gespiegelt aus bridge/cad_contract/types.py.
-// Eine Aenderung dort bumpt CONTRACT_VERSION -- dann auch hier nachziehen.
+// The bridge's value format, mirrored from bridge/cad_contract/types.py.
+// A change there bumps CONTRACT_VERSION -- then update this file as well.
 
-/** Der EINZIGE Schluessel fuer ein Objekt: (doc.Name, obj.Name). Nie das Label. */
+/** The ONLY key for an object: (doc.Name, obj.Name). Never the label. */
 export type ObjRef = { doc: string; name: string; subs?: string[] }
 
 export type Quantity = {
@@ -54,7 +54,7 @@ export type PropertyValue =
 export type PropertyEntry = {
   name: string
   typeId: string
-  /** encoded: editierbares Format · derived: abgeleitet (Shape) · unsupported: vorhanden, nicht darstellbar */
+  /** encoded: editable format · derived: derived (Shape) · unsupported: present, not representable */
   status: "encoded" | "derived" | "unsupported"
   value: PropertyValue
   group: string | null
@@ -62,7 +62,7 @@ export type PropertyEntry = {
   flags: string[]
   writable: boolean
   dynamic: boolean
-  /** gebunden -> ein literaler Wert wuerde beim naechsten Recompute verworfen */
+  /** bound -> a literal value would be discarded on the next recompute */
   expression: string | null
 }
 
@@ -117,7 +117,7 @@ export type DocumentInfo = {
   label: string
   fileName: string | null
   saved: boolean
-  /** nur mit laufender FreeCAD-Oberflaeche bekannt */
+  /** only known while the FreeCAD GUI is running */
   modified: boolean | null
   objectCount: number
   undoCount: number | null
@@ -132,6 +132,9 @@ export type BridgeState = "unconfigured" | "unreachable" | "busy" | "ok"
 
 export type BridgeStatus = {
   state: BridgeState
+  /** machine-readable reason (the UI translates it), e.g. "orphaned_handshake" */
+  reason: string | null
+  /** plain English text -- fallback for unknown reasons */
   detail: string | null
   session_id: string | null
   last_seq: number | null
@@ -174,7 +177,7 @@ export type CadEvent = {
   [key: string]: unknown
 }
 
-/** detail einer 409 rev_mismatch-Antwort (cad_contract 0.4.0). */
+/** detail of a 409 rev_mismatch response (cad_contract 0.4.0). */
 export type RevisionConflictDetail = {
   expected: number
   current: number

@@ -3,9 +3,9 @@
 *.bat eol=crlf
 *.sh eol=lf
 
-# Generiert -- bei Konflikt loeschen und neu erzeugen, nie von Hand mergen
+# Generated -- on conflict delete and regenerate, never merge by hand
 frontend/src/routeTree.gen.ts linguist-generated -merge
 
-# Binaerformat
+# Binary format
 *.FCStd binary
 *.svg text

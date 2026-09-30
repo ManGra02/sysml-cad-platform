@@ -1,12 +1,12 @@
-"""Testaufbau fuer das Backend -- ganz ohne FreeCAD.
+"""Test setup for the backend -- entirely without FreeCAD.
 
-Eine nachgebaute Bruecke (MockBridge) spricht dasselbe Protokoll wie die echte:
-Token im Authorization-Header, hello beim WebSocket-Verbinden, gebuendelte
-Ereignisse mit monotoner seq, Handshake-Datei mit PID. Das Backend laeuft als
-echter uvicorn-Server im selben Event-Loop.
+A mock bridge (MockBridge) speaks the same protocol as the real one:
+token in the Authorization header, hello on WebSocket connect, batched
+events with a monotonic seq, handshake file with PID. The backend runs as a
+real uvicorn server in the same event loop.
 
-Dass das Backend so vollstaendig ohne FreeCAD testbar ist, ist der praktische
-Beweis der Entkopplung.
+That the backend can be tested this completely without FreeCAD is the
+practical proof of the decoupling.
 """
 
 import asyncio
@@ -41,11 +41,11 @@ async def wait_for(condition, timeout=5.0, interval=0.02):
         if condition():
             return True
         await asyncio.sleep(interval)
-    raise AssertionError("Bedingung nicht innerhalb von %.1fs erfuellt" % timeout)
+    raise AssertionError("Condition not met within %.1fs" % timeout)
 
 
 class MockBridge:
-    """Verhaelt sich nach aussen wie freecad_bridge."""
+    """Behaves like freecad_bridge from the outside."""
 
     def __init__(self, handshake_path):
         self.handshake_path = handshake_path
@@ -59,7 +59,7 @@ class MockBridge:
         self._ws = set()
         self._runner = None
 
-    # -- Lebenszyklus -----------------------------------------------------
+    # -- Lifecycle --------------------------------------------------------
 
     async def start(self, new_session=True):
         if new_session:
@@ -104,14 +104,14 @@ class MockBridge:
                 "contract_version": self.contract_version,
             }, handle)
 
-    # -- Ereignisse -------------------------------------------------------
+    # -- Events -----------------------------------------------------------
 
     @property
     def ws_count(self):
         return len(self._ws)
 
     async def push(self, events):
-        """Wie der Hub der echten Bruecke: seq vergeben, ein Frame pro Batch."""
+        """Like the real bridge's hub: assign seq, one frame per batch."""
         stamped = []
         for event in events:
             self.last_seq += 1
@@ -122,7 +122,7 @@ class MockBridge:
         return stamped
 
     def happened_while_nobody_listened(self, count):
-        """Ereignisse, die niemand empfangen hat (Hub ohne Clients verwirft)."""
+        """Events that nobody received (a hub without clients drops them)."""
         self.last_seq += count
 
     # -- Handler ----------------------------------------------------------
@@ -161,13 +161,13 @@ class MockBridge:
         return web.json_response({"status": "done", "recomputed": 3, "errors": []})
 
     async def _operations(self, request):
-        """Wie die echte Bruecke: Platzhalter -> Namen; "fail_at" simuliert einen Fehler."""
+        """Like the real bridge: placeholders -> names; "fail_at" simulates an error."""
         body = await request.json()
         self.operations.append({"body": body, "request_id": request.headers.get("X-Request-Id")})
         for index, op in enumerate(body["ops"]):
             if op.get("name") == "fail":
                 return web.json_response(
-                    {"error": {"code": "invalid_value", "message": "kaputt",
+                    {"error": {"code": "invalid_value", "message": "broken",
                                "detail": {"failedOp": index, "op": op["op"]}}},
                     status=400,
                 )
@@ -183,7 +183,7 @@ class MockBridge:
         return web.json_response({
             "sheet": request.match_info["sheet"],
             "range": request.query.get("range"),
-            "cells": {"A1": {"content": "=40 mm", "value": 40.0, "alias": "laenge"}},
+            "cells": {"A1": {"content": "=40 mm", "value": 40.0, "alias": "length"}},
         })
 
     async def _websocket(self, request):
@@ -205,7 +205,7 @@ class MockBridge:
 
 
 class BrowserClient:
-    """Spielt den Browser: eine WebSocket-Verbindung, sammelt alle Frames."""
+    """Plays the browser: one WebSocket connection, collects all frames."""
 
     def __init__(self, base_url):
         self.base_url = base_url
@@ -244,7 +244,7 @@ class BrowserClient:
 
 @pytest.fixture(autouse=True)
 def state_dir(tmp_path, monkeypatch):
-    """Kein Test schreibt in ~/.sysml-cad-platform des Entwicklers."""
+    """No test writes to the developer's ~/.sysml-cad-platform."""
     path = tmp_path / "state"
     monkeypatch.setenv("PLATFORM_STATE_DIR", str(path))
     return path
@@ -269,7 +269,7 @@ async def bridge(handshake):
 
 @contextlib.asynccontextmanager
 async def running_backend(**create_kwargs):
-    """Echter uvicorn-Server mit dem echten Backend."""
+    """Real uvicorn server with the real backend."""
     from app.main import create_app
 
     app = create_app(**create_kwargs)

@@ -1,28 +1,28 @@
-"""Die Verbindung zur FreeCAD-Bruecke.
+"""The connection to the FreeCAD bridge.
 
-Die Bruecke ist ein Dienst, der kommt und geht: FreeCAD wird geschlossen, neu
-gestartet, die Bruecke im Dock-Panel gestoppt. "Bruecke nicht erreichbar" ist
-deshalb ein NORMALZUSTAND, kein Fehler. Alles, was kein CAD braucht,
-funktioniert weiter.
+The bridge is a service that comes and goes: FreeCAD gets closed, restarted,
+the bridge gets stopped in the dock panel. "Bridge unreachable" is therefore
+a NORMAL STATE, not an error. Everything that doesn't need CAD keeps
+working.
 
-VIER ZUSTAENDE, nicht zwei:
-  unconfigured  keine (gueltige) Handshake-Datei -- FreeCAD laeuft nicht oder
-                die Bruecke wurde nie gestartet
-  unreachable   Handshake-Datei vorhanden, aber niemand antwortet
-  busy          Bruecke antwortet, FreeCAD rechnet gerade (Dispatch-Timeout)
-  ok            verbunden
+FOUR STATES, not two:
+  unconfigured  no (valid) handshake file -- FreeCAD isn't running or the
+                bridge was never started
+  unreachable   handshake file present, but nobody answers
+  busy          bridge answers, FreeCAD is currently computing (dispatch timeout)
+  ok            connected
 
-HANDSHAKE BEI JEDEM VERSUCH NEU LESEN. Die Bruecke erzeugt bei jedem Start ein
-neues Token. Wer die Datei nur einmal liest, verbindet sich nach einem
-FreeCAD-Neustart nie wieder -- genau der Ablauf, den M5 beweisen soll. Ein 401
-ist deshalb Anlass zum Neulesen, nicht zum Aufgeben.
+RE-READ THE HANDSHAKE ON EVERY ATTEMPT. The bridge generates a new token on
+every start. Whoever reads the file only once never reconnects after a
+FreeCAD restart -- exactly the sequence M5 is meant to prove. A 401 is
+therefore a reason to re-read, not to give up.
 
-RESYNC STATT REPLAY. Jedes Ereignis traegt session_id und eine monotone seq.
-Nach jedem (Re-)Connect und bei jedem Batch wird verglichen: neue Sitzung oder
-Luecke in der seq -> der Browser muss alles neu laden. Ein Ereignis-Journal
-gibt es bewusst nicht.
+RESYNC INSTEAD OF REPLAY. Every event carries a session_id and a monotonic seq.
+After every (re)connect and on every batch they are compared: new session or
+gap in the seq -> the browser has to reload everything. There is deliberately
+no event journal.
 
-Das Token der Bruecke verlaesst diesen Prozess NIE -- der Browser sieht es nicht.
+The bridge's token NEVER leaves this process -- the browser doesn't see it.
 """
 
 import asyncio
@@ -48,22 +48,27 @@ _BACKOFF_MAX_S = 5.0
 
 
 class BridgeUnavailable(Exception):
-    """Die Bruecke kann gerade nicht bedient werden."""
+    """The bridge cannot be served right now.
 
-    def __init__(self, state, detail):
+    ``reason`` is machine-readable (the UI translates it),
+    ``detail`` is the English plain-text form.
+    """
+
+    def __init__(self, state, detail, reason=None):
         super().__init__(detail)
         self.state = state
         self.detail = detail
+        self.reason = reason
 
 
 # -- Handshake ----------------------------------------------------------
 
 
 def pid_alive(pid):
-    """Lebt der Prozess noch?
+    """Is the process still alive?
 
-    ACHTUNG Windows: os.kill(pid, 0) ist dort KEINE Probe, sondern ruft
-    TerminateProcess -- das wuerde FreeCAD beenden. Deshalb OpenProcess.
+    CAUTION Windows: os.kill(pid, 0) is NOT a probe there but calls
+    TerminateProcess -- that would kill FreeCAD. Hence OpenProcess.
     """
     try:
         pid = int(pid)
@@ -97,13 +102,13 @@ def pid_alive(pid):
     except ProcessLookupError:
         return False
     except PermissionError:
-        return True  # existiert, gehoert nur jemand anderem
+        return True  # exists, just belongs to someone else
 
 
 def load_target():
-    """(url, token, session_id) der Bruecke -- oder BridgeUnavailable.
+    """(url, token, session_id) of the bridge -- or BridgeUnavailable.
 
-    Wird bei JEDEM Versuch aufgerufen. Kein Caching: das Token rotiert.
+    Called on EVERY attempt. No caching: the token rotates.
     """
     override = config.bridge_override()
     if override is not None:
@@ -115,19 +120,19 @@ def load_target():
         with open(path, "r", encoding="utf-8") as handle:
             data = json.load(handle)
     except FileNotFoundError:
-        raise BridgeUnavailable(UNCONFIGURED, "FreeCAD-Bruecke nicht gestartet")
+        raise BridgeUnavailable(UNCONFIGURED, "FreeCAD bridge not started", "not_started")
     except (OSError, ValueError):
-        raise BridgeUnavailable(UNCONFIGURED, "Handshake-Datei unlesbar: %s" % path)
+        raise BridgeUnavailable(UNCONFIGURED, "Handshake file unreadable: %s" % path, "handshake_unreadable")
 
     if data.get("magic") != HANDSHAKE_MAGIC:
-        raise BridgeUnavailable(UNCONFIGURED, "Handshake-Datei unbekannten Formats")
+        raise BridgeUnavailable(UNCONFIGURED, "Handshake file has an unknown format", "handshake_format")
     if not pid_alive(data.get("pid")):
-        # Verwaist nach einem Absturz: die Datei lebt, FreeCAD nicht.
-        raise BridgeUnavailable(UNCONFIGURED, "FreeCAD-Bruecke nicht gestartet (verwaiste Handshake-Datei)")
+        # Orphaned after a crash: the file lives on, FreeCAD doesn't.
+        raise BridgeUnavailable(UNCONFIGURED, "FreeCAD bridge not started (orphaned handshake file)", "orphaned_handshake")
 
     host = data.get("host") or "127.0.0.1"
     if host not in config.LOOPBACK_HOSTS:
-        raise BridgeUnavailable(UNCONFIGURED, "Bruecke nicht auf Loopback -- abgelehnt")
+        raise BridgeUnavailable(UNCONFIGURED, "Bridge not on loopback -- rejected", "not_loopback")
     return "http://%s:%s" % (host, data["port"]), data["token"], data.get("session_id")
 
 
@@ -143,16 +148,18 @@ class BridgeClient:
         self._running = False
 
         self.state = UNCONFIGURED
-        self.detail = "noch nicht verbunden"
+        self.detail = "not connected yet"
+        self.reason = "not_connected_yet"
         self.session_id = None
         self.last_seq = None
         self.bridge_contract = None
 
-    # -- Zustand --------------------------------------------------------
+    # -- State ----------------------------------------------------------
 
     def status(self):
         return {
             "state": self.state,
+            "reason": self.reason,
             "detail": self.detail,
             "session_id": self.session_id,
             "last_seq": self.last_seq,
@@ -163,14 +170,15 @@ class BridgeClient:
             },
         }
 
-    def _set_state(self, state, detail):
+    def _set_state(self, state, detail, reason=None):
         if state == self.state and detail == self.detail:
             return
         self.state = state
         self.detail = detail
+        self.reason = reason
         self._on_status(self.status())
 
-    # -- Lebenszyklus ---------------------------------------------------
+    # -- Lifecycle ------------------------------------------------------
 
     async def start(self):
         self._running = True
@@ -192,13 +200,13 @@ class BridgeClient:
 
     async def request(self, method, path, *, query=None, body=None, headers=None,
                       timeout=config.READ_TIMEOUT_S):
-        """An die Bruecke weiterreichen. Liefert (status, content_type, bytes).
+        """Forward to the bridge. Returns (status, content_type, bytes).
 
-        Bei 401 wird die Handshake-Datei neu gelesen und EINMAL wiederholt --
-        die Bruecke wurde vermutlich neu gestartet und hat ein neues Token.
+        On 401 the handshake file is re-read and the request retried ONCE --
+        the bridge was probably restarted and has a new token.
         """
         for attempt in (1, 2):
-            url, token, _session_id = load_target()  # wirft BridgeUnavailable
+            url, token, _session_id = load_target()  # raises BridgeUnavailable
             send_headers = {"Authorization": "Bearer %s" % token}
             if headers:
                 send_headers.update(headers)
@@ -215,19 +223,19 @@ class BridgeClient:
                     if response.status == 401 and attempt == 1:
                         continue
                     if response.status == 504:
-                        self._set_state(BUSY, "FreeCAD rechnet gerade")
+                        self._set_state(BUSY, "FreeCAD is computing", "computing")
                     elif self.state == BUSY:
-                        self._set_state(OK, "verbunden")
+                        self._set_state(OK, "connected", "connected")
                     return response.status, response.headers.get("Content-Type"), payload
             except aiohttp.ClientConnectorError:
-                self._set_state(UNREACHABLE, "FreeCAD-Bruecke antwortet nicht")
-                raise BridgeUnavailable(UNREACHABLE, "FreeCAD-Bruecke antwortet nicht")
+                self._set_state(UNREACHABLE, "FreeCAD bridge does not respond", "no_response")
+                raise BridgeUnavailable(UNREACHABLE, "FreeCAD bridge does not respond", "no_response")
             except asyncio.TimeoutError:
-                self._set_state(BUSY, "FreeCAD antwortet nicht rechtzeitig")
-                raise BridgeUnavailable(BUSY, "FreeCAD antwortet nicht rechtzeitig")
-        raise BridgeUnavailable(UNREACHABLE, "Token wird von der Bruecke abgelehnt")
+                self._set_state(BUSY, "FreeCAD does not respond in time", "slow")
+                raise BridgeUnavailable(BUSY, "FreeCAD does not respond in time", "slow")
+        raise BridgeUnavailable(UNREACHABLE, "The bridge rejects the token", "token_rejected")
 
-    # -- Ereignisstrom --------------------------------------------------
+    # -- Event stream ---------------------------------------------------
 
     async def _ws_loop(self):
         backoff = _BACKOFF_START_S
@@ -235,7 +243,7 @@ class BridgeClient:
             try:
                 url, token, _ = load_target()
             except BridgeUnavailable as exc:
-                self._set_state(exc.state, exc.detail)
+                self._set_state(exc.state, exc.detail, exc.reason)
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, _BACKOFF_MAX_S)
                 continue
@@ -255,15 +263,15 @@ class BridgeClient:
             except asyncio.CancelledError:
                 raise
             except aiohttp.WSServerHandshakeError as exc:
-                # 401: Token gewechselt -- beim naechsten Durchlauf neu lesen.
-                self._set_state(UNREACHABLE, "Anmeldung an der Bruecke abgelehnt (%s)" % exc.status)
+                # 401: token changed -- re-read on the next iteration.
+                self._set_state(UNREACHABLE, "Bridge rejected the login (%s)" % exc.status, "token_rejected")
             except (aiohttp.ClientError, OSError, asyncio.TimeoutError):
-                self._set_state(UNREACHABLE, "FreeCAD-Bruecke antwortet nicht")
-            except Exception as exc:  # nie die Schleife verlieren
-                self._set_state(UNREACHABLE, "Verbindungsfehler: %s" % type(exc).__name__)
+                self._set_state(UNREACHABLE, "FreeCAD bridge does not respond", "no_response")
+            except Exception as exc:  # never lose the loop
+                self._set_state(UNREACHABLE, "Connection error: %s" % type(exc).__name__, "connection_error")
 
             if self._running and self.state == OK:
-                self._set_state(UNREACHABLE, "Verbindung zur Bruecke getrennt")
+                self._set_state(UNREACHABLE, "Connection to the bridge lost", "disconnected")
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, _BACKOFF_MAX_S)
 
@@ -275,7 +283,7 @@ class BridgeClient:
             self._handle_batch(frame.get("events") or [])
 
     def _handle_hello(self, hello):
-        """Neue Verbindung: haben wir etwas verpasst?"""
+        """New connection: did we miss anything?"""
         session_id = hello.get("session_id")
         last_seq = hello.get("last_seq")
         self.bridge_contract = hello.get("contract_version")
@@ -283,33 +291,34 @@ class BridgeClient:
         if self.session_id is None:
             reason = "first_connect"
         elif session_id != self.session_id:
-            reason = "new_session"      # Bruecke neu gestartet
+            reason = "new_session"      # bridge restarted
         elif last_seq != self.last_seq:
-            reason = "missed_events"    # waehrend der Trennung passiert
+            reason = "missed_events"    # happened while disconnected
         else:
             reason = None
 
         self.session_id = session_id
         self.last_seq = last_seq
 
-        detail = "verbunden"
+        detail, status_reason = "connected", "connected"
         if not self.status()["contract"]["match"]:
+            status_reason = "contract_mismatch"
             detail = (
-                "verbunden, aber Vertragsversion weicht ab (Bruecke %s, Backend %s) -- "
-                "siehe CHANGELOG.md" % (self.bridge_contract, CONTRACT_VERSION)
+                "connected, but the contract version differs (bridge %s, backend %s) -- "
+                "see CHANGELOG.md" % (self.bridge_contract, CONTRACT_VERSION)
             )
-        self._set_state(OK, detail)
+        self._set_state(OK, detail, status_reason)
 
         if reason is not None:
             self._on_events([self._resync(reason)])
 
     def _handle_batch(self, events):
-        """Ereignisse weiterreichen und Luecken erkennen."""
+        """Forward events and detect gaps."""
         gap = False
         for event in events:
             seq = event.get("seq")
             if seq is None:
-                continue  # cad.resync nach Ueberlauf traegt keine seq
+                continue  # cad.resync after overflow carries no seq
             if self.last_seq is not None and seq != self.last_seq + 1:
                 gap = True
             self.last_seq = seq

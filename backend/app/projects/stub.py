@@ -1,11 +1,11 @@
-"""Platzhalter-Verhalten fuer ein noch leeres Projekt.
+"""Placeholder behaviour for a project that is still empty.
 
-Zeigt, dass die Verdrahtung steht: das Modul zaehlt die FreeCAD-Ereignisse,
-die es seit seiner Aktivierung bekommen hat, meldet sie per WebSocket an den
-Browser und stellt sie unter GET /api/projects/<id>/info bereit.
+Shows that the wiring works: the module counts the FreeCAD events it has
+received since it was activated, reports them to the browser via WebSocket
+and exposes them under GET /api/projects/<id>/info.
 
-Wer mit der eigentlichen Logik beginnt, erbt direkt von ProjectModule und
-loescht diese Klasse aus seinem Modul.
+Whoever starts on the actual logic inherits directly from ProjectModule and
+removes this class from their module.
 """
 
 import collections

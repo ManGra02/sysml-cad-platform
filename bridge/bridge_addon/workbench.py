@@ -1,9 +1,9 @@
-"""Die Workbench der CAD-Bruecke.
+"""The workbench of the CAD bridge.
 
-Der Klassenname ``CadBridgeWorkbench`` muss exakt dem <classname> in
-package.xml entsprechen -- FreeCAD registriert die Workbench unter ihrem
-Python-Klassennamen und holt sie ueber ``Gui.getWorkbench(classname)``, um das
-Icon zu setzen.
+The class name ``CadBridgeWorkbench`` must exactly match the <classname> in
+package.xml -- FreeCAD registers the workbench under its Python class name
+and retrieves it via ``Gui.getWorkbench(classname)`` in order to set the
+icon.
 """
 
 import os
@@ -12,41 +12,41 @@ import FreeCAD
 import FreeCADGui
 
 
-def _qt_translate_noop(_context, text):
-    return text
+def _tr(key):
+    # Import only here: InitGui loads this module before FreeCAD is fully up.
+    from bridge_addon.i18n import tr
+
+    return tr(key)
 
 
 class CadBridgeWorkbench(FreeCADGui.Workbench):
-    """Stellt Start/Stop der Bruecke und das Status-Panel bereit."""
+    """Provides start/stop of the bridge and the status panel."""
 
     def __init__(self):
         addon_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.__class__.Icon = os.path.join(addon_dir, "Resources", "icons", "bridge.svg")
-        self.__class__.MenuText = _qt_translate_noop("SysMLCadBridge", "SysML-CAD Bruecke")
-        self.__class__.ToolTip = _qt_translate_noop(
-            "SysMLCadBridge",
-            "Stellt das CAD-Modell fuer die SysML-CAD-Plattform bereit (nur lokal)",
-        )
+        self.__class__.MenuText = _tr("workbench.menu")
+        self.__class__.ToolTip = _tr("workbench.tooltip")
 
     def Initialize(self):
-        """Wird beim ERSTEN Aktivieren aufgerufen, nicht beim Start."""
-        from bridge_addon import commands  # noqa: F401  (registriert via addCommand)
+        """Called on the FIRST activation, not at startup."""
+        from bridge_addon import commands  # noqa: F401  (registers via addCommand)
 
         command_names = commands.register_all()
-        self.appendToolbar(_qt_translate_noop("Workbench", "SysML-CAD Bruecke"), command_names)
-        self.appendMenu(_qt_translate_noop("Workbench", "SysML-CAD Bruecke"), command_names)
+        self.appendToolbar(_tr("workbench.menu"), command_names)
+        self.appendMenu(_tr("workbench.menu"), command_names)
 
     def Activated(self):
-        """Beim Betreten der Workbench das Status-Panel zeigen."""
+        """Show the status panel when entering the workbench."""
         try:
             from bridge_addon import dock_panel
 
             dock_panel.show_panel()
-        except Exception as exc:  # nie die Workbench am Panel scheitern lassen
-            FreeCAD.Console.PrintError("[Bruecke] Dock-Panel konnte nicht geoeffnet werden: %s\n" % exc)
+        except Exception as exc:  # never let the workbench fail because of the panel
+            FreeCAD.Console.PrintError("[Bridge] Could not open the dock panel: %s\n" % exc)
 
     def Deactivated(self):
-        """Panel bleibt bestehen -- FreeCAD stellt Docks ueber den ObjectName wieder her."""
+        """Panel stays -- FreeCAD restores docks via their ObjectName."""
         pass
 
     def GetClassName(self):

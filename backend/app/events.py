@@ -1,18 +1,18 @@
-"""Ein Ereignisstrom zum Browser.
+"""One event stream to the browser.
 
-Der Browser haelt genau EINE WebSocket-Verbindung -- zum Backend, nie zur
-Bruecke. Darauf kommen:
-  * die Ereignisse aus FreeCAD (von der Bruecke weitergereicht, gebuendelt)
-  * der Verbindungsstatus der Bruecke
-  * spaeter eigene Ereignisse der Projektmodule
+The browser holds exactly ONE WebSocket connection -- to the backend, never
+to the bridge. It carries:
+  * the events from FreeCAD (relayed by the bridge, batched)
+  * the bridge's connection status
+  * later, the project modules' own events
 
-Jeder Client hat eine eigene, BESCHRAENKTE Warteschlange. Haengt ein Tab (etwa
-im Hintergrund gedrosselt), laeuft nur seine Schlange ueber -- dann wird ihr
-Inhalt durch ein einzelnes cad.resync ersetzt. Der Stau steht damit nicht
-einfach einen Prozess weiter.
+Each client has its own BOUNDED queue. If a tab stalls (e.g. throttled in
+the background), only its queue overflows -- its contents are then replaced
+by a single cad.resync. That way the backlog doesn't simply pile up one
+process further along.
 
-Der Browser invalidiert bei JEDEM Verbindungsaufbau ohnehin alles; ein Replay
-verpasster Ereignisse gibt es bewusst nicht.
+The browser invalidates everything on EVERY (re)connect anyway; replaying
+missed events is deliberately not supported.
 """
 
 import asyncio
@@ -39,13 +39,13 @@ class BrowserHub:
         return len(self._clients)
 
     async def serve(self, websocket, hello):
-        """Einen verbundenen Browser bedienen, bis er geht."""
+        """Serve a connected browser until it goes away."""
         client = _Client(websocket)
         self._clients.add(client)
         client.task = asyncio.create_task(self._sender(client))
         try:
             await websocket.send_text(json.dumps(hello))
-            # Der Kanal ist server->client. Lesen nur, um das Schliessen zu merken.
+            # The channel is server->client. Read only to notice the close.
             while True:
                 message = await websocket.receive()
                 if message.get("type") == "websocket.disconnect":
@@ -77,7 +77,7 @@ class BrowserHub:
                 ))
 
     def publish(self, frame):
-        """Beliebiger Frame, etwa von einem Projektmodul ({"type": "bds.*"})."""
+        """Arbitrary frame, e.g. from a project module ({"type": "bds.*"})."""
         self._push(frame)
 
     def publish_events(self, events):

@@ -1,11 +1,11 @@
-"""Bi-Directional Synchronization -- SysML-v2-Modell und CAD-Modell synchron halten.
+"""Bi-Directional Synchronization -- keep the SysML v2 model and the CAD model in sync.
 
-Stand: Platzhalter. Hier beginnt die Logik der BDS-Gruppe:
-  * Routen fuer die Oberflaeche in register_routes()
-  * Reaktion auf Aenderungen in FreeCAD in on_cad_event()
-    (eigene Schreibvorgaenge erkennt self.ctx.cad.is_own(event))
-  * CAD lesen/schreiben ueber self.ctx.cad
-Oberflaeche: frontend/src/features/bds/
+Status: placeholder. This is where the BDS group's logic starts:
+  * routes for the UI in register_routes()
+  * reacting to changes in FreeCAD in on_cad_event()
+    (own writes are detected by self.ctx.cad.is_own(event))
+  * read/write CAD via self.ctx.cad
+UI: frontend/src/features/bds/
 """
 
 from app.projects.stub import StubModule
@@ -14,5 +14,5 @@ from app.projects.stub import StubModule
 class BdsModule(StubModule):
     id = "bds"
     title = "Bi-Directional Synchronization"
-    description = "SysML-v2-Systemmodell und CAD-Modell in beide Richtungen synchron halten."
+    description = "Keep the SysML v2 system model and the CAD model in sync in both directions."
     icon = "arrow-left-right"

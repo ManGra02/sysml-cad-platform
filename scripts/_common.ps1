@@ -1,21 +1,21 @@
-# Gemeinsame Helfer der Windows-Skripte (per Dot-Sourcing eingebunden).
+# Shared helpers for the Windows scripts (included via dot-sourcing).
 
 function Initialize-PlatformEnvironment {
-    # Das user-site wird mit einem separat installierten Python geteilt und
-    # schattet FreeCADs gebuendelte Pakete.
+    # The user site is shared with a separately installed Python and
+    # shadows FreeCAD's bundled packages.
     $env:PYTHONNOUSERSITE = '1'
-    # Zeigt OPENSSL_CONF auf eine fehlende Datei (z. B. von PostgreSQL),
-    # brechen node und pnpm mit "OpenSSL configuration error" ab.
+    # If OPENSSL_CONF points to a missing file (e.g. from PostgreSQL),
+    # node and pnpm abort with "OpenSSL configuration error".
     if ($env:OPENSSL_CONF -and -not (Test-Path $env:OPENSSL_CONF)) { Remove-Item Env:OPENSSL_CONF }
-    # corepack soll die in package.json festgelegte pnpm-Version ohne Rueckfrage holen.
+    # corepack should fetch the pnpm version pinned in package.json without prompting.
     $env:COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'
 }
 
 function Get-PnpmCommand {
     <#
-        pnpm >= 10, passend zum Lockfile (v9). Ein aelteres pnpm wuerde das
-        Lockfile nicht lesen koennen und es still neu aufloesen -- dann ist
-        corepack der Ausweg: es nimmt genau die Version aus "packageManager".
+        pnpm >= 10, matching the lockfile (v9). An older pnpm would not be able
+        to read the lockfile and would silently re-resolve it -- in that case
+        corepack is the way out: it uses exactly the version from "packageManager".
     #>
     $major = 0
     if (Get-Command pnpm -ErrorAction SilentlyContinue) {
@@ -24,7 +24,7 @@ function Get-PnpmCommand {
     }
     if ($major -ge 10) { return @('pnpm') }
     if (Get-Command corepack -ErrorAction SilentlyContinue) { return @('corepack', 'pnpm') }
-    throw "pnpm >= 10 wird gebraucht (gefunden: $(if ($major) { $major } else { 'keins' })). Installieren: npm install -g pnpm@10"
+    throw "pnpm >= 10 is required (found: $(if ($major) { $major } else { 'none' })). Install: npm install -g pnpm@10"
 }
 
 function Invoke-Checked([string]$dir, [string[]]$command) {
@@ -33,7 +33,7 @@ function Invoke-Checked([string]$dir, [string[]]$command) {
         $exe = $command[0]
         $rest = @($command | Select-Object -Skip 1)
         & $exe @rest
-        if ($LASTEXITCODE -ne 0) { throw "'$($command -join ' ')' ist fehlgeschlagen (Exit $LASTEXITCODE)." }
+        if ($LASTEXITCODE -ne 0) { throw "'$($command -join ' ')' failed (exit $LASTEXITCODE)." }
     } finally {
         Pop-Location
     }

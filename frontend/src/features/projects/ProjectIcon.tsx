@@ -1,7 +1,7 @@
 import { ArrowLeftRight, Boxes, Puzzle, type LucideIcon } from "lucide-react"
 
-// Module nennen ihr Icon per lucide-Name. Nur die tatsaechlich benutzten sind
-// hier eingetragen -- ein Import aller Icons wuerde das Bundle aufblaehen.
+// Modules name their icon by its lucide name. Only the ones actually used are
+// registered here -- importing all icons would bloat the bundle.
 const ICONS: Record<string, LucideIcon> = {
   "arrow-left-right": ArrowLeftRight,
   puzzle: Puzzle,

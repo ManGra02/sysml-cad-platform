@@ -1,30 +1,30 @@
-"""Der einzige legale Weg auf FreeCADs Hauptthread.
+"""The only legal way onto FreeCAD's main thread.
 
-Die FreeCAD-API ist nicht threadsicher: FreeCADApp.dll und FreeCADBase.dll
-enthalten null Thread-Guards, und FreeCADs eigene Module marshallen konsequent
-mit QTimer.singleShot(0, ...). Jeder Zugriff auf Dokument, Objekte oder Views
-laeuft deshalb durch dieses Modul.
+The FreeCAD API is not thread-safe: FreeCADApp.dll and FreeCADBase.dll
+contain zero thread guards, and FreeCAD's own modules consistently marshal
+with QTimer.singleShot(0, ...). Every access to documents, objects or views
+therefore goes through this module.
 
-ZWEI LEGALE UEBERGAENGE, beide ueber den im State gehaltenen asyncio-Loop:
+TWO LEGAL HAND-OVERS, both via the asyncio loop held in the state:
 
-  hin     Der Handler erzeugt ein asyncio.Future, legt die Task in die Queue
-          und wartet mit asyncio.wait_for(fut, ...). Der Qt-Thread liefert mit
-          loop.call_soon_threadsafe(fut.set_result, ...) zurueck.
-          NIEMALS ein blockierendes queue.get() in einem Coroutine-Handler --
-          aiohttp hat EINEN Loop in EINEM Thread; ein 20-Sekunden-Recompute
-          wuerde sonst Server, WS-Pushes und /health gleichzeitig einfrieren,
-          und das Backend hielte die Bruecke fuer tot, waehrend FreeCAD nur
-          arbeitet.
+  there   The handler creates an asyncio.Future, puts the task into the queue
+          and waits with asyncio.wait_for(fut, ...). The Qt thread delivers
+          back with loop.call_soon_threadsafe(fut.set_result, ...).
+          NEVER a blocking queue.get() in a coroutine handler --
+          aiohttp has ONE loop in ONE thread; a 20-second recompute
+          would otherwise freeze the server, WS pushes and /health at once,
+          and the backend would consider the bridge dead while FreeCAD is
+          merely working.
 
-  zurueck Observer-Events gehen per call_soon_threadsafe in eine asyncio-Queue
-          (siehe observer.py). Der Observer ruft NIE ws.send_str.
+  back    Observer events go via call_soon_threadsafe into an asyncio queue
+          (see observer.py). The observer NEVER calls ws.send_str.
 
-LESEN UND SCHREIBEN SIND VERSCHIEDEN: Lesen veraendert nichts und laeuft immer.
-Schreiben unterliegt dem Guard -- und zwar einem schaerferen als dem naiven
-"ist ein modaler Dialog offen": Sketcher-Edit und Task-Dialoge sind NICHT
-modal. Ein blockierter Schreibzugriff wird SOFORT abgewiesen, nicht
-aufgeschoben: das kann die Oberflaeche erklaeren, ein 60-Sekunden-Timeout
-nicht.
+READING AND WRITING ARE DIFFERENT: reading changes nothing and always runs.
+Writing is subject to the guard -- and a stricter one than the naive
+"is a modal dialog open": sketcher edit and task dialogs are NOT
+modal. A blocked write is rejected IMMEDIATELY, not
+deferred: the UI can explain that, a 60-second timeout
+cannot.
 """
 
 import asyncio
@@ -39,7 +39,7 @@ from freecad_bridge import state as bridge_state
 READ = "read"
 WRITE = "write"
 
-#: Obergrenze der Schreib-Warteschlange. Darueber 503 statt unbegrenztem Wachstum.
+#: Upper bound of the write queue. Above it, 503 instead of unbounded growth.
 MAX_WRITE_QUEUE = 50
 
 _request_queue = queue.Queue()
@@ -47,7 +47,7 @@ _processing = False
 
 
 class BridgeError(Exception):
-    """Basis fuer Fehler, die als strukturierte Antwort zum Client gehen."""
+    """Base for errors that go to the client as a structured response."""
 
     code = "bridge_error"
     http_status = 500
@@ -87,12 +87,12 @@ class _Task(object):
         self.loop = loop
         self.future = future
         self.cancel = threading.Event()
-        # Kein contextvar: das ueberlebt den Thread-Wechsel nicht. Die ID ist
-        # ein Feld an der Task selbst.
+        # No contextvar: it does not survive the thread switch. The ID is
+        # a field on the task itself.
         self.request_id = request_id
 
 
-# -- Hauptthread-Absicherung -------------------------------------------
+# -- Main thread safeguard ---------------------------------------------
 
 
 def on_main_thread():
@@ -100,18 +100,18 @@ def on_main_thread():
 
 
 def main_thread_only(fn):
-    """Macht aus einem nicht-deterministischen Hardcrash einen klaren Fehler.
+    """Turns a non-deterministic hard crash into a clear error.
 
-    Ohne diese Pruefung aeussert sich ein vergessener dispatch() als Absturz
-    irgendwo in Coin3D, Minuten spaeter und ohne verwertbaren Stacktrace.
+    Without this check, a forgotten dispatch() shows up as a crash
+    somewhere in Coin3D, minutes later and without a usable stack trace.
     """
 
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         if not on_main_thread():
             raise RuntimeError(
-                "%s wurde aus Thread %r aufgerufen. Jeder FreeCAD-Zugriff muss "
-                "ueber dispatch() auf den Hauptthread."
+                "%s was called from thread %r. Every FreeCAD access must go "
+                "through dispatch() to the main thread."
                 % (fn.__name__, threading.current_thread().name)
             )
         return fn(*args, **kwargs)
@@ -123,17 +123,17 @@ def main_thread_only(fn):
 
 
 def gui_block_reason():
-    """Grund, warum gerade NICHT geschrieben werden darf -- oder None.
+    """Reason why writing is NOT allowed right now -- or None.
 
-    Prueft bewusst mehr als der naive Modal-Guard: ein offener Task-Dialog und
-    eine laufende Sketcher-Bearbeitung sind nicht modal, sind aber genau die
-    Zustaende, in denen ein Schreibzugriff Daten zerstoert.
+    Deliberately checks more than the naive modal guard: an open task dialog and
+    an ongoing sketcher edit are not modal, but they are exactly the
+    states in which a write destroys data.
     """
     try:
         import FreeCADGui
         from PySide import QtCore, QtWidgets
     except ImportError:
-        return None  # headless: kein GUI, nichts zu schuetzen
+        return None  # headless: no GUI, nothing to protect
 
     app = QtWidgets.QApplication.instance()
     if app is None:
@@ -162,14 +162,14 @@ def gui_block_reason():
     return None
 
 
-# -- Wake-Bruecke (Qt-Signal, QueuedConnection) -------------------------
+# -- Wake bridge (Qt signal, QueuedConnection) --------------------------
 
 
 def _make_waker():
-    """QObject, dessen Signal den Drain auf dem Hauptthread ausloest.
+    """QObject whose signal triggers the drain on the main thread.
 
-    Muss auf dem Hauptthread erzeugt werden. Emittieren aus dem Server-Thread
-    ist sicher: Qt stellt ueber QueuedConnection zu.
+    Must be created on the main thread. Emitting from the server thread
+    is safe: Qt delivers via QueuedConnection.
     """
     from PySide import QtCore
 
@@ -189,15 +189,15 @@ def _make_waker():
     return _Waker()
 
 
-# -- Drain (laeuft auf dem Hauptthread) ---------------------------------
+# -- Drain (runs on the main thread) ------------------------------------
 
 
 def drain(reschedule=True):
-    """Wartende Tasks abarbeiten. Ausschliesslich auf dem Hauptthread."""
+    """Process pending tasks. Exclusively on the main thread."""
     global _processing
 
     if _processing:
-        return  # re-entrant durch processEvents innerhalb einer Task
+        return  # re-entrant via processEvents inside a task
     state = bridge_state.get_state()
 
     try:
@@ -214,7 +214,7 @@ def drain(reschedule=True):
                 reason = gui_block_reason()
                 if reason is not None:
                     _resolve_exception(
-                        task, CadBusyError("CAD ist gerade nicht beschreibbar", reason)
+                        task, CadBusyError("CAD is currently not writable", reason)
                     )
                     continue
             try:
@@ -223,7 +223,7 @@ def drain(reschedule=True):
                 _resolve_exception(task, exc)
             except Exception as exc:
                 log.error(
-                    "Task warf %s: %s\n%s"
+                    "Task raised %s: %s\n%s"
                     % (type(exc).__name__, exc, traceback.format_exc()),
                     task.request_id,
                 )
@@ -262,29 +262,29 @@ def _set_if_pending(future, value, exc):
         future.set_result(value)
 
 
-# -- Oeffentliche API ---------------------------------------------------
+# -- Public API ---------------------------------------------------------
 
 
 async def dispatch(fn, kind=READ, timeout=30.0, request_id=None):
-    """fn auf FreeCADs Hauptthread ausfuehren und das Ergebnis liefern.
+    """Run fn on FreeCAD's main thread and return the result.
 
-    Fast-Path: laeuft bereits alles auf dem Hauptthread (headless, Tests), wird
-    direkt aufgerufen. Ohne das liefe jeder Test in den Timeout, weil es ohne
-    QApplication niemanden gibt, der die Queue leert.
+    Fast path: if everything already runs on the main thread (headless, tests),
+    it is called directly. Without this every test would run into the timeout,
+    because without a QApplication there is nobody to drain the queue.
     """
     state = bridge_state.get_state()
     if state.shutting_down:
-        raise ShuttingDownError("Die Bruecke wird gerade beendet")
+        raise ShuttingDownError("The bridge is shutting down")
 
     if fast_path_available():
         if kind == WRITE:
             reason = gui_block_reason()
             if reason is not None:
-                raise CadBusyError("CAD ist gerade nicht beschreibbar", reason)
+                raise CadBusyError("CAD is currently not writable", reason)
         return fn()
 
     if kind == WRITE and _request_queue.qsize() >= MAX_WRITE_QUEUE:
-        raise QueueFullError("Zu viele wartende Schreibvorgaenge")
+        raise QueueFullError("Too many pending writes")
 
     loop = asyncio.get_running_loop()
     future = loop.create_future()
@@ -298,32 +298,32 @@ async def dispatch(fn, kind=READ, timeout=30.0, request_id=None):
     try:
         return await asyncio.wait_for(future, timeout)
     except asyncio.TimeoutError:
-        # Das Warten ist beendet -- die Task darf nicht spaeter doch noch laufen.
+        # The wait is over -- the task must not run later after all.
         task.cancel.set()
         raise DispatchTimeout(
-            "FreeCAD hat nicht innerhalb von %ss geantwortet" % timeout
+            "FreeCAD did not respond within %ss" % timeout
         )
 
 
 def fast_path_available():
-    """Direkt ausfuehren darf nur, wer bereits AUF dem Hauptthread ist.
+    """Only a caller that is already ON the main thread may run directly.
 
-    Frueher galt zusaetzlich "kein QApplication -> direkt". Das war falsch:
-    laeuft der echte Server headless (Tests), fuehrte der Server-Thread dann
-    FreeCAD-Code aus. @main_thread_only hat genau das gefangen. Ohne GUI muss
-    deshalb jemand auf dem Hauptthread drain() aufrufen -- im GUI-Betrieb tun
-    das Qt-Signal und Heartbeat, in Tests eine kleine Pumpe.
+    Previously "no QApplication -> direct" applied as well. That was wrong:
+    if the real server runs headless (tests), the server thread then executed
+    FreeCAD code. @main_thread_only caught exactly that. Without a GUI,
+    somebody therefore has to call drain() on the main thread -- in GUI mode
+    the Qt signal and heartbeat do that, in tests a small pump.
     """
     return on_main_thread()
 
 
 def install_waker(state):
-    """Wake-Bruecke anlegen. Nur vom Hauptthread aufrufen."""
+    """Create the wake bridge. Call only from the main thread."""
     try:
         from PySide import QtCore
 
         if QtCore.QCoreApplication.instance() is None:
-            state.waker = None  # headless: niemand stellt Signale zu
+            state.waker = None  # headless: nobody delivers signals
         else:
             state.waker = _make_waker()
     except ImportError:
@@ -331,8 +331,8 @@ def install_waker(state):
     return state.waker
 
 
-def clear_queue(reason="Bruecke wird beendet"):
-    """Alle wartenden Tasks aufloesen, statt sie in den Timeout laufen zu lassen."""
+def clear_queue(reason="Bridge is shutting down"):
+    """Resolve all pending tasks instead of letting them run into the timeout."""
     drained = 0
     while not _request_queue.empty():
         try:

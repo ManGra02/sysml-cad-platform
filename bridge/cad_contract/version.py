@@ -1,11 +1,11 @@
-"""Vertragsversion zwischen Bruecke und Backend.
+"""Contract version between bridge and backend.
 
-Wird beim Handshake verglichen. Passt sie nicht, meldet das Backend das
-deutlich, statt an unerwarteten Feldern zu scheitern -- der wahrscheinlichste
-Fehler bei zwei getrennt deployten Prozessen.
+Compared during the handshake. If it does not match, the backend reports this
+clearly instead of failing on unexpected fields -- the most likely
+failure with two separately deployed processes.
 
-REGEL: Jede Aenderung an types.py oder events.py bumpt diese Version UND
-traegt eine Zeile in CHANGELOG.md ein, auf die die Mismatch-Meldung verweist.
+RULE: Every change to types.py or events.py bumps this version AND
+adds a line to CHANGELOG.md, which the mismatch message refers to.
 """
 
-CONTRACT_VERSION = "0.5.0"
+CONTRACT_VERSION = "0.6.0"

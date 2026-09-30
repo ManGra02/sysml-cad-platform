@@ -1,17 +1,17 @@
-"""Konfiguration des Backends.
+"""Backend configuration.
 
-Das Backend importiert FreeCAD NIE. Wo die Handshake-Datei der Bruecke liegt,
-muss es deshalb selbst wissen -- es ist FreeCADs versioniertes
-Benutzerverzeichnis (v1-1, mit Bindestrich), das je Betriebssystem woanders
-liegt.
+The backend NEVER imports FreeCAD. It therefore has to know on its own where
+the bridge's handshake file lives -- it is FreeCAD's versioned user
+directory (v1-1, with a hyphen), which is in a different place on each
+operating system.
 
-Overrides per Umgebungsvariable:
-  BRIDGE_HANDSHAKE   Pfad zu bridge.json (abweichende FreeCAD-Installation)
-  BRIDGE_URL         Bruecke direkt ansprechen (Tests, Mock) ...
-  BRIDGE_TOKEN       ... dann zusammen mit dem Token
-  PLATFORM_DEV       "1" erlaubt zusaetzlich den Vite-Dev-Server als Origin
-  PLATFORM_STATE_DIR wohin das Backend seinen kleinen Zustand schreibt
-                     (aktives Projekt); Standard ~/.sysml-cad-platform
+Overrides via environment variables:
+  BRIDGE_HANDSHAKE   path to bridge.json (non-standard FreeCAD installation)
+  BRIDGE_URL         talk to the bridge directly (tests, mock) ...
+  BRIDGE_TOKEN       ... together with the token in that case
+  PLATFORM_DEV       "1" additionally allows the Vite dev server as an origin
+  PLATFORM_STATE_DIR where the backend writes its small bit of state
+                     (active project); default ~/.sysml-cad-platform
 """
 
 import os
@@ -26,16 +26,16 @@ LOOPBACK_HOSTS = frozenset(["127.0.0.1", "localhost", "::1"])
 FREECAD_VERSION_DIR = "v1-1"
 HANDSHAKE_RELATIVE = Path("sysml-cad-platform") / "bridge.json"
 
-#: Zeitgrenzen je Routenklasse. aiohttps Default ist total=300 s -- damit
-#: haenge ein haengender Recompute die UI fuenf Minuten lang auf.
+#: Timeouts per route class. aiohttp's default is total=300 s -- with that,
+#: a hanging recompute would freeze the UI for five minutes.
 CONNECT_TIMEOUT_S = 1.0
 READ_TIMEOUT_S = 5.0
-WRITE_TIMEOUT_S = 35.0     # die Bruecke selbst bricht nach 30 s ab
+WRITE_TIMEOUT_S = 35.0     # the bridge itself gives up after 30 s
 RECOMPUTE_TIMEOUT_S = 65.0
 
 
 def freecad_user_dir():
-    """FreeCADs Benutzerverzeichnis, ohne FreeCAD zu importieren."""
+    """FreeCAD's user directory, without importing FreeCAD."""
     if sys.platform.startswith("win"):
         base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
         return base / "FreeCAD" / FREECAD_VERSION_DIR
@@ -53,7 +53,7 @@ def handshake_path():
 
 
 def bridge_override():
-    """(url, token) wenn fest konfiguriert, sonst None."""
+    """(url, token) if explicitly configured, otherwise None."""
     url = os.environ.get("BRIDGE_URL")
     token = os.environ.get("BRIDGE_TOKEN")
     if url and token:
@@ -77,7 +77,7 @@ def allowed_hosts():
 
 
 def state_dir():
-    """Kleiner, dauerhafter Zustand des Backends -- ueberlebt --reload und Neustarts."""
+    """Small, persistent backend state -- survives --reload and restarts."""
     override = os.environ.get("PLATFORM_STATE_DIR")
     if override:
         return Path(override)

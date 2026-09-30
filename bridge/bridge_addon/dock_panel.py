@@ -1,18 +1,19 @@
-"""Status-Panel der Bruecke im FreeCAD-Hauptfenster.
+"""Status panel of the bridge in the FreeCAD main window.
 
-Bewusst schlank: Zustand anzeigen, starten, stoppen, Browser oeffnen. Die
-eigentliche Oberflaeche lebt im Browser -- FreeCAD 1.1 bringt kein QtWebEngine
-mit, eine eingebettete React-App ist also ausgeschlossen.
+Deliberately lean: show state, start, stop, open the browser. The
+actual user interface lives in the browser -- FreeCAD 1.1 ships without
+QtWebEngine, so an embedded React app is out of the question.
 
-Idiom: immer ``setObjectName`` + ``findChild``, denn FreeCAD stellt Dock-Widgets
-ueber ihren ObjectName wieder her. Ohne das entstehen bei jedem Workbench-
-Wechsel neue, uebereinandergestapelte Panels.
+Idiom: always ``setObjectName`` + ``findChild``, because FreeCAD restores dock
+widgets via their ObjectName. Without it, every workbench switch creates
+new panels stacked on top of each other.
 """
 
 import FreeCAD
 import FreeCADGui
 from PySide import QtCore, QtGui, QtWidgets
 
+from bridge_addon.i18n import tr
 from freecad_bridge import state as bridge_state
 
 OBJECT_NAME = "SysMLCadBridgePanel"
@@ -37,21 +38,21 @@ class BridgePanel(QtWidgets.QWidget):
         self._detail.setStyleSheet("color: palette(mid);")
         layout.addWidget(self._detail)
 
-        # Adresse und Token -- dasselbe, was auch in der Handshake-Datei steht.
-        # Das Backend liest sie von dort; hier stehen sie fuer curl und zum
-        # Nachsehen, wenn etwas nicht verbindet.
-        self._token_box = QtWidgets.QGroupBox("Zugang")
+        # Address and token -- the same as in the handshake file.
+        # The backend reads them from there; they are shown here for curl and
+        # for checking when something does not connect.
+        self._token_box = QtWidgets.QGroupBox(tr("panel.access"))
         token_layout = QtWidgets.QFormLayout(self._token_box)
         token_layout.setContentsMargins(8, 8, 8, 8)
 
         self._url_field = QtWidgets.QLineEdit()
         self._url_field.setReadOnly(True)
-        token_layout.addRow("Adresse", self._url_field)
+        token_layout.addRow(tr("panel.address"), self._url_field)
 
         token_row = QtWidgets.QHBoxLayout()
         self._token_field = QtWidgets.QLineEdit()
         self._token_field.setReadOnly(True)
-        self._copy_btn = QtWidgets.QPushButton("Kopieren")
+        self._copy_btn = QtWidgets.QPushButton(tr("panel.copy"))
         self._copy_btn.setFixedWidth(80)
         token_row.addWidget(self._token_field)
         token_row.addWidget(self._copy_btn)
@@ -60,13 +61,13 @@ class BridgePanel(QtWidgets.QWidget):
         layout.addWidget(self._token_box)
 
         buttons = QtWidgets.QHBoxLayout()
-        self._start_btn = QtWidgets.QPushButton("Starten")
-        self._stop_btn = QtWidgets.QPushButton("Stoppen")
+        self._start_btn = QtWidgets.QPushButton(tr("panel.start"))
+        self._stop_btn = QtWidgets.QPushButton(tr("panel.stop"))
         buttons.addWidget(self._start_btn)
         buttons.addWidget(self._stop_btn)
         layout.addLayout(buttons)
 
-        self._open_btn = QtWidgets.QPushButton("Oberflaeche oeffnen")
+        self._open_btn = QtWidgets.QPushButton(tr("panel.open"))
         layout.addWidget(self._open_btn)
 
         layout.addStretch(1)
@@ -84,7 +85,7 @@ class BridgePanel(QtWidgets.QWidget):
 
         self.refresh()
 
-    # -- Aktionen -------------------------------------------------------
+    # -- Actions --------------------------------------------------------
 
     def _on_start(self):
         FreeCADGui.runCommand("SysMLCadBridge_Start")
@@ -102,10 +103,10 @@ class BridgePanel(QtWidgets.QWidget):
         if not token:
             return
         QtWidgets.QApplication.clipboard().setText(token)
-        self._copy_btn.setText("Kopiert")
-        QtCore.QTimer.singleShot(1500, lambda: self._copy_btn.setText("Kopieren"))
+        self._copy_btn.setText(tr("panel.copied"))
+        QtCore.QTimer.singleShot(1500, lambda: self._copy_btn.setText(tr("panel.copy")))
 
-    # -- Anzeige --------------------------------------------------------
+    # -- Display --------------------------------------------------------
 
     def refresh(self):
         st = bridge_state.get_state()
@@ -113,16 +114,16 @@ class BridgePanel(QtWidgets.QWidget):
 
         dot = "\u25cf"
         if st.last_error:
-            colour, text = "#c0392b", "Fehler"
+            colour, text = "#c0392b", tr("panel.error")
         elif running:
-            colour, text = "#27ae60", "verbunden"
+            colour, text = "#27ae60", tr("panel.connected")
         else:
-            colour, text = "#7f8c8d", "gestoppt"
+            colour, text = "#7f8c8d", tr("panel.stopped")
 
         self._status.setText(
-            '<span style="color:%s">%s</span> <b>Bruecke %s</b>' % (colour, dot, text)
+            '<span style="color:%s">%s</span> <b>%s: %s</b>' % (colour, dot, tr("panel.bridge"), text)
         )
-        self._detail.setText(st.describe())
+        self._detail.setText(_describe(st))
 
         if running:
             self._url_field.setText("http://%s:%s" % (st.host, st.port))
@@ -138,8 +139,19 @@ class BridgePanel(QtWidgets.QWidget):
         self._copy_btn.setEnabled(running)
 
 
+def _describe(st):
+    """One-liner below the status -- the error message itself comes from the bridge in English."""
+    if st.last_error:
+        return st.last_error
+    if st.shutting_down:
+        return tr("panel.shutting_down")
+    if st.running:
+        return tr("panel.running_on", address="%s:%s" % (st.host, st.port))
+    return tr("panel.stopped")
+
+
 def show_panel():
-    """Panel anlegen oder wieder sichtbar machen (idempotent)."""
+    """Create the panel or make it visible again (idempotent)."""
     main_window = FreeCADGui.getMainWindow()
     if main_window is None:
         return None
@@ -148,7 +160,7 @@ def show_panel():
     if dock is None:
         dock = QtWidgets.QDockWidget(main_window)
         dock.setObjectName(OBJECT_NAME)
-        dock.setWindowTitle("SysML-CAD Bruecke")
+        dock.setWindowTitle(tr("panel.title"))
         dock.setWidget(BridgePanel(dock))
         main_window.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock)
 
@@ -158,7 +170,7 @@ def show_panel():
 
 
 def refresh_panel():
-    """Von aussen (Befehle) aufrufbar, damit die Anzeige sofort nachzieht."""
+    """Callable from outside (commands) so the display updates immediately."""
     main_window = FreeCADGui.getMainWindow()
     if main_window is None:
         return
@@ -167,4 +179,4 @@ def refresh_panel():
         try:
             dock.widget().refresh()
         except Exception as exc:
-            FreeCAD.Console.PrintLog("[Bruecke] Panel-Refresh fehlgeschlagen: %s\n" % exc)
+            FreeCAD.Console.PrintLog("[Bridge] Panel refresh failed: %s\n" % exc)

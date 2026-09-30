@@ -1,8 +1,8 @@
-"""M2: Lesen -- Property-Reflection, Baum, Batch-Route, Routen.
+"""M2: Reading -- property reflection, tree, batch route, routes.
 
-Die Tests bauen ein echtes Dokument mit den Typen, an denen der generische
-Serializer erfahrungsgemaess bricht: Quantity, Placement, Link, Shape,
-Spreadsheet, PartDesign-Body mit Origin-Infrastruktur.
+The tests build a real document with the types on which a generic
+serializer tends to break in practice: Quantity, Placement, Link, Shape,
+Spreadsheet, PartDesign Body with origin infrastructure.
 """
 
 import unittest
@@ -19,7 +19,7 @@ TOKEN = "read-test-token"
 
 
 def build_fixture_document():
-    """Ein Dokument mit den kritischen Typen."""
+    """A document with the critical types."""
     doc = FreeCAD.newDocument(DOC_NAME)
     doc.UndoMode = 1
 
@@ -27,8 +27,8 @@ def build_fixture_document():
     box.Length = 30
     box.Width = 20
     box.Height = 10
-    # Bewusst ein Label, das dem NAMEN eines anderen Objekts entspricht --
-    # genau die Verwechslung, die lautlos das falsche Objekt patchen wuerde.
+    # Deliberately a label that matches the NAME of another object --
+    # exactly the mix-up that would silently patch the wrong object.
     box.Label = "Zylinder"
 
     cylinder = doc.addObject("Part::Cylinder", "Zylinder")
@@ -74,20 +74,20 @@ class PropertyReflectionTest(unittest.TestCase):
         return {e["name"]: e for e in properties.describe_properties(obj)}
 
     def test_label_ist_schreibbar_trotz_output_flag(self):
-        """getTypeOfProperty('Label') ist ['Output'].
+        """getTypeOfProperty('Label') is ['Output'].
 
-        Die naive Regel "Output ueberspringen" wuerde Umbenennen aussperren.
+        The naive rule "skip Output" would lock out renaming.
         """
         entry = self.entries("Box")["Label"]
         self.assertIn("Output", entry["flags"])
-        self.assertTrue(entry["writable"], "Label muss trotz Output schreibbar sein")
+        self.assertTrue(entry["writable"], "Label must be writable despite Output")
 
     def test_shape_wird_abgeleitet_nicht_serialisiert(self):
         entry = self.entries("Box")["Shape"]
         self.assertEqual(entry["status"], types.DERIVED)
         self.assertIsNone(entry["value"])
         self.assertFalse(entry["writable"])
-        # Shape hat Status [] -- ueber Flags waere es nicht filterbar.
+        # Shape has status [] -- it could not be filtered via flags.
         self.assertEqual(entry["flags"], [])
 
     def test_quantity_traegt_symbol_und_groessenart(self):
@@ -96,10 +96,10 @@ class PropertyReflectionTest(unittest.TestCase):
         self.assertEqual(value["value"], 30.0)
         self.assertEqual(value["unit"], "mm")
         self.assertEqual(value["unitType"], "Length")
-        self.assertNotIn("Unit:", value["unit"], "FreeCADs repr gehoert nicht auf die Leitung")
+        self.assertNotIn("Unit:", value["unit"], "FreeCAD's repr does not belong on the wire")
 
     def test_placement_als_quaternion(self):
-        """Rotation.Angle ist in Radiant -- nur .Q ist verlustfrei."""
+        """Rotation.Angle is in radians -- only .Q is lossless."""
         value = self.entries("Box")["Placement"]["value"]
         self.assertEqual(value["kind"], types.PLACEMENT)
         self.assertEqual(len(value["pos"]), 3)
@@ -110,8 +110,8 @@ class PropertyReflectionTest(unittest.TestCase):
         self.assertEqual(value["kind"], types.LINK)
         self.assertEqual(value["ref"]["name"], "Box")
         self.assertEqual(value["ref"]["doc"], DOC_NAME)
-        # Das Label von Box ist "Zylinder" -- ein Label-basierter Schluessel
-        # wuerde hier auf das falsche Objekt zeigen.
+        # The label of Box is "Zylinder" -- a label-based key
+        # would point to the wrong object here.
         self.assertEqual(self.doc.getObject("Box").Label, "Zylinder")
 
     def test_gebundene_expression_sperrt_das_schreiben(self):
@@ -123,7 +123,7 @@ class PropertyReflectionTest(unittest.TestCase):
             self.assertEqual(entry["expression"], "Sheet.laenge")
             self.assertFalse(
                 entry["writable"],
-                "Ein literaler Schreibzugriff wuerde beim naechsten Recompute verworfen",
+                "A literal write would be discarded on the next recompute",
             )
         finally:
             box.clearExpression("Height")
@@ -141,13 +141,13 @@ class PropertyReflectionTest(unittest.TestCase):
         self.assertIn("_ElementMapVersion", list(box.PropertiesList))
 
     def test_kein_str_fallback(self):
-        """Jede Property ist entweder kodiert, abgeleitet oder ehrlich unsupported."""
+        """Every property is either encoded, derived or honestly unsupported."""
         for obj in self.doc.Objects:
             for entry in properties.describe_properties(obj):
                 self.assertIn(
                     entry["status"],
                     (types.ENCODED, types.DERIVED, types.UNSUPPORTED),
-                    "%s.%s hat einen unbekannten Status" % (obj.Name, entry["name"]),
+                    "%s.%s has an unknown status" % (obj.Name, entry["name"]),
                 )
                 if entry["status"] == types.UNSUPPORTED:
                     self.assertEqual(entry["value"]["kind"], types.UNSUPPORTED)
@@ -165,7 +165,7 @@ class GeometryTest(unittest.TestCase):
         close_fixture_document()
 
     def test_geometrie_nur_auf_anforderung(self):
-        """Shape.Volume kostet bei JEDEM Aufruf -- FreeCAD cacht nicht."""
+        """Shape.Volume costs on EVERY call -- FreeCAD does not cache it."""
         box = self.doc.getObject("Box")
         self.assertNotIn("geometry", objects.describe_object(box))
         self.assertIn("geometry", objects.describe_object(box, include_geometry=True))
@@ -194,7 +194,7 @@ class TreeTest(unittest.TestCase):
         close_fixture_document()
 
     def test_origin_infrastruktur_wird_versteckt(self):
-        """Ein Body bringt 9 Origin-Objekte mit; 200 Bodies waeren 1800."""
+        """A Body brings 9 origin objects along; 200 Bodies would be 1800."""
         result = tree.build_tree(DOC_NAME)
         self.assertGreater(result["hiddenInternal"], 0)
         for node in result["nodes"].values():
@@ -206,7 +206,7 @@ class TreeTest(unittest.TestCase):
         self.assertGreater(len(with_internal["nodes"]), len(without["nodes"]))
 
     def test_kein_objekt_geht_verloren(self):
-        """Der Abgleich gegen doc.Objects ist der Grund fuer die Wurzelbildung."""
+        """The reconciliation against doc.Objects is the reason for the root building."""
         result = tree.build_tree(DOC_NAME, include_internal=True)
         self.assertEqual(len(result["nodes"]), len(self.doc.Objects))
 
@@ -220,15 +220,15 @@ class TreeTest(unittest.TestCase):
                 self.assertIn(dep, known, "%s -> %s" % (name, dep))
 
     def test_deps_bilden_die_abhaengigkeit_ab(self):
-        """deps braucht die spaetere Impact-Analyse."""
+        """deps is needed by the later impact analysis."""
         result = tree.build_tree(DOC_NAME)
         self.assertEqual(sorted(result["nodes"]["Schnitt"]["deps"]), ["Box", "Zylinder"])
 
     def test_gui_genauigkeit_wird_gemeldet(self):
-        """Headless gibt es kein claimChildren -- das muss die UI wissen."""
+        """Headless there is no claimChildren -- the UI needs to know that."""
         result = tree.build_tree(DOC_NAME)
         self.assertIn("guiAccurate", result)
-        self.assertFalse(result["guiAccurate"], "ohne GUI kann der Baum nicht exakt sein")
+        self.assertFalse(result["guiAccurate"], "without a GUI the tree cannot be exact")
 
     def test_keine_selbstbezuege(self):
         result = tree.build_tree(DOC_NAME, include_internal=True)
@@ -343,7 +343,7 @@ class ReadRoutesTest(AioHTTPTestCase):
         self.assertIn("Part::Box", data["types"])
 
     async def test_auswahl_ohne_gui(self):
-        """Headless faellt die Auswahl sauber aus, statt zu werfen."""
+        """Headless, selection is cleanly unavailable instead of raising."""
         data = await self.get_json("/api/cad/selection")
         self.assertFalse(data["available"])
         self.assertEqual(data["selection"], [])

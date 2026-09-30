@@ -1,7 +1,7 @@
-"""Die CAD-Bruecke: lokaler Dienst, der das FreeCAD-Modell bereitstellt.
+"""The CAD bridge: a local service that exposes the FreeCAD model.
 
-ENTWURFSREGEL: Alles, was die FreeCAD-API nicht anfasst, gehoert hier NICHT
-hinein. Keine Fachlogik, keine Projekt-Registry, keine SPA-Auslieferung, kein
-Proxy. Jede Aenderung hier kostet einen FreeCAD-Neustart, jede Aenderung im
-Backend eine Sekunde.
+DESIGN RULE: Anything that does not touch the FreeCAD API does NOT belong
+here. No domain logic, no project registry, no SPA serving, no
+proxy. Every change here costs a FreeCAD restart, every change in the
+backend a second.
 """

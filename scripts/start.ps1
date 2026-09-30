@@ -1,19 +1,19 @@
 <#
 .SYNOPSIS
-    Startet die Plattform im Normalbetrieb: EIN Prozess, http://127.0.0.1:8000.
+    Starts the platform in normal mode: ONE process, http://127.0.0.1:8000.
 
 .DESCRIPTION
-    Das Backend liefert die gebaute Oberflaeche selbst aus -- kein Vite, kein
-    zweiter Port. Ist der Build veraltet (etwa nach "git pull"), wird vorher
-    neu gebaut. FreeCAD startet ihr selbst; die Reihenfolge ist egal.
+    The backend serves the built UI itself -- no Vite, no
+    second port. If the build is stale (e.g. after "git pull"), it is
+    rebuilt first. You start FreeCAD yourself; the order does not matter.
 
-    Zum Entwickeln mit Hot-Reload stattdessen scripts\dev.ps1.
+    For development with hot reload, use scripts\dev.ps1 instead.
 
 .PARAMETER NoBrowser
-    Den Browser nicht oeffnen.
+    Don't open the browser.
 
 .PARAMETER Rebuild
-    Oberflaeche in jedem Fall neu bauen.
+    Always rebuild the UI.
 #>
 [CmdletBinding()]
 param(
@@ -39,17 +39,17 @@ function Test-Backend {
 }
 
 if (-not (Test-Path (Join-Path $backendDir '.venv'))) {
-    throw "Backend nicht eingerichtet. Zuerst scripts\setup.ps1 ausfuehren."
+    throw "Backend not set up. Run scripts\setup.ps1 first."
 }
 
-# Laeuft schon? Dann nur den Browser oeffnen -- ein zweites Backend scheitert am festen Port.
+# Already running? Then just open the browser -- a second backend would fail on the fixed port.
 if (Test-Backend) {
-    Write-Host "Backend laeuft bereits -> $url"
+    Write-Host "Backend already running -> $url"
     if (-not $NoBrowser) { Start-Process $url }
     exit 0
 }
 
-# -- Oberflaeche aktuell? -------------------------------------------------
+# -- UI up to date? -------------------------------------------------------
 Push-Location $backendDir
 try {
     $state = (& uv run python ../scripts/build_status.py) -join ''
@@ -57,8 +57,8 @@ try {
     Pop-Location
 }
 if ($Rebuild -or $state -notlike 'fresh*') {
-    Write-Host "Oberflaeche: $state -> baue neu ..."
-    # install bei jedem Neubau: nach "git pull" koennen sich Abhaengigkeiten geaendert haben.
+    Write-Host "UI: $state -> rebuilding ..."
+    # install on every rebuild: dependencies may have changed after "git pull".
     Invoke-Pnpm $frontendDir @('install', '--frozen-lockfile')
     Invoke-Pnpm $frontendDir @('build')
 }
@@ -69,14 +69,14 @@ $backend = Start-Process -PassThru -NoNewWindow -WorkingDirectory $backendDir `
 
 $deadline = (Get-Date).AddSeconds(30)
 while (-not (Test-Backend)) {
-    if ($backend.HasExited) { throw "Backend beendet sich sofort (Port 8000 belegt?). scripts\doctor.py hilft." }
-    if ((Get-Date) -gt $deadline) { throw "Backend antwortet nicht innerhalb von 30 s." }
+    if ($backend.HasExited) { throw "Backend exits immediately (port 8000 in use?). scripts\doctor.py helps." }
+    if ((Get-Date) -gt $deadline) { throw "Backend does not respond within 30 s." }
     Start-Sleep -Milliseconds 300
 }
 
 Write-Host ""
-Write-Host "Plattform laeuft -> $url" -ForegroundColor Green
-Write-Host "FreeCAD: Workbench 'SysML-CAD Bruecke', Bruecke starten. Strg+C beendet."
+Write-Host "Platform running -> $url" -ForegroundColor Green
+Write-Host "FreeCAD: 'SysML-CAD Bridge' workbench, start the bridge. Ctrl+C stops."
 if (-not $NoBrowser) { Start-Process $url }
 
 try {

@@ -1,5 +1,6 @@
 import "./index.css"
 import "@/lib/theme"
+import "@/i18n" // before the first render: language is settled, no flicker
 
 import { QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider, createRouter } from "@tanstack/react-router"
@@ -16,7 +17,7 @@ import { routeTree } from "./routeTree.gen"
 
 const router = createRouter({
   routeTree,
-  // Route-Loader und WebSocket-Invalidierung teilen sich denselben Cache.
+  // Route loaders and WebSocket invalidation share the same cache.
   context: { queryClient },
   defaultPreload: "intent",
   defaultPreloadStaleTime: 0,

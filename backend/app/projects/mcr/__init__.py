@@ -1,10 +1,10 @@
-"""Missing CAD Component Recommendation -- fehlende Bauteile erkennen und vorschlagen.
+"""Missing CAD Component Recommendation -- detect missing components and suggest them.
 
-Stand: Platzhalter. Hier beginnt die Logik der MCR-Gruppe:
-  * Routen fuer die Oberflaeche in register_routes()
-  * Reaktion auf Aenderungen in FreeCAD in on_cad_event()
-  * CAD lesen/schreiben ueber self.ctx.cad
-Oberflaeche: frontend/src/features/mcr/
+Status: placeholder. This is where the MCR group's logic starts:
+  * routes for the UI in register_routes()
+  * reacting to changes in FreeCAD in on_cad_event()
+  * read/write CAD via self.ctx.cad
+UI: frontend/src/features/mcr/
 """
 
 from app.projects.stub import StubModule
@@ -13,5 +13,5 @@ from app.projects.stub import StubModule
 class McrModule(StubModule):
     id = "mcr"
     title = "Missing CAD Component Recommendation"
-    description = "Fehlende Komponenten im CAD-Modell erkennen und passende Bauteile vorschlagen."
+    description = "Detect missing components in the CAD model and suggest matching parts."
     icon = "puzzle"

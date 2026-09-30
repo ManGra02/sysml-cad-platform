@@ -1,13 +1,15 @@
-// Drehungen reisen als Quaternion (x, y, z, w) -- nur so ist die Rundreise
-// verlustfrei. Menschen editieren aber Achse + Winkel in Grad. Die Umrechnung
-// passiert ausschliesslich hier, und nur, wenn der Nutzer die Drehung auch
-// wirklich angefasst hat: sonst erzeugte das Runden eine Scheinaenderung.
+import { TranslatableError } from "@/i18n"
+
+// Rotations travel as quaternions (x, y, z, w) -- only that way is the round
+// trip lossless. Humans, however, edit axis + angle in degrees. The conversion
+// happens exclusively here, and only if the user actually touched the
+// rotation: otherwise rounding would produce a spurious change.
 
 export type AxisAngle = { axis: [number, number, number]; angle: number }
 
 const EPS = 1e-12
 
-/** FreeCADs Konvention: Quaternion als [x, y, z, w]. */
+/** FreeCAD's convention: quaternion as [x, y, z, w]. */
 export function quatToAxisAngle(q: number[]): AxisAngle {
   let [x, y, z, w] = q
   const norm = Math.hypot(x, y, z, w) || 1
@@ -16,7 +18,7 @@ export function quatToAxisAngle(q: number[]): AxisAngle {
   z /= norm
   w /= norm
   if (w < 0) {
-    // gleiche Drehung, Winkel dann in [0, 180]
+    // same rotation, angle then in [0, 180]
     x = -x
     y = -y
     z = -z
@@ -32,7 +34,7 @@ export function axisAngleToQuat(axis: [number, number, number], angleDeg: number
   const length = Math.hypot(...axis)
   if (length < EPS) {
     if (Math.abs(angleDeg) < EPS) return [0, 0, 0, 1]
-    throw new Error("Drehachse darf nicht (0, 0, 0) sein")
+    throw new TranslatableError("fields.zeroAxis")
   }
   const half = (angleDeg * Math.PI) / 360
   const s = Math.sin(half) / length

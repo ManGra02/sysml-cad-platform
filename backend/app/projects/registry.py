@@ -1,12 +1,12 @@
-"""Welche Projekte es gibt und welches gerade aktiv ist.
+"""Which projects exist and which one is currently active.
 
-Die Liste der Module steht hier EXPLIZIT, nicht per Autodiscovery: ein neues
-Projekt ist eine bewusste, reviewte Zeile in dieser Datei.
+The list of modules is EXPLICIT here, not via autodiscovery: a new project
+is a deliberate, reviewed line in this file.
 
-Das aktive Projekt ist eine Einstellung des Backends, nicht eines Browser-Tabs:
-nur so erreichen FreeCAD-Ereignisse eindeutig das richtige Modul, auch wenn
-gerade kein Tab die Projektseite zeigt. Es wird in einer kleinen JSON-Datei
-gemerkt und ueberlebt --reload und Neustarts.
+The active project is a setting of the backend, not of a browser tab:
+only that way do FreeCAD events unambiguously reach the right module, even
+when no tab is currently showing the project page. It is remembered in a
+small JSON file and survives --reload and restarts.
 """
 
 import asyncio
@@ -23,13 +23,13 @@ from app.projects.mcr import McrModule
 
 log = logging.getLogger("platform.projects")
 
-#: Die registrierten Projekte, in Anzeigereihenfolge.
+#: The registered projects, in display order.
 MODULES = [BdsModule, McrModule]
 
 STATE_FILE = "state.json"
 
-#: Ereignis-Stapel, die auf das aktive Modul warten. Darueber wird verworfen und
-#: dem Modul ein cad.resync zugestellt -- wie ueberall in der Plattform.
+#: Event batches waiting for the active module. Beyond that they are dropped and
+#: the module is sent a cad.resync -- as everywhere in the platform.
 MAX_PENDING_BATCHES = 200
 
 
@@ -45,7 +45,7 @@ class ProjectRegistry:
         for cls in modules or MODULES:
             module = cls()
             if not module.id or module.id in self.modules:
-                raise ValueError("Projekt-id fehlt oder doppelt: %r" % module.id)
+                raise ValueError("Project id missing or duplicate: %r" % module.id)
             module.ctx = ProjectContext(module.id, CadClient(bridge, module.id), publish)
             self.modules[module.id] = module
         self.active_id = None
@@ -53,7 +53,7 @@ class ProjectRegistry:
         self._worker = None
         self._lock = asyncio.Lock()
 
-    # -- Lebenszyklus -----------------------------------------------------
+    # -- Lifecycle --------------------------------------------------------
 
     async def start(self):
         self._worker = asyncio.create_task(self._deliver())
@@ -70,7 +70,7 @@ class ProjectRegistry:
             except asyncio.CancelledError:
                 pass
 
-    # -- Abfragen ---------------------------------------------------------
+    # -- Queries ----------------------------------------------------------
 
     def describe(self):
         return {
@@ -87,7 +87,7 @@ class ProjectRegistry:
             ],
         }
 
-    # -- Umschalten -------------------------------------------------------
+    # -- Switching --------------------------------------------------------
 
     async def activate(self, project_id):
         if project_id not in self.modules:
@@ -103,10 +103,10 @@ class ProjectRegistry:
             await self._call(project_id, "on_activate")
         self._publish({"type": "project.activated", "id": project_id, "previous": previous})
 
-    # -- Ereignisse aus FreeCAD -------------------------------------------
+    # -- Events from FreeCAD ----------------------------------------------
 
     def on_events(self, events):
-        """Vom bridge_client aufgerufen (synchron). Zustellung geordnet im Worker."""
+        """Called by bridge_client (synchronously). Ordered delivery in the worker."""
         if not events or self.active_id is None:
             return
         try:
@@ -126,13 +126,13 @@ class ProjectRegistry:
                 await self._call(module_id, "on_cad_event", event)
 
     async def _call(self, module_id, hook, *args):
-        """Einen Haken aufrufen. Ein Fehler im Modul darf die Plattform nicht stoppen."""
+        """Call a hook. An error in the module must not stop the platform."""
         try:
             await getattr(self.modules[module_id], hook)(*args)
         except Exception:
-            log.exception("Projekt %s: %s fehlgeschlagen", module_id, hook)
+            log.exception("Project %s: %s failed", module_id, hook)
 
-    # -- Routen -----------------------------------------------------------
+    # -- Routes -----------------------------------------------------------
 
     def mount(self, app):
         for module in self.modules.values():
@@ -140,7 +140,7 @@ class ProjectRegistry:
             module.register_routes(router)
             app.include_router(router)
 
-    # -- Zustand ----------------------------------------------------------
+    # -- State ------------------------------------------------------------
 
     def _read_state(self):
         try:
@@ -159,5 +159,5 @@ class ProjectRegistry:
                 json.dump(data, handle)
             os.replace(tmp, self._state_path)
         except OSError:
-            # Nur ein Komfort: ohne Datei gilt die Wahl bis zum naechsten Neustart.
-            log.warning("Aktives Projekt konnte nicht gespeichert werden (%s)", self._state_path)
+            # Just a convenience: without the file the choice holds until the next restart.
+            log.warning("Could not save the active project (%s)", self._state_path)

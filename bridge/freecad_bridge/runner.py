@@ -1,13 +1,13 @@
-"""Lebenszyklus der Bruecke: Thread, asyncio-Loop, Handshake, Abbau.
+"""Bridge lifecycle: thread, asyncio loop, handshake, teardown.
 
-Der Server laeuft in einem eigenen Thread mit eigenem asyncio-Loop. Der
-Loop-Handle wird im State abgelegt -- er ist die einzige erlaubte Ruecksprache
-vom Qt-Thread in die asynchrone Welt (call_soon_threadsafe).
+The server runs in its own thread with its own asyncio loop. The loop handle
+is stored in the state -- it is the only permitted channel from the Qt
+thread into the asynchronous world (call_soon_threadsafe).
 
-PORT IST FEST. Keine automatische Suche: sonst ueberschreibt eine zweite
-FreeCAD-Instanz die Handshake-Datei, das Backend arbeitet am falschen Dokument,
-und der Vite-Proxy zeigt ins Leere. Belegter Port heisst lauter Fehlschlag mit
-verstaendlicher Meldung.
+THE PORT IS FIXED. No automatic search: otherwise a second FreeCAD instance
+overwrites the handshake file, the backend works on the wrong document, and
+the Vite proxy points into nowhere. A port in use means a loud failure with
+an understandable message.
 """
 
 import asyncio
@@ -19,7 +19,7 @@ from freecad_bridge import state as bridge_state
 HOST = "127.0.0.1"
 PORT = 8765
 
-#: Wie oft der Snapshot auf dem Hauptthread aufgefrischt wird.
+#: How often the snapshot is refreshed on the main thread.
 HEARTBEAT_MS = 2000
 
 _START_TIMEOUT_S = 10.0
@@ -30,7 +30,7 @@ _warn = log.warn
 
 
 def _serve_forever(state, generation, ready, failure):
-    """Laeuft im Server-Thread: eigener Loop, aiohttp, bis stop() gesetzt wird."""
+    """Runs in the server thread: own loop, aiohttp, until stop() is set."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     state.loop = loop
@@ -39,8 +39,8 @@ def _serve_forever(state, generation, ready, failure):
     hub = None
     try:
         app = server.create_app()
-        # Der Hub gehoert dem Loop dieses Threads. Vor setup() anhaengen --
-        # danach ist der App-Zustand eingefroren.
+        # The hub belongs to this thread's loop. Attach it before setup() --
+        # after that the app state is frozen.
         hub = events.EventHub(loop, state.session_id)
         app["websockets"] = hub.clients
         app["hub"] = hub
@@ -88,20 +88,20 @@ def web_runner(app):
 def tcp_site(runner, host, port):
     from aiohttp import web
 
-    # reuse_address bewusst aus: ein belegter Port soll laut scheitern.
+    # reuse_address deliberately off: a port in use should fail loudly.
     return web.TCPSite(runner, host, port, reuse_address=False)
 
 
 def start_bridge():
-    """Bruecke starten. Raeumt defensiv eine alte Instanz ab."""
+    """Start the bridge. Defensively tears down an old instance."""
     state = bridge_state.get_state()
 
     if state.running:
-        _log("laeuft bereits auf %s:%s" % (state.host, state.port))
+        _log("already running on %s:%s" % (state.host, state.port))
         return state
 
-    # Defensiv: nach einem Reload koennen Thread und Observer der alten
-    # Generation noch leben, ohne dass running gesetzt ist.
+    # Defensive: after a reload, the thread and observer of the old
+    # generation may still be alive without running being set.
     stop_bridge(quiet=True)
 
     generation = state.begin_session()
@@ -123,7 +123,7 @@ def start_bridge():
     thread.start()
 
     if not ready.wait(_START_TIMEOUT_S):
-        state.last_error = "Server-Thread hat nicht rechtzeitig gemeldet"
+        state.last_error = "Server thread did not report in time"
         _warn(state.last_error)
         raise RuntimeError(state.last_error)
 
@@ -131,11 +131,11 @@ def start_bridge():
         exc = failure[0]
         if isinstance(exc, OSError):
             state.last_error = (
-                "Port %s ist belegt. Laeuft bereits eine zweite FreeCAD-Instanz "
-                "mit der Bruecke? Es bedient immer nur eine." % PORT
+                "Port %s is in use. Is a second FreeCAD instance already running "
+                "the bridge? Only one can serve at a time." % PORT
             )
         else:
-            state.last_error = "Start fehlgeschlagen: %s" % exc
+            state.last_error = "Start failed: %s" % exc
         _warn(state.last_error)
         state.thread = None
         raise RuntimeError(state.last_error)
@@ -153,18 +153,18 @@ def start_bridge():
     try:
         snapshot.refresh()
     except Exception as exc:
-        _warn("Snapshot beim Start fehlgeschlagen: %s" % exc)
+        _warn("Snapshot at start failed: %s" % exc)
 
-    _log("laeuft auf http://%s:%s  (Sitzung %s)" % (HOST, PORT, state.session_id[:8]))
+    _log("running on http://%s:%s  (session %s)" % (HOST, PORT, state.session_id[:8]))
     return state
 
 
 def stop_bridge(quiet=False):
-    """Idempotenter, vollstaendiger Abbau.
+    """Idempotent, complete teardown.
 
-    Wichtig ist die Reihenfolge: erst das Flag, dann wartende Tasks aufloesen
-    (statt sie in den Timeout laufen zu lassen), dann den Loop beenden, dann
-    die Handshake-Datei -- und die nur, wenn sie zur eigenen Sitzung gehoert.
+    The order matters: first the flag, then resolve waiting tasks (instead
+    of letting them run into the timeout), then stop the loop, then the
+    handshake file -- and only if it belongs to our own session.
     """
     state = bridge_state.get_state()
     session_id = state.session_id
@@ -172,14 +172,14 @@ def stop_bridge(quiet=False):
 
     state.shutting_down = True
 
-    # Zuerst den Observer: sonst meldet er waehrend des Abbaus noch Ereignisse
-    # an einen Loop, der gerade beendet wird.
+    # The observer first: otherwise it keeps reporting events during teardown
+    # to a loop that is just being shut down.
     observer.uninstall(state)
     _stop_heartbeat(state)
 
     freed = dispatch.clear_queue()
     if freed and not quiet:
-        _log("%d wartende Anfragen abgewiesen" % freed)
+        _log("%d pending requests rejected" % freed)
 
     loop = state.loop
     stop_event = getattr(state, "stop_event", None)
@@ -187,13 +187,13 @@ def stop_bridge(quiet=False):
         try:
             loop.call_soon_threadsafe(stop_event.set)
         except RuntimeError:
-            pass  # Loop bereits geschlossen
+            pass  # loop already closed
 
     thread = state.thread
     if thread is not None and thread.is_alive():
         thread.join(timeout=5.0)
         if thread.is_alive() and not quiet:
-            _warn("Server-Thread reagiert nicht; er ist als daemon markiert")
+            _warn("Server thread does not respond; it is marked as daemon")
 
     if session_id:
         auth.remove_handshake(session_id)
@@ -208,15 +208,15 @@ def stop_bridge(quiet=False):
     state.shutting_down = False
 
     if was_running and not quiet:
-        _log("gestoppt")
+        _log("stopped")
     return state
 
 
-# -- Heartbeat und Beenden von FreeCAD ----------------------------------
+# -- Heartbeat and FreeCAD shutdown -------------------------------------
 
 
 def _install_heartbeat(state, generation):
-    """QTimer auf dem Hauptthread, der den Snapshot frisch haelt."""
+    """QTimer on the main thread that keeps the snapshot fresh."""
     try:
         from PySide import QtCore
     except ImportError:
@@ -226,7 +226,7 @@ def _install_heartbeat(state, generation):
     timer.setInterval(HEARTBEAT_MS)
 
     def _tick():
-        # Callbacks einer aelteren Generation beenden sich selbst.
+        # Callbacks of an older generation terminate themselves.
         if state.generation != generation or not state.running:
             timer.stop()
             return
@@ -253,9 +253,9 @@ def _stop_heartbeat(state):
 
 
 def _install_quit_hook(state):
-    """Beim Beenden von FreeCAD sauber abbauen.
+    """Tear down cleanly when FreeCAD quits.
 
-    Dasselbe Muster benutzt FreeCAD selbst in
+    FreeCAD itself uses the same pattern in
     Mod/AddonManager/NetworkManager.py.
     """
     if getattr(state, "quit_hook_installed", False):
@@ -269,4 +269,4 @@ def _install_quit_hook(state):
         app.aboutToQuit.connect(lambda: stop_bridge(quiet=True))
         state.quit_hook_installed = True
     except Exception as exc:
-        log.debug("aboutToQuit-Hook: %s" % exc)
+        log.debug("aboutToQuit hook: %s" % exc)

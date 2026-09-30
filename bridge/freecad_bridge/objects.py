@@ -1,13 +1,13 @@
-"""Einzelne CAD-Objekte lesen.
+"""Read individual CAD objects.
 
-Identitaet ist ausschliesslich ``obj.Name``. ``obj.ID`` reist als
-Plausibilitaetspruefung mit -- es ist persistiert, aber nur pro Dokument
-eindeutig. ``obj.Uid`` existiert nicht.
+Identity is exclusively ``obj.Name``. ``obj.ID`` travels along as a
+plausibility check -- it is persisted, but unique only per
+document. ``obj.Uid`` does not exist.
 
-Abgeleitete Geometrie (Volume, BoundBox, ...) ist NIE Teil einer Standard-
-antwort. Gemessen kostet ``Shape.Volume`` ueber 500 Boxen 0,07 s -- bei JEDEM
-Aufruf, FreeCAD cacht das nicht. In einer Listenantwort waere das der Unter-
-schied zwischen fluessig und unbenutzbar.
+Derived geometry (Volume, BoundBox, ...) is NEVER part of a standard
+response. Measured: ``Shape.Volume`` over 500 boxes costs 0.07 s -- on EVERY
+call, FreeCAD does not cache it. In a list response that would be the
+difference between smooth and unusable.
 """
 
 import FreeCAD
@@ -16,9 +16,9 @@ from freecad_bridge import properties, revisions
 from freecad_bridge.dispatch import BridgeError, main_thread_only
 from freecad_bridge.documents import get_document
 
-#: TypeIds, die FreeCAD selbst als Infrastruktur anlegt. Ein PartDesign-Body
-#: mit einem Pad bringt 11 Objekte mit, davon 9 Origin-Zubehoer; 200 Bodies
-#: waeren 1800 Achsen und Ebenen im Baum.
+#: TypeIds that FreeCAD itself creates as infrastructure. A PartDesign body
+#: with one pad brings 11 objects, 9 of them origin accessories; 200 bodies
+#: would be 1800 axes and planes in the tree.
 INTERNAL_TYPE_IDS = frozenset(
     [
         "App::Origin",
@@ -45,8 +45,8 @@ def get_object(doc_name, obj_name):
     obj = doc.getObject(obj_name)
     if obj is None:
         raise ObjectNotFound(
-            "Objekt %r gibt es in %r nicht. Beachte: adressiert wird ueber Name, "
-            "nicht ueber Label." % (obj_name, doc_name),
+            "Object %r does not exist in %r. Note: objects are addressed by Name, "
+            "not by Label." % (obj_name, doc_name),
             {"doc": doc_name, "name": obj_name},
         )
     return obj
@@ -59,7 +59,7 @@ def is_internal(obj):
 
 @main_thread_only
 def summarize_object(obj):
-    """Der schlanke Satz, der in Baum und Tabelle reicht."""
+    """The lean set that suffices for tree and table."""
     entry = {
         "doc": obj.Document.Name,
         "name": obj.Name,
@@ -72,9 +72,9 @@ def summarize_object(obj):
         "rev": revisions.current(obj.Document.Name, obj.Name),
     }
 
-    # App::LinkElement ist eine Instanz eines Arrays, kein eigenstaendiges
-    # Objekt. Ein App::Link mit ElementCount=200 erzeugt wirklich 202 Eintraege
-    # in doc.Objects -- ohne diese Markierung waere der Baum unlesbar.
+    # App::LinkElement is an instance of an array, not a standalone
+    # object. An App::Link with ElementCount=200 really creates 202 entries
+    # in doc.Objects -- without this marker the tree would be unreadable.
     if obj.TypeId == "App::LinkElement":
         entry["instanceOf"] = _link_element_parent(obj)
     return entry
@@ -96,7 +96,7 @@ def _link_element_parent(obj):
 
 @main_thread_only
 def describe_object(obj, fields=None, include_geometry=False, include_internal=False):
-    """Ein Objekt mit allen Properties beschreiben."""
+    """Describe an object with all its properties."""
     data = summarize_object(obj)
     data["properties"] = properties.describe_properties(
         obj, fields=fields, include_internal=include_internal
@@ -108,11 +108,11 @@ def describe_object(obj, fields=None, include_geometry=False, include_internal=F
 
 @main_thread_only
 def describe_geometry(obj):
-    """Abgeleitete Geometriewerte -- teuer, deshalb nur auf Anforderung.
+    """Derived geometry values -- expensive, therefore only on request.
 
-    Achtung: Shape.Mass ist NICHT die physikalische Masse, sondern die
-    GProps-Masse bei Dichte 1. Sie fehlt ausserdem auf Part.Compound, ebenso
-    CenterOfMass. Physikalische Masse = Dichte x Volume, siehe materials.py.
+    Caution: Shape.Mass is NOT the physical mass but the
+    GProps mass at density 1. It is also missing on Part.Compound, as is
+    CenterOfMass. Physical mass = density x Volume, see materials.py.
     """
     shape = getattr(obj, "Shape", None)
     if shape is None:
@@ -142,8 +142,8 @@ def describe_geometry(obj):
 
     _collect(info, "boundBox", bounding_box)
 
-    # Auf Part.Compound fehlen CenterOfMass und Mass ganz -- kein Fehler,
-    # sondern eine Eigenschaft des Typs.
+    # On Part.Compound, CenterOfMass and Mass are missing entirely -- not an
+    # error but a property of the type.
     _collect(info, "centerOfMass", lambda: list(shape.CenterOfMass))
 
     counts = {}
@@ -161,7 +161,7 @@ def describe_geometry(obj):
 
 
 def _collect(target, key, getter):
-    """Fehlende Werte weglassen statt die ganze Antwort scheitern zu lassen."""
+    """Omit missing values instead of letting the whole response fail."""
     try:
         target[key] = getter()
     except Exception:
@@ -171,10 +171,10 @@ def _collect(target, key, getter):
 @main_thread_only
 def list_objects(doc_name, names=None, fields=None, include_geometry=False,
                  include_internal=False):
-    """Mehrere Objekte in EINER Dispatch-Runde.
+    """Several objects in ONE dispatch round.
 
-    Ohne diese Route braeuchte eine Tabelle mit Property-Spalten N+1 Anfragen,
-    jede mit eigenem Sprung auf den Hauptthread.
+    Without this route a table with property columns would need N+1 requests,
+    each with its own hop onto the main thread.
     """
     doc = get_document(doc_name)
 
@@ -212,18 +212,18 @@ def list_objects(doc_name, names=None, fields=None, include_geometry=False,
 
 
 def is_creatable(type_name):
-    """Darf ueber die HTTP-Schnittstelle erzeugt werden?
+    """May this be created via the HTTP interface?
 
-    Bewusst gefiltert: App::DocumentObjectFileIncluded zieht beliebige Dateien
-    in das Dokument, und *FeaturePython*-Typen fuehren Python-Code aus dem
-    Dokument aus. Beides gehoert nicht hinter eine offene HTTP-Route.
+    Deliberately filtered: App::DocumentObjectFileIncluded pulls arbitrary files
+    into the document, and *FeaturePython* types execute Python code from the
+    document. Neither belongs behind an open HTTP route.
     """
     return "FeaturePython" not in type_name and type_name != "App::DocumentObjectFileIncluded"
 
 
 @main_thread_only
 def list_types():
-    """Was in diesem Dokument erzeugt werden kann (siehe is_creatable)."""
+    """What can be created in this document (see is_creatable)."""
     doc = FreeCAD.activeDocument()
     if doc is None:
         doc = FreeCAD.newDocument("__typeprobe__", hidden=True, temp=True)

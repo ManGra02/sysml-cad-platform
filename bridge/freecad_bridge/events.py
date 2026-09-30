@@ -1,18 +1,18 @@
-"""Der Rueckweg: Ereignisse vom Qt-Hauptthread zu den WebSocket-Clients.
+"""The return path: events from the Qt main thread to the WebSocket clients.
 
-Der Observer laeuft auf dem Qt-Thread und darf NIE ws.send_str aufrufen --
-das gehoert dem asyncio-Loop im Server-Thread. Der einzige Uebergang ist
-``loop.call_soon_threadsafe``; ab dort liegt alles in einer asyncio-Queue, aus
-der ein Broadcast-Task die Clients speist.
+The observer runs on the Qt thread and must NEVER call ws.send_str --
+that belongs to the asyncio loop in the server thread. The only hand-over is
+``loop.call_soon_threadsafe``; from there on everything sits in an asyncio
+queue from which a broadcast task feeds the clients.
 
-Die Queue ist BESCHRAENKT. Laeuft sie ueber (ein Client haengt, ein riesiger
-Recompute), wird ihr Inhalt verworfen und durch ein einzelnes ``cad.resync``
-ersetzt: der Client laedt dann neu, statt dass der FreeCAD-Prozess Speicher
-anhaeuft. Ohne verbundene Clients wird gar nichts gepuffert -- wer sich spaeter
-verbindet, bekommt mit dem hello ohnehin den Anlass, alles neu zu laden.
+The queue is BOUNDED. If it overflows (a client hangs, a huge
+recompute), its contents are discarded and replaced by a single
+``cad.resync``: the client then reloads instead of the FreeCAD process
+accumulating memory. Without connected clients nothing is buffered at all --
+whoever connects later gets the cue to reload everything with the hello anyway.
 
-Pro Flush geht EIN Frame hinaus (``{"type": "events", "events": [...]}``),
-nicht ein Frame pro Aenderung.
+ONE frame goes out per flush (``{"type": "events", "events": [...]}``),
+not one frame per change.
 """
 
 import asyncio
@@ -20,7 +20,7 @@ import json
 
 from freecad_bridge import log
 
-#: Obergrenze in Batches (ein Batch = ein Flush des Observers).
+#: Upper bound in batches (one batch = one flush of the observer).
 MAX_PENDING_BATCHES = 256
 
 
@@ -34,18 +34,18 @@ class EventHub(object):
         self.overflows = 0
         self.published = 0
 
-    # -- Aufruf vom Qt-Hauptthread ------------------------------------
+    # -- Called from the Qt main thread -------------------------------
 
     def publish_threadsafe(self, events):
-        """Vom Observer aufgerufen. Nur Uebergabe, keine Arbeit."""
+        """Called by the observer. Hand-over only, no work."""
         if not events:
             return
         try:
             self.loop.call_soon_threadsafe(self._enqueue, list(events))
         except RuntimeError:
-            pass  # Loop bereits beendet -- Bruecke faehrt herunter
+            pass  # loop already closed -- bridge is shutting down
 
-    # -- ab hier im Loop-Thread ---------------------------------------
+    # -- from here on in the loop thread -----------------------------
 
     def _enqueue(self, events):
         if not self.clients:
@@ -59,7 +59,7 @@ class EventHub(object):
             self.queue.put_nowait(
                 [{"type": "cad.resync", "reason": "overflow", "session_id": self.session_id}]
             )
-            log.warn("Ereignis-Queue uebergelaufen -- Clients erhalten cad.resync")
+            log.warn("Event queue overflowed -- clients receive cad.resync")
 
     async def run(self):
         while True:

@@ -1,19 +1,19 @@
-"""Token, Handshake-Datei und Herkunftspruefung.
+"""Token, handshake file and origin check.
 
-Die Bruecke laeuft nur auf 127.0.0.1 und wird nie gehostet. Der reale
-Angriffsvektor ist trotzdem vorhanden: jede Webseite im Browser des Nutzers
-kann Requests an localhost schicken. Zwei kleine Massnahmen reichen dagegen:
+The bridge runs only on 127.0.0.1 and is never hosted. The real attack
+vector exists nonetheless: any web page in the user's browser can send
+requests to localhost. Two small measures are enough to counter it:
 
-  * Das Token wird AUSSCHLIESSLICH im Authorization-Header verlangt -- auch
-    beim WebSocket-Handshake. Browser koennen bei ``new WebSocket()`` keine
-    Header setzen, damit ist der Bruecken-WS fuer Web-Angreifer strukturell
-    unerreichbar. Kein Query-Parameter: der landet in Logs.
-  * Ist ein Origin-Header vorhanden, muss er in der Allowlist stehen. Fehlt er
-    ganz (curl, Tests, das Backend), wird durchgelassen.
+  * The token is required EXCLUSIVELY in the Authorization header -- also
+    during the WebSocket handshake. Browsers cannot set headers with
+    ``new WebSocket()``, so the bridge WS is structurally unreachable for
+    web attackers. No query parameter: that ends up in logs.
+  * If an Origin header is present, it must be on the allowlist. If it is
+    missing entirely (curl, tests, the backend), the request is let through.
 
-Zusaetzlich eine Host-Pruefung gegen DNS-Rebinding: dort ist die Anfrage
-same-origin und traegt gar keinen Origin, eine Origin-Pruefung hilft also
-prinzipiell nicht.
+Additionally a Host check against DNS rebinding: there the request is
+same-origin and carries no Origin at all, so an Origin check fundamentally
+does not help.
 """
 
 import hmac
@@ -30,7 +30,7 @@ MAGIC = "sysml-cad-bridge"
 HANDSHAKE_DIRNAME = "sysml-cad-platform"
 HANDSHAKE_FILENAME = "bridge.json"
 
-#: Woher Browser-Anfragen kommen duerfen. Das Backend selbst sendet keinen Origin.
+#: Where browser requests may come from. The backend itself sends no Origin.
 ALLOWED_ORIGINS = frozenset(
     [
         "http://127.0.0.1:8000",
@@ -48,14 +48,14 @@ def new_token():
 
 
 def token_matches(expected, presented):
-    """Zeitkonstanter Vergleich; None/leer schlaegt immer fehl."""
+    """Constant-time comparison; None/empty always fails."""
     if not expected or not presented:
         return False
     return hmac.compare_digest(str(expected), str(presented))
 
 
 def bearer_from_header(value):
-    """``Authorization: Bearer <token>`` auslesen, sonst None."""
+    """Extract ``Authorization: Bearer <token>``, otherwise None."""
     if not value:
         return None
     parts = value.split(None, 1)
@@ -65,21 +65,21 @@ def bearer_from_header(value):
 
 
 def origin_allowed(origin):
-    """Fehlender Origin ist erlaubt (curl/Backend), ein fremder nicht."""
+    """A missing Origin is allowed (curl/backend), a foreign one is not."""
     if not origin:
         return True
     return origin.rstrip("/") in ALLOWED_ORIGINS
 
 
 def host_allowed(host_header):
-    """Nur Loopback-Namen akzeptieren -- zweite, unabhaengige Pruefung."""
+    """Accept only loopback names -- a second, independent check."""
     if not host_header:
         return True
     hostname = host_header.rsplit(":", 1)[0] if not host_header.startswith("[") else host_header.split("]")[0] + "]"
     return hostname in ALLOWED_HOSTNAMES
 
 
-# -- Handshake-Datei ----------------------------------------------------
+# -- Handshake file -----------------------------------------------------
 
 
 def handshake_dir():
@@ -91,10 +91,10 @@ def handshake_path():
 
 
 def write_handshake(port, token, session_id):
-    """Atomar schreiben: .tmp + os.replace, Modus 0600.
+    """Write atomically: .tmp + os.replace, mode 0600.
 
-    Ein halb geschriebenes JSON wuerde das Backend als "kaputt" werten und in
-    Backoff gehen -- deshalb nie direkt in die Zieldatei schreiben.
+    The backend would treat a half-written JSON as "broken" and go into
+    backoff -- so never write directly to the target file.
     """
     directory = handshake_dir()
     if not os.path.isdir(directory):
@@ -118,18 +118,18 @@ def write_handshake(port, token, session_id):
     try:
         os.chmod(tmp, 0o600)
     except OSError:
-        pass  # unter Windows ohne Wirkung, kein Grund zu scheitern
+        pass  # no effect on Windows, no reason to fail
     _replace_with_retry(tmp, target)
     return target
 
 
 def _replace_with_retry(src, dst, attempts=50):
-    """os.replace, das unter Windows kurz auf Leser wartet.
+    """os.replace that briefly waits for readers on Windows.
 
-    Das Backend liest bridge.json bei JEDEM Verbindungsversuch. Hat es die
-    Datei im selben Moment offen, verweigert Windows das Ersetzen mit
-    PermissionError -- der Bruecken-Start scheiterte dann zufaellig.
-    Gefunden im M5-Ende-zu-Ende-Test.
+    The backend reads bridge.json on EVERY connection attempt. If it has the
+    file open at the same moment, Windows refuses the replace with
+    PermissionError -- the bridge start then failed at random.
+    Found in the M5 end-to-end test.
     """
     for _ in range(attempts):
         try:
@@ -141,7 +141,7 @@ def _replace_with_retry(src, dst, attempts=50):
 
 
 def read_handshake():
-    """Handshake-Datei lesen; None, wenn sie fehlt oder unbrauchbar ist."""
+    """Read the handshake file; None if it is missing or unusable."""
     try:
         with open(handshake_path(), "r", encoding="utf-8") as handle:
             data = json.load(handle)
@@ -153,10 +153,10 @@ def read_handshake():
 
 
 def remove_handshake(session_id):
-    """Nur die EIGENE Datei loeschen.
+    """Delete only OUR OWN file.
 
-    Sonst raeumt eine zweite FreeCAD-Instanz beim Beenden die Datei der noch
-    laufenden ersten weg, und das Backend verliert grundlos die Verbindung.
+    Otherwise a second FreeCAD instance, when exiting, removes the file of the
+    still-running first one, and the backend loses the connection for no reason.
     """
     data = read_handshake()
     if data is None or data.get("session_id") != session_id:

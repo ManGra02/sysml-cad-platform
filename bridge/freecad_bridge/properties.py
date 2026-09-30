@@ -1,24 +1,23 @@
-"""Properties beliebiger CAD-Objekte lesen -- ohne einen CAD-Typ zu kennen.
+"""Read the properties of arbitrary CAD objects -- without knowing any CAD type.
 
-Das ist der Kern der Plattform: FreeCAD liefert zu jeder Property genug
-Metadaten (Typ, Gruppe, Dokumentation, Aufzaehlungswerte, Flags), um sie
-generisch zu rendern. Der Editor im Browser kennt deshalb weder Part::Box noch
+This is the core of the platform: for every property FreeCAD provides enough
+metadata (type, group, documentation, enumeration values, flags) to render it
+generically. That is why the editor in the browser knows neither Part::Box nor
 PartDesign::Pad.
 
-KLASSIFIKATION NACH FAMILIE, nicht nach exaktem TypeId: es gibt 126 davon. Die
-Zuordnung laeuft deshalb ueber den Python-Typ des Wertes, mit dem TypeId nur
-dort, wo er noetig ist (Aufzaehlungen brauchen ihre Auswahlwerte, Links ihre
-Form).
+CLASSIFICATION BY FAMILY, not by exact TypeId: there are 126 of those. The
+mapping therefore goes by the Python type of the value, using the TypeId only
+where it is needed (enumerations need their choices, links their shape).
 
-Verifizierte Fallstricke, die hier behandelt werden:
-  * Label traegt das Statusflag 'Output'. Die naive Regel "Output ueberspringen"
-    wuerde ausgerechnet das Umbenennen aussperren -> Allow-List.
-  * Shape hat Status [] und ist ueber Flags NICHT filterbar -> Entscheidung
-    haengt am TypeId.
-  * Quantity.UserString ist lokalisiert ('7900,00 kg/m^3') -> nie serialisieren.
-  * Rotation.Angle ist in Radiant -> Quaternion fuer die Rundreise.
-  * Spreadsheet-Zellen erscheinen in PropertiesList; ein Sheet mit 20.000
-    Zellen ergaebe eine ~10-MB-Antwort -> eigene Route.
+Verified pitfalls handled here:
+  * Label carries the status flag 'Output'. The naive rule "skip Output"
+    would lock out renaming, of all things -> allow list.
+  * Shape has status [] and can NOT be filtered via flags -> the decision
+    depends on the TypeId.
+  * Quantity.UserString is localized ('7900,00 kg/m^3') -> never serialize it.
+  * Rotation.Angle is in radians -> quaternion for the round trip.
+  * Spreadsheet cells appear in PropertiesList; a sheet with 20,000
+    cells would produce a ~10 MB response -> separate route.
 """
 
 import FreeCAD
@@ -26,9 +25,9 @@ import FreeCAD
 from cad_contract import types
 from freecad_bridge.dispatch import BridgeError, main_thread_only
 
-#: Weder lesen noch schreiben.
-#: PropertyFileIncluded saugt eine beliebige Datei des Nutzers in das Dokument
-#: und taugt als Pfad-Existenz-Orakel; PythonObject ist beliebiger Zustand.
+#: Neither read nor write.
+#: PropertyFileIncluded pulls an arbitrary user file into the document and
+#: works as a path-existence oracle; PythonObject is arbitrary state.
 DENYLIST_TYPE_IDS = frozenset(
     [
         "App::PropertyFile",
@@ -37,21 +36,21 @@ DENYLIST_TYPE_IDS = frozenset(
     ]
 )
 
-#: Wird abgeleitet statt serialisiert.
+#: Derived instead of serialized.
 SHAPE_TYPE_IDS = frozenset(["Part::PropertyPartShape"])
 
-#: Schreibbar trotz Statusflags. Label ist 'Output' -- ohne diese Liste
-#: koennte man nichts umbenennen.
+#: Writable despite status flags. Label is 'Output' -- without this list
+#: nothing could be renamed.
 WRITABLE_ALLOWLIST = frozenset(["Label", "Label2", "Visibility"])
 
-#: Flags, die Schreiben verbieten (sofern nicht in der Allow-List).
+#: Flags that forbid writing (unless in the allow list).
 BLOCKING_FLAGS = frozenset(["ReadOnly", "Output", "Transient"])
 
-#: Interne Buchhaltung. Feuert bei jeder Geometrieaenderung mit und hat fuer
-#: den Nutzer keine Bedeutung.
+#: Internal bookkeeping. Fires along with every geometry change and means
+#: nothing to the user.
 INTERNAL_PREFIXES = ("_",)
 
-#: Spreadsheet-Zellen: A1, BC42 ... -- ueber eine eigene Route, nicht generisch.
+#: Spreadsheet cells: A1, BC42 ... -- via a separate route, not generically.
 _CELL_MAX_COLUMN_LETTERS = 3
 
 
@@ -71,7 +70,7 @@ def is_internal(name):
     return name.startswith(INTERNAL_PREFIXES)
 
 
-# -- Kodierung ---------------------------------------------------------
+# -- Encoding ----------------------------------------------------------
 
 
 def _ref_from_object(obj, subs=None):
@@ -79,11 +78,11 @@ def _ref_from_object(obj, subs=None):
 
 
 def _encode_quantity(value):
-    """Einheit als Symbol, nicht als FreeCADs repr.
+    """Unit as a symbol, not as FreeCAD's repr.
 
-    str(Unit) liefert 'Unit: mm (1,0,0,0,0,0,0,0) [Length]' -- im Browser
-    unbrauchbar. Das Symbol steht im Text hinter dem Zahlenwert; die
-    Groessenart kommt aus Unit.Type.
+    str(Unit) yields 'Unit: mm (1,0,0,0,0,0,0,0) [Length]' -- useless in the
+    browser. The symbol follows the numeric value in the text; the kind of
+    quantity comes from Unit.Type.
     """
     text = str(value)
     parts = text.split(" ", 1)
@@ -98,9 +97,9 @@ def _encode_quantity(value):
 
 
 def _encode_link_value(value):
-    """Alle 24 Link-Varianten auf eine Form bringen.
+    """Bring all 24 link variants into one shape.
 
-    Rueckgabe ist (kind_fn, payload) oder None, wenn es kein Link ist.
+    Returns (kind_fn, payload), or None if it is not a link.
     """
     if value is None:
         return types.link(None)
@@ -112,7 +111,7 @@ def _encode_link_value(value):
         if not value:
             return types.link_list([])
 
-        # (obj, ['Face1', ...]) -- ein LinkSub
+        # (obj, ['Face1', ...]) -- a LinkSub
         if (
             len(value) == 2
             and _is_document_object(value[0])
@@ -147,22 +146,22 @@ def _is_document_object(value):
 
 
 def encode_value(obj, name, type_id):
-    """Einen Property-Wert in die Vertragsform bringen.
+    """Bring a property value into contract form.
 
-    Liefert (status, value). status ist ENCODED, DERIVED oder UNSUPPORTED.
+    Returns (status, value). status is ENCODED, DERIVED or UNSUPPORTED.
     """
     if type_id in DENYLIST_TYPE_IDS:
-        return types.UNSUPPORTED, types.unsupported(type_id, "aus Sicherheitsgruenden gesperrt")
+        return types.UNSUPPORTED, types.unsupported(type_id, "blocked for security reasons")
 
     if type_id in SHAPE_TYPE_IDS:
-        return types.DERIVED, None  # ueber ?include=geometry
+        return types.DERIVED, None  # via ?include=geometry
 
     try:
         value = getattr(obj, name)
     except Exception as exc:
-        return types.UNSUPPORTED, types.unsupported(type_id, "nicht lesbar: %s" % type(exc).__name__)
+        return types.UNSUPPORTED, types.unsupported(type_id, "not readable: %s" % type(exc).__name__)
 
-    # Aufzaehlung braucht ihre Auswahlwerte -- der Wert allein genuegt nicht.
+    # An enumeration needs its choices -- the value alone is not enough.
     if type_id == "App::PropertyEnumeration":
         try:
             choices = obj.getEnumerationsOfProperty(name) or []
@@ -171,7 +170,7 @@ def encode_value(obj, name, type_id):
         return types.ENCODED, types.enum(value, choices)
 
     if value is None:
-        # Kann ein leerer Link sein oder schlicht nichts.
+        # Can be an empty link or simply nothing.
         if "Link" in type_id:
             return types.ENCODED, types.link(None)
         return types.ENCODED, None
@@ -195,7 +194,7 @@ def encode_value(obj, name, type_id):
     if isinstance(value, dict):
         if all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
             return types.ENCODED, types.mapping(value)
-        return types.UNSUPPORTED, types.unsupported(type_id, "Abbildung mit gemischten Typen")
+        return types.UNSUPPORTED, types.unsupported(type_id, "mapping with mixed types")
 
     material = _encode_material(value)
     if material is not None:
@@ -213,7 +212,7 @@ def encode_value(obj, name, type_id):
 
 
 def _encode_material(value):
-    """Materials::PropertyMaterial reist als UUID, wie FreeCAD es auch speichert."""
+    """Materials::PropertyMaterial travels as a UUID, just as FreeCAD stores it."""
     uuid = getattr(value, "UUID", None)
     if uuid is None:
         return None
@@ -221,7 +220,7 @@ def _encode_material(value):
 
 
 def _encode_simple_sequence(value, type_id):
-    """Listen aus einfachen Werten, Vektoren oder Lagen."""
+    """Lists of simple values, vectors or placements."""
     encoded = []
     for item in value:
         if isinstance(item, bool) or isinstance(item, (int, float, str)):
@@ -233,27 +232,27 @@ def _encode_simple_sequence(value, type_id):
         elif isinstance(item, (list, tuple)) and all(
             isinstance(part, (int, float)) for part in item
         ):
-            encoded.append(list(item))  # z. B. Farben
+            encoded.append(list(item))  # e.g. colors
         else:
             return None
     return encoded
 
 
 def _summarize(value):
-    """Kurzer Hinweis statt repr().
+    """A short hint instead of repr().
 
-    repr(FemMesh) waere ein kompletter Mesh-Dump, repr(Proxy) enthielte eine
-    Speicheradresse, die sich bei jedem Start aendert.
+    repr(FemMesh) would be a complete mesh dump, repr(Proxy) would contain a
+    memory address that changes on every start.
     """
     name = type(value).__name__
     try:
         length = len(value)
     except TypeError:
         return name
-    return "%s mit %d Eintraegen" % (name, length)
+    return "%s with %d entries" % (name, length)
 
 
-# -- Metadaten ---------------------------------------------------------
+# -- Metadata ----------------------------------------------------------
 
 
 def _flags(obj, name):
@@ -264,11 +263,11 @@ def _flags(obj, name):
 
 
 def _is_dynamic(obj, name):
-    """Dynamische Properties tragen Statuscode 21.
+    """Dynamic properties carry status code 21.
 
-    getPropertyStatus() liefert fuer eine konkrete Property rohe Ints; die
-    NAMEN kommen aus getTypeOfProperty(). Fuer 'dynamisch' gibt es keinen
-    Namen, deshalb hier ausnahmsweise der Code.
+    getPropertyStatus() returns raw ints for a concrete property; the
+    NAMES come from getTypeOfProperty(). There is no name for 'dynamic',
+    so here, as an exception, the code is used.
     """
     try:
         return 21 in obj.getPropertyStatus(name)
@@ -293,7 +292,7 @@ def _is_writable(name, type_id, status, flags, expression):
     if type_id in DENYLIST_TYPE_IDS or type_id in SHAPE_TYPE_IDS:
         return False
     if expression:
-        return False  # wuerde beim naechsten Recompute ueberschrieben
+        return False  # would be overwritten on the next recompute
     if name in WRITABLE_ALLOWLIST:
         return True
     return not any(flag in BLOCKING_FLAGS for flag in flags)
@@ -301,11 +300,11 @@ def _is_writable(name, type_id, status, flags, expression):
 
 @main_thread_only
 def describe_property(obj, name):
-    """Eine Property vollstaendig beschreiben."""
+    """Describe a property completely."""
     try:
         type_id = obj.getTypeIdOfProperty(name)
     except Exception:
-        type_id = "unbekannt"
+        type_id = "unknown"
 
     status, value = encode_value(obj, name, type_id)
     flags = _flags(obj, name)
@@ -336,10 +335,10 @@ def describe_property(obj, name):
 
 @main_thread_only
 def property_names(obj, include_internal=False):
-    """Relevante Property-Namen eines Objekts.
+    """Relevant property names of an object.
 
-    Spreadsheet-Zellen werden ausgeschlossen: sie erscheinen in PropertiesList,
-    gehoeren aber ueber eine eigene Bereichsroute.
+    Spreadsheet cells are excluded: they appear in PropertiesList, but
+    belong to a separate range route.
     """
     try:
         names = list(obj.PropertiesList)
@@ -359,11 +358,11 @@ def property_names(obj, include_internal=False):
 
 @main_thread_only
 def describe_properties(obj, fields=None, include_internal=False):
-    """Alle (oder ausgewaehlte) Properties beschreiben.
+    """Describe all (or selected) properties.
 
-    ``fields`` begrenzt auf eine explizite Liste -- das ist der Weg fuer die
-    Batch-Route, damit eine Tabelle mit drei Spalten nicht das ganze Objekt
-    ueberträgt.
+    ``fields`` limits to an explicit list -- this is the path for the
+    batch route, so that a table with three columns does not transfer the
+    whole object.
     """
     names = property_names(obj, include_internal=include_internal)
     if fields is not None:
@@ -372,14 +371,24 @@ def describe_properties(obj, fields=None, include_internal=False):
     return [describe_property(obj, name) for name in names]
 
 
-# -- Rueckwandlung (M3) ------------------------------------------------
+# -- Decoding (M3) -----------------------------------------------------
 
 
 class InvalidValue(BridgeError):
-    """Der Wert passt nicht zur Property -- nichts wurde geschrieben."""
+    """The value does not fit the property -- nothing was written.
+
+    ``detail`` is machine-readable so the UI can build the message in the
+    user's language: ``{field, reason, ...params}``. ``message`` is the
+    English plain-text form (the API's language).
+    """
 
     code = "invalid_value"
     http_status = 400
+
+    def __init__(self, message, field=None, reason="invalid", **params):
+        detail = {"field": field, "reason": reason}
+        detail.update(params)
+        super(InvalidValue, self).__init__(message, detail)
 
 
 class NotWritable(BridgeError):
@@ -388,14 +397,14 @@ class NotWritable(BridgeError):
 
 
 class ExpressionBound(BridgeError):
-    """Ein literaler Wert wuerde beim naechsten Recompute still verworfen."""
+    """A literal value would be silently discarded on the next recompute."""
 
     code = "expression_bound"
     http_status = 409
 
 
 def _payload_form(payload, kind):
-    """Die Vertragsform ({"kind": ...}) erkennen, sonst None."""
+    """Recognize the contract form ({"kind": ...}), otherwise None."""
     if isinstance(payload, dict) and payload.get("kind") == kind:
         return payload
     return None
@@ -405,7 +414,7 @@ def _resolve_ref(doc, ref, name):
     if ref is None:
         return None
     if not isinstance(ref, dict) or "name" not in ref:
-        raise InvalidValue("%s: Referenz braucht {doc, name}" % name, name)
+        raise InvalidValue("%s: reference needs {doc, name}" % name, name, "ref_invalid")
     target_doc = doc
     if ref.get("doc") and ref["doc"] != doc.Name:
         try:
@@ -413,16 +422,16 @@ def _resolve_ref(doc, ref, name):
         except Exception:
             target_doc = None
         if target_doc is None:
-            # Kein Nachladen: das waere ein mehrsekuendiger Block im Dispatch.
+            # No loading on demand: that would be a multi-second block in dispatch.
             raise InvalidValue(
-                "%s: Zieldokument %r ist nicht offen" % (name, ref["doc"]), name
+                "%s: target document %r is not open" % (name, ref["doc"]),
+                name, "target_doc_not_open", doc=ref["doc"],
             )
     target = target_doc.getObject(ref["name"])
     if target is None:
         raise InvalidValue(
-            "%s: Objekt %r nicht gefunden (Referenz ueber Name, nicht Label)"
-            % (name, ref["name"]),
-            name,
+            "%s: object %r not found (reference by Name, not Label)" % (name, ref["name"]),
+            name, "target_not_found", target=ref["name"],
         )
     return target
 
@@ -432,24 +441,23 @@ def _decode_quantity(name, current, payload):
     if form is not None:
         payload = form.get("text") or form.get("value")
     if isinstance(payload, bool):
-        raise InvalidValue("%s: Menge erwartet" % name, name)
+        raise InvalidValue("%s: quantity expected" % name, name, "quantity_expected")
     if isinstance(payload, (int, float)):
-        return float(payload)  # in FreeCADs internen Einheiten
+        return float(payload)  # in FreeCAD's internal units
     if not isinstance(payload, str):
-        raise InvalidValue("%s: Menge erwartet" % name, name)
+        raise InvalidValue("%s: quantity expected" % name, name, "quantity_expected")
     try:
         quantity = FreeCAD.Units.Quantity(payload)
     except Exception:
-        raise InvalidValue("%s: %r ist keine gueltige Menge" % (name, payload), name)
-    # Eine reine Zahl als Text ("25") ist dimensionslos und wird als interne
-    # Einheit verstanden. Alles andere muss zur Groessenart passen -- FreeCAD
-    # wuerde "3 kg" auf eine Laenge sonst mit ArithmeticError quittieren.
+        raise InvalidValue("%s: %r is not a valid quantity" % (name, payload), name, "quantity_invalid", input=payload)
+    # A bare number as text ("25") is dimensionless and is taken as the
+    # internal unit. Everything else must match the kind of quantity --
+    # otherwise FreeCAD would answer "3 kg" on a length with ArithmeticError.
     dimensionless = tuple(quantity.Unit.Signature) == (0,) * 8
     if not dimensionless and tuple(quantity.Unit.Signature) != tuple(current.Unit.Signature):
         raise InvalidValue(
-            "%s: Einheit passt nicht, erwartet %s"
-            % (name, current.Unit.Type or "dimensionslos"),
-            name,
+            "%s: unit does not match, expected %s" % (name, current.Unit.Type or "dimensionless"),
+            name, "unit_mismatch", expected=current.Unit.Type or None,
         )
     return quantity.Value if dimensionless else quantity
 
@@ -476,24 +484,25 @@ _NO_MATCH = object()
 
 
 def _decode_value(obj, name, type_id, current, payload):
-    """Anhand des AKTUELLEN Werts entscheiden, welche Form erwartet wird."""
+    """Decide from the CURRENT value which form is expected."""
     if type_id == "App::PropertyEnumeration":
         value = payload.get("value") if isinstance(payload, dict) else payload
-        # Eine LISTE wuerde die Auswahlwerte ersetzen, statt einen zu waehlen.
+        # A LIST would replace the choices instead of selecting one.
         if isinstance(value, bool) or not isinstance(value, (str, int)):
-            raise InvalidValue("%s: Aufzaehlung erwartet str oder int" % name, name)
+            raise InvalidValue("%s: enumeration expects str or int" % name, name, "enum_type")
         choices = obj.getEnumerationsOfProperty(name) or []
         if isinstance(value, str) and value not in choices:
             raise InvalidValue(
-                "%s: %r ist keine erlaubte Auswahl" % (name, value), {"choices": choices}
+                "%s: %r is not an allowed choice" % (name, value),
+                name, "enum_choice", value=value, choices=choices,
             )
         if isinstance(value, int) and not 0 <= value < len(choices):
-            raise InvalidValue("%s: Index %d ausserhalb der Auswahl" % (name, value), name)
+            raise InvalidValue("%s: index %d out of range" % (name, value), name, "enum_index", index=value)
         return value
 
     if isinstance(current, bool):
         if not isinstance(payload, bool):
-            raise InvalidValue("%s: bool erwartet" % name, name)
+            raise InvalidValue("%s: boolean expected" % name, name, "bool_expected")
         return payload
 
     if isinstance(current, FreeCAD.Units.Quantity):
@@ -502,39 +511,39 @@ def _decode_value(obj, name, type_id, current, payload):
     if isinstance(current, FreeCAD.Placement):
         form = _payload_form(payload, types.PLACEMENT)
         if form is None or len(form.get("pos") or []) != 3 or len(form.get("q") or []) != 4:
-            raise InvalidValue("%s: {kind: placement, pos[3], q[4]} erwartet" % name, name)
+            raise InvalidValue("%s: {kind: placement, pos[3], q[4]} expected" % name, name, "form_expected", form="placement")
         return FreeCAD.Placement(FreeCAD.Vector(*form["pos"]), FreeCAD.Rotation(*form["q"]))
 
     if isinstance(current, FreeCAD.Rotation):
         form = _payload_form(payload, types.ROTATION)
         if form is None or len(form.get("q") or []) != 4:
-            raise InvalidValue("%s: {kind: rotation, q[4]} erwartet" % name, name)
+            raise InvalidValue("%s: {kind: rotation, q[4]} expected" % name, name, "form_expected", form="rotation")
         return FreeCAD.Rotation(*form["q"])
 
     if isinstance(current, FreeCAD.Vector):
         form = _payload_form(payload, types.VECTOR)
         if form is None:
-            raise InvalidValue("%s: {kind: vector, x, y, z} erwartet" % name, name)
+            raise InvalidValue("%s: {kind: vector, x, y, z} expected" % name, name, "form_expected", form="vector")
         return FreeCAD.Vector(form["x"], form["y"], form["z"])
 
     if isinstance(current, int):
         if isinstance(payload, bool) or not isinstance(payload, int):
-            raise InvalidValue("%s: Ganzzahl erwartet" % name, name)
+            raise InvalidValue("%s: integer expected" % name, name, "int_expected")
         return payload
 
     if isinstance(current, float):
         if isinstance(payload, bool) or not isinstance(payload, (int, float)):
-            raise InvalidValue("%s: Zahl erwartet" % name, name)
+            raise InvalidValue("%s: number expected" % name, name, "number_expected")
         return float(payload)
 
     if type_id == "App::PropertyStringList":
         if not isinstance(payload, list) or not all(isinstance(item, str) for item in payload):
-            raise InvalidValue("%s: Liste aus Texten erwartet" % name, name)
+            raise InvalidValue("%s: list of strings expected" % name, name, "string_list_expected")
         return list(payload)
 
     if isinstance(current, str):
         if not isinstance(payload, str):
-            raise InvalidValue("%s: Text erwartet" % name, name)
+            raise InvalidValue("%s: text expected" % name, name, "text_expected")
         return payload
 
     if isinstance(payload, dict):
@@ -545,7 +554,7 @@ def _decode_value(obj, name, type_id, current, payload):
         if kind == types.MAP:
             entries = payload.get("entries") or {}
             if not all(isinstance(k, str) and isinstance(v, str) for k, v in entries.items()):
-                raise InvalidValue("%s: Abbildung str -> str erwartet" % name, name)
+                raise InvalidValue("%s: map str -> str expected" % name, name, "map_expected")
             return dict(entries)
         if kind == types.MATERIAL_REF:
             try:
@@ -554,29 +563,30 @@ def _decode_value(obj, name, type_id, current, payload):
                 return Materials.MaterialManager().getMaterial(payload.get("uuid"))
             except Exception:
                 raise InvalidValue(
-                    "%s: Material %r unbekannt" % (name, payload.get("uuid")), name
+                    "%s: unknown material %r" % (name, payload.get("uuid")),
+                    name, "material_unknown", uuid=payload.get("uuid"),
                 )
 
-    raise InvalidValue("%s: Wertform fuer %s nicht unterstuetzt" % (name, type_id), name)
+    raise InvalidValue("%s: value form not supported for %s" % (name, type_id), name, "form_unsupported", typeId=type_id)
 
 
 @main_thread_only
 def decode_for_write(obj, name, payload):
-    """Pruefen, ob ``name`` schreibbar ist, und den FreeCAD-Wert bauen.
+    """Check whether ``name`` is writable, and build the FreeCAD value.
 
-    Wird fuer ALLE Felder aufgerufen, BEVOR die Transaktion geoeffnet wird: ein
-    ungueltiges Feld soll nichts anfassen, statt eine halbe Aenderung
-    zurueckrollen zu muessen.
+    Called for ALL fields BEFORE the transaction is opened: an invalid field
+    should touch nothing, rather than having to roll back a half-applied
+    change.
     """
     if name not in obj.PropertiesList or is_internal(name):
-        raise InvalidValue("%s: unbekannte Property" % name, name)
+        raise InvalidValue("%s: unknown property" % name, name, "unknown_property")
 
     entry = describe_property(obj, name)
     if entry["expression"]:
         raise ExpressionBound(
-            "%s ist an die Expression %r gebunden" % (name, entry["expression"]), name
+            "%s is bound to the expression %r" % (name, entry["expression"]), name
         )
     if not entry["writable"]:
-        raise NotWritable("%s ist nicht schreibbar (%s)" % (name, entry["typeId"]), name)
+        raise NotWritable("%s is not writable (%s)" % (name, entry["typeId"]), name)
 
     return _decode_value(obj, name, entry["typeId"], getattr(obj, name), payload)

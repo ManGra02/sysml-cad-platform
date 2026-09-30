@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { Box, ChevronDown, Crosshair, FunctionSquare, Lock, Ruler, Search } from "lucide-react"
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -30,6 +31,7 @@ export function PropertyPanel({
   tree: Tree | undefined
   onNavigate: (name: string) => void
 }) {
+  const { t } = useTranslation()
   const query = useQuery(objectQuery(doc, name))
   const editor = useObjectEditor(doc, name)
   const [filter, setFilter] = useState("")
@@ -48,7 +50,7 @@ export function PropertyPanel({
     const gone = query.error instanceof ApiError && query.error.code === "object_not_found"
     return (
       <div className="p-6 text-sm text-muted-foreground">
-        {gone ? "Das Objekt gibt es nicht mehr – vermutlich wurde es in FreeCAD gelöscht." : describeError(query.error)}
+        {gone ? t("panel.objectGone") : describeError(query.error)}
       </div>
     )
   }
@@ -64,8 +66,8 @@ export function PropertyPanel({
     navigate: onNavigate,
   }
 
-  // Wie FreeCADs eigener Property-Editor: als "Hidden" markierte Properties
-  // (AttacherType, Proxy-Interna ...) nur auf Wunsch.
+  // Like FreeCAD's own property editor: properties flagged "Hidden"
+  // (AttacherType, proxy internals ...) only on request.
   const hiddenCount = data.properties.filter((entry) => entry.flags.includes("Hidden")).length
   const needle = filter.trim().toLowerCase()
   const visible = data.properties.filter(
@@ -99,7 +101,7 @@ export function PropertyPanel({
                   <Crosshair />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>In FreeCAD auswählen und anzeigen</TooltipContent>
+              <TooltipContent>{t("panel.showInFreeCAD")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -111,16 +113,16 @@ export function PropertyPanel({
                   <Ruler />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Geometrie (Volumen, Hüllquader) berechnen</TooltipContent>
+              <TooltipContent>{t("panel.geometryToggle")}</TooltipContent>
             </Tooltip>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="outline" className="font-mono text-[10px]" title="Revision: steigt bei jeder Änderung">
+          <Badge variant="outline" className="font-mono text-[10px]" title={t("panel.revisionHint")}>
             rev {data.rev}
           </Badge>
           <StateBadges state={data.state} />
-          {data.visible === false && <Badge variant="secondary">ausgeblendet</Badge>}
+          {data.visible === false && <Badge variant="secondary">{t("panel.hidden")}</Badge>}
         </div>
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -128,7 +130,7 @@ export function PropertyPanel({
             <Input
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
-              placeholder="Property suchen"
+              placeholder={t("panel.searchPlaceholder")}
               className="h-7 pl-7 text-xs"
             />
           </div>
@@ -139,7 +141,7 @@ export function PropertyPanel({
               className="h-7 text-xs"
               onClick={() => setShowHidden((value) => !value)}
             >
-              {showHidden ? "Versteckte ausblenden" : hiddenCount + " versteckte"}
+              {showHidden ? t("panel.hideHidden") : t("panel.hiddenCount", { count: hiddenCount })}
             </Button>
           )}
         </div>
@@ -161,7 +163,7 @@ export function PropertyPanel({
             </CollapsibleContent>
           </Collapsible>
         ))}
-        {groups.length === 0 && <p className="p-4 text-sm text-muted-foreground">Keine passende Property.</p>}
+        {groups.length === 0 && <p className="p-4 text-sm text-muted-foreground">{t("panel.noMatch")}</p>}
       </div>
       <ConflictDialog conflict={editor.conflict} />
     </div>
@@ -169,6 +171,7 @@ export function PropertyPanel({
 }
 
 function PropertyRow({ entry, ctx }: { entry: PropertyEntry; ctx: FieldContext }) {
+  const { t } = useTranslation()
   const kind = fieldKind(entry)
   const locked = kind === "readonly" && !entry.expression
   return (
@@ -185,8 +188,8 @@ function PropertyRow({ entry, ctx }: { entry: PropertyEntry; ctx: FieldContext }
           <p className="font-medium">{entry.name}</p>
           {entry.doc && <p className="mt-1">{entry.doc}</p>}
           <p className="mt-1 font-mono opacity-70">{entry.typeId}</p>
-          {entry.expression && <p className="mt-1">Gebunden an: {entry.expression} – in FreeCAD bearbeiten</p>}
-          {locked && entry.flags.length > 0 && <p className="mt-1 opacity-70">Flags: {entry.flags.join(", ")}</p>}
+          {entry.expression && <p className="mt-1">{t("panel.boundTo", { expression: entry.expression })}</p>}
+          {locked && entry.flags.length > 0 && <p className="mt-1 opacity-70">{t("panel.flags", { flags: entry.flags.join(", ") })}</p>}
         </TooltipContent>
       </Tooltip>
       <div className={cn("min-w-0", entry.expression && "opacity-80")}>
@@ -200,46 +203,47 @@ function PropertyRow({ entry, ctx }: { entry: PropertyEntry; ctx: FieldContext }
 function groupProperties(entries: PropertyEntry[]): Array<[string, PropertyEntry[]]> {
   const groups = new Map<string, PropertyEntry[]>()
   for (const entry of entries) {
-    const group = entry.group || "Base" // FreeCAD liefert fuer die Basis-Properties eine leere Gruppe
+    const group = entry.group || "Base" // FreeCAD returns an empty group for the base properties
     if (!groups.has(group)) groups.set(group, [])
     groups.get(group)!.push(entry)
   }
-  // "Base" zuletzt: die generischen Felder (Label, Placement ...) stehen in
-  // FreeCAD auch unten; oben das, was den Objekttyp ausmacht.
+  // "Base" last: the generic fields (Label, Placement ...) are at the bottom
+  // in FreeCAD too; on top is what defines the object type.
   return [...groups.entries()].sort(([a], [b]) => (a === "Base") === (b === "Base") ? a.localeCompare(b) : a === "Base" ? 1 : -1)
 }
 
 function GeometrySection({ doc, name }: { doc: string; name: string }) {
+  const { t } = useTranslation()
   const query = useQuery(geometryQuery(doc, name))
   const rows: Array<[string, string]> = []
   const geometry = query.data
   if (geometry && !geometry.null) {
-    if (geometry.shapeType) rows.push(["Form", geometry.shapeType])
-    if (geometry.volume !== undefined) rows.push(["Volumen", formatNumber(geometry.volume, 3) + " mm³"])
-    if (geometry.area !== undefined) rows.push(["Oberfläche", formatNumber(geometry.area, 3) + " mm²"])
+    if (geometry.shapeType) rows.push([t("geometry.shape"), geometry.shapeType])
+    if (geometry.volume !== undefined) rows.push([t("geometry.volume"), formatNumber(geometry.volume, 3) + " mm³"])
+    if (geometry.area !== undefined) rows.push([t("geometry.area"), formatNumber(geometry.area, 3) + " mm²"])
     if (geometry.boundBox)
-      rows.push(["Hüllquader", geometry.boundBox.lengths.map((n) => formatNumber(n, 3)).join(" × ") + " mm"])
+      rows.push([t("geometry.boundBox"), geometry.boundBox.lengths.map((n) => formatNumber(n, 3)).join(" × ") + " mm"])
     if (geometry.centerOfMass)
-      rows.push(["Schwerpunkt", "(" + geometry.centerOfMass.map((n) => formatNumber(n, 3)).join(", ") + ")"])
+      rows.push([t("geometry.centerOfMass"), "(" + geometry.centerOfMass.map((n) => formatNumber(n, 3)).join(", ") + ")"])
     if (geometry.counts)
       rows.push([
-        "Topologie",
+        t("geometry.topology"),
         [
-          geometry.counts.solids + " Körper",
-          geometry.counts.faces + " Flächen",
-          geometry.counts.edges + " Kanten",
+          t("geometry.solids", { count: geometry.counts.solids ?? 0 }),
+          t("geometry.faces", { count: geometry.counts.faces ?? 0 }),
+          t("geometry.edges", { count: geometry.counts.edges ?? 0 }),
         ].join(" · "),
       ])
-    if (geometry.valid === false) rows.push(["Gültig", "nein"])
+    if (geometry.valid === false) rows.push([t("geometry.valid"), t("common.no")])
   }
   return (
     <section className="border-b p-3">
       <h3 className="mb-2 flex items-center gap-1 text-xs font-medium">
-        <Box className="size-3.5" /> Geometrie
+        <Box className="size-3.5" /> {t("geometry.title")}
       </h3>
       {query.isPending && <Skeleton className="h-16" />}
       {query.isError && <p className="text-xs text-destructive">{describeError(query.error)}</p>}
-      {query.isSuccess && !rows.length && <p className="text-xs text-muted-foreground">Keine Geometrie.</p>}
+      {query.isSuccess && !rows.length && <p className="text-xs text-muted-foreground">{t("geometry.none")}</p>}
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
         {rows.map(([label, value]) => (
           <div key={label} className="contents">

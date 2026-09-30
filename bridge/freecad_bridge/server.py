@@ -1,12 +1,12 @@
-"""Die HTTP-Schicht der Bruecke.
+"""The HTTP layer of the bridge.
 
-Hier wird FreeCAD nicht angefasst. Ein CI-Grep prueft das; Logging laeuft
-ueber freecad_bridge.log, alles am Dokument ueber dispatch() in den
-Adapter-Modulen.
+FreeCAD is not touched here. A CI grep checks this; logging goes through
+freecad_bridge.log, everything involving the document through dispatch() in
+the adapter modules.
 
-Routen: Gesundheit, Lesen (Dokumente, Baum, Objekte, Typen), Auswahl,
-Schreiben (PATCH mit optionalem If-Match, Vorgaenge aus mehreren
-Operationen, Recompute), Tabellenzellen und /ws.
+Routes: health, reading (documents, tree, objects, types), selection,
+writing (PATCH with optional If-Match, transactions made of several
+operations, recompute), spreadsheet cells and /ws.
 """
 
 import json
@@ -28,20 +28,20 @@ from freecad_bridge import (
 )
 from freecad_bridge import state as bridge_state
 
-#: Lesen ist billig und veraendert nichts -- kurzer Timeout, damit eine
-#: beschaeftigte Oberflaeche die UI nicht haengen laesst.
+#: Reading is cheap and changes nothing -- short timeout so that a busy
+#: FreeCAD GUI does not leave the UI hanging.
 READ_TIMEOUT_S = 5.0
 
-#: Schreiben kann einen Recompute ausloesen (gemessen: 3,88 s fuer eine
-#: 25-fach verkettete Cut-Form). Synchron mit Timeout, wie entschieden.
+#: Writing can trigger a recompute (measured: 3.88 s for a 25-fold
+#: chained Cut shape). Synchronous with a timeout, as decided.
 WRITE_TIMEOUT_S = 30.0
 
 
 def error_response(code, message, status, detail=None, request_id=None):
-    """Einheitliche Fehlerhuelle -- nie nackter HTTP-Text.
+    """Uniform error envelope -- never bare HTTP text.
 
-    Das Frontend soll Fehler typisiert anzeigen koennen; ein Traceback gehoert
-    nicht hinein.
+    The frontend should be able to display errors by type; a traceback does
+    not belong in it.
     """
     payload = {"error": {"code": code, "message": message}}
     if detail is not None:
@@ -53,24 +53,24 @@ def error_response(code, message, status, detail=None, request_id=None):
 
 @web.middleware
 async def security_middleware(request, handler):
-    """Host, Origin und Token -- in dieser Reihenfolge.
+    """Host, Origin and token -- in that order.
 
-    Die Host-Pruefung ist die zweite, unabhaengige Verteidigung gegen
-    DNS-Rebinding: dort ist die Anfrage same-origin und traegt gar keinen
-    Origin, eine Origin-Pruefung hilft also prinzipiell nicht.
+    The Host check is the second, independent defense against DNS
+    rebinding: there the request is same-origin and carries no Origin at
+    all, so an Origin check cannot help in principle.
     """
     if not auth.host_allowed(request.headers.get("Host")):
-        return error_response("forbidden_host", "Unerlaubter Host-Header", 403)
+        return error_response("forbidden_host", "Host header not allowed", 403)
 
     if not auth.origin_allowed(request.headers.get("Origin")):
-        return error_response("forbidden_origin", "Unerlaubte Herkunft", 403)
+        return error_response("forbidden_origin", "Origin not allowed", 403)
 
     state = bridge_state.get_state()
     presented = auth.bearer_from_header(request.headers.get("Authorization"))
     if not auth.token_matches(state.token, presented):
         return error_response(
             "unauthorized",
-            "Token fehlt oder ist ungueltig (Authorization: Bearer ...)",
+            "Token missing or invalid (Authorization: Bearer ...)",
             401,
         )
 
@@ -79,7 +79,7 @@ async def security_middleware(request, handler):
 
 @web.middleware
 async def error_middleware(request, handler):
-    """BridgeError in die Fehlerhuelle uebersetzen, alles andere als 500."""
+    """Translate BridgeError into the error envelope, everything else as 500."""
     request_id = request.headers.get("X-Request-Id")
     try:
         return await handler(request)
@@ -89,16 +89,16 @@ async def error_middleware(request, handler):
         )
     except web.HTTPException:
         raise
-    except Exception as exc:  # pragma: no cover - Sicherheitsnetz
-        log.error("Unbehandelt: %r" % (exc,), request_id)
+    except Exception as exc:  # pragma: no cover - safety net
+        log.error("Unhandled: %r" % (exc,), request_id)
         return error_response(
-            "internal_error", "Unerwarteter Fehler in der Bruecke", 500,
+            "internal_error", "Unexpected error in the bridge", 500,
             type(exc).__name__, request_id,
         )
 
 
 async def handle_health(request):
-    """Antwortet IMMER sofort -- liest nur den Snapshot, dispatcht nie."""
+    """ALWAYS answers immediately -- only reads the snapshot, never dispatches."""
     data = snapshot.read()
     state = bridge_state.get_state()
     data["running"] = bool(state.running)
@@ -108,9 +108,9 @@ async def handle_health(request):
 
 
 def _csv_param(request, name):
-    """Komma-getrennter Query-Parameter -> Liste, oder None wenn nicht gesetzt.
+    """Comma-separated query parameter -> list, or None if not set.
 
-    None und [] bedeuten Verschiedenes: 'kein Filter' gegen 'leerer Filter'.
+    None and [] mean different things: 'no filter' vs. 'empty filter'.
     """
     raw = request.query.get(name)
     if raw is None:
@@ -147,9 +147,9 @@ async def handle_tree(request):
 
 
 async def handle_object_list(request):
-    """Batch-Route: mehrere Objekte in EINER Dispatch-Runde.
+    """Batch route: several objects in ONE dispatch round.
 
-    Ohne sie braeuchte eine Tabelle mit Property-Spalten N+1 Anfragen.
+    Without it, a table with property columns would need N+1 requests.
     """
     doc_name = request.match_info["doc"]
     names = _csv_param(request, "names")
@@ -195,15 +195,15 @@ async def handle_get_selection(request):
 
 
 async def handle_set_selection(request):
-    """Im 3D-Fenster auswaehlen und anfahren.
+    """Select in the 3D view and bring into view.
 
-    Bewusst als READ eingestuft: es aendert die Ansicht, nicht das Dokument,
-    und darf deshalb auch waehrend einer offenen Skizzenbearbeitung laufen.
+    Deliberately classified as READ: it changes the view, not the document,
+    and may therefore also run while a sketch is open for editing.
     """
     try:
         body = await request.json()
     except Exception:
-        return error_response("bad_request", "JSON-Body erwartet", 400)
+        return error_response("bad_request", "JSON body expected", 400)
 
     refs = body.get("refs") or []
     zoom = bool(body.get("zoom", True))
@@ -218,11 +218,11 @@ async def _write(fn, request_id=None):
 
 
 def parse_if_match(value):
-    """``If-Match`` -> rev als int, None ohne Pruefung.
+    """``If-Match`` -> rev as int, None for no check.
 
-    Akzeptiert ``12``, ``"12"`` und ``W/"12"``; ``*`` heisst "egal welcher Stand".
-    Ein unlesbarer Wert ist ein Fehler, keine stille Nicht-Pruefung -- sonst
-    ueberschriebe ein kaputter Client unbemerkt fremde Aenderungen.
+    Accepts ``12``, ``"12"`` and ``W/"12"``; ``*`` means "any state".
+    An unreadable value is an error, not a silent skip of the check --
+    otherwise a broken client would unnoticeably overwrite others' changes.
     """
     if value is None:
         return None
@@ -242,12 +242,12 @@ def parse_if_match(value):
 
 
 async def handle_patch_object(request):
-    """Properties setzen -- nur die geaenderten Felder, in EINER Transaktion.
+    """Set properties -- only the changed fields, in ONE transaction.
 
-    Body: {"Length": "40 mm", "Label": "Gehaeuse"}  (Vertragsform oder nackter Wert)
-    Query: ?recompute=false unterdrueckt den Recompute (dann eigene Route nutzen).
-    Header: If-Match: <rev> -- 409 rev_mismatch, wenn sich das Objekt inzwischen
-    geaendert hat.
+    Body: {"Length": "40 mm", "Label": "Housing"}  (contract form or bare value)
+    Query: ?recompute=false suppresses the recompute (then use the separate route).
+    Header: If-Match: <rev> -- 409 rev_mismatch if the object has changed in
+    the meantime.
     """
     doc_name = request.match_info["doc"]
     obj_name = request.match_info["name"]
@@ -257,13 +257,13 @@ async def handle_patch_object(request):
         if_match = parse_if_match(request.headers.get("If-Match"))
     except ValueError:
         return error_response(
-            "bad_request", "If-Match erwartet einen rev (Ganzzahl)", 400, request_id=request_id
+            "bad_request", "If-Match expects a rev (integer)", 400, request_id=request_id
         )
 
     try:
         changes = await request.json()
     except Exception:
-        return error_response("bad_request", "JSON-Body erwartet", 400, request_id=request_id)
+        return error_response("bad_request", "JSON body expected", 400, request_id=request_id)
 
     data = await _write(
         lambda: writes.patch_object(
@@ -285,19 +285,19 @@ async def handle_recompute(request):
 
 
 async def handle_operations(request):
-    """Mehrere Aenderungen als EIN Vorgang (ein Undo-Schritt, alles oder nichts).
+    """Several changes as ONE transaction (one undo step, all or nothing).
 
     Body: {"name": "...", "strict": true, "ops": [{"op": "create", ...}, ...]}
-    Siehe freecad_bridge/operations.py fuer die Operationen.
+    See freecad_bridge/operations.py for the operations.
     """
     doc_name = request.match_info["doc"]
     request_id = request.headers.get("X-Request-Id")
     try:
         body = await request.json()
     except Exception:
-        return error_response("bad_request", "JSON-Body erwartet", 400, request_id=request_id)
+        return error_response("bad_request", "JSON body expected", 400, request_id=request_id)
     if not isinstance(body, dict):
-        return error_response("bad_request", "JSON-Objekt erwartet", 400, request_id=request_id)
+        return error_response("bad_request", "JSON object expected", 400, request_id=request_id)
 
     data = await _write(
         lambda: operations.run(
@@ -313,7 +313,7 @@ async def handle_operations(request):
 
 
 async def handle_cells(request):
-    """Benutzte Zellen einer Tabelle, optional ?range=A1:D100."""
+    """Used cells of a spreadsheet, optionally ?range=A1:D100."""
     doc_name = request.match_info["doc"]
     sheet_name = request.match_info["sheet"]
     cell_range = request.query.get("range")
@@ -323,12 +323,12 @@ async def handle_cells(request):
 
 
 async def handle_ws(request):
-    """WebSocket-Geruest. Ereignisse folgen in M4.
+    """WebSocket scaffold. Events follow in M4.
 
-    Der Origin wird VOR accept() geprueft (durch die Middleware, die auch fuer
-    diese Route laeuft) und das Token im Authorization-Header verlangt --
-    Browser koennen bei new WebSocket() keine Header setzen, damit ist dieser
-    Endpunkt fuer Web-Angreifer strukturell unerreichbar.
+    The Origin is checked BEFORE accept() (by the middleware, which also runs
+    for this route) and the token is required in the Authorization header --
+    browsers cannot set headers with new WebSocket(), so this endpoint is
+    structurally unreachable for web attackers.
     """
     ws = web.WebSocketResponse(heartbeat=20)
     await ws.prepare(request)
@@ -348,7 +348,7 @@ async def handle_ws(request):
     request.app["websockets"].add(ws)
     try:
         async for _message in ws:
-            # Der Bruecken-WS ist server->client. Eingehendes wird ignoriert.
+            # The bridge WS is server->client. Incoming messages are ignored.
             pass
     finally:
         request.app["websockets"].discard(ws)

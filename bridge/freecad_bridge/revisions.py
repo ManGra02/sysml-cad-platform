@@ -1,17 +1,16 @@
-"""Monotoner Revisionszaehler pro Objekt.
+"""Monotonic revision counter per object.
 
-FreeCAD hat keinen eigenen Aenderungszaehler. Ohne ``rev`` ueberschreibt sich
-der Property-Editor spaeter beim Tippen selbst: das WebSocket-Event einer
-eigenen Aenderung kann VOR der PATCH-Antwort ankommen, und eine aeltere Antwort
-darf dann nicht den neueren Stand im Cache ueberschreiben.
+FreeCAD has no change counter of its own. Without ``rev`` the property editor
+would later overwrite itself while typing: the WebSocket event of our own
+change can arrive BEFORE the PATCH response, and an older response must then
+not overwrite the newer state in the cache.
 
-In M3 zaehlen nur eigene Schreibvorgaenge hoch; ab M4 auch der Observer bei
-Aenderungen aus FreeCAD selbst.
+In M3 only our own writes increment it; from M4 on, the observer does too for
+changes made in FreeCAD itself.
 
-Der Zaehler lebt im prozessweiten State, damit er einen Modul-Reload
-ueberlebt. Nach einem Bruecken-Neustart beginnt er von vorn -- das ist
-beabsichtigt: die neue session_id sagt dem Backend ohnehin, dass es alles neu
-laden muss.
+The counter lives in the process-wide state so that it survives a module
+reload. After a bridge restart it starts over -- this is intentional: the
+new session_id tells the backend anyway that it has to reload everything.
 """
 
 from freecad_bridge import state as bridge_state

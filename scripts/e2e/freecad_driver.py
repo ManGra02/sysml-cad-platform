@@ -1,14 +1,14 @@
-"""Ferngesteuertes FreeCAD fuer Ende-zu-Ende-Tests (laeuft in FreeCADs Python).
+"""Remote-controlled FreeCAD for end-to-end tests (runs in FreeCAD's Python).
 
-Headless gibt es keine Qt-Ereignisschleife. Dieses Skript uebernimmt deren Rolle:
-es pumpt die Dispatch-Queue und den Observer-Flush auf dem Hauptthread -- so
-wie es im GUI-Betrieb Qt-Signal, Heartbeat und 100-ms-Timer tun.
+Headless, there is no Qt event loop. This script takes over its role:
+it pumps the dispatch queue and the observer flush on the main thread -- just
+as the Qt signal, heartbeat and 100 ms timer do in GUI mode.
 
-Gesteuert wird ueber Befehlsdateien in einem Verzeichnis:
-    <dir>/cmd.json   {"id": n, "cmd": "..."}  -> Ausfuehrung
+It is controlled via command files in a directory:
+    <dir>/cmd.json   {"id": n, "cmd": "..."}  -> execution
     <dir>/ack.json   {"id": n, "ok": true, "result": ...}
 
-Befehle: start, stop, newdoc, add <n>, set <obj> <prop> <wert>, count, quit
+Commands: start, stop, newdoc, add <n>, set <obj> <prop> <value>, count, quit
 """
 
 import json
@@ -28,10 +28,10 @@ DOC = "E2EDoc"
 
 
 def replace_with_retry(src, dst, attempts=50):
-    """os.replace mit Wiederholung.
+    """os.replace with retries.
 
-    Windows verweigert das Ersetzen, solange der andere Prozess die Zieldatei
-    gerade zum Lesen offen hat -- ein Harness-Detail, keines der Plattform.
+    Windows refuses the replace while the other process has the target file
+    open for reading -- a harness detail, not one of the platform.
     """
     for _ in range(attempts):
         try:
@@ -46,10 +46,10 @@ def execute(command):
     name = parts[0]
     if name == "start":
         runner.start_bridge()
-        return "gestartet"
+        return "started"
     if name == "stop":
         runner.stop_bridge()
-        return "gestoppt"
+        return "stopped"
     if name == "newdoc":
         doc = FreeCAD.newDocument(DOC)
         doc.UndoMode = 1
@@ -72,7 +72,7 @@ def execute(command):
         return getattr(obj, parts[2]).Value
     if name == "count":
         return len(FreeCAD.getDocument(DOC).Objects)
-    raise ValueError("unbekannter Befehl %r" % command)
+    raise ValueError("unknown command %r" % command)
 
 
 def main(control_dir):
@@ -82,7 +82,7 @@ def main(control_dir):
     deadline = time.monotonic() + 300
 
     while time.monotonic() < deadline:
-        # Die Rolle der Qt-Ereignisschleife: Queue leeren, Observer flushen.
+        # The role of the Qt event loop: drain the queue, flush the observer.
         dispatch.drain(reschedule=False)
         observer.flush_now("timer")
 
@@ -96,7 +96,7 @@ def main(control_dir):
             last_id = message["id"]
             if message["cmd"] == "quit":
                 runner.stop_bridge(quiet=True)
-                _ack(ack_path, last_id, True, "beendet")
+                _ack(ack_path, last_id, True, "quit")
                 return 0
             try:
                 result = execute(message["cmd"])

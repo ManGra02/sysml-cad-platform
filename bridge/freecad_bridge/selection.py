@@ -1,16 +1,16 @@
-"""Auswahl lesen und setzen -- die Bruecke zwischen beiden Fenstern.
+"""Read and set the selection -- the bridge between the two windows.
 
-Klick in FreeCAD zeigt das Objekt im Browser; Klick im Browser faehrt es in der
-3D-Ansicht an. Das kostet zwei Routen und macht aus zwei nebeneinander-
-stehenden Fenstern ein zusammenhaengendes Werkzeug.
+A click in FreeCAD shows the object in the browser; a click in the browser
+brings it into view in the 3D view. That costs two routes and turns two
+side-by-side windows into one coherent tool.
 
-Alles hier ist GUI-gebunden. Headless ist FreeCADGui ein Stub ohne
-getDocument, und obj.ViewObject ist None -- deshalb faellt jede Funktion
-sauber auf "keine Oberflaeche" zurueck, statt zu werfen.
+Everything here is GUI-bound. Headless, FreeCADGui is a stub without
+getDocument, and obj.ViewObject is None -- so every function falls back
+cleanly to "no GUI" instead of raising.
 
-Sub-Element-Namen (Face1, Edge2) werden transportiert und angezeigt, aber NIE
-als persistierte Identitaet verwendet: topologisches Naming macht sie zwischen
-zwei Recomputes instabil. Mapping-Granularitaet ist das Objekt.
+Sub-element names (Face1, Edge2) are transported and displayed, but NEVER
+used as a persisted identity: topological naming makes them unstable between
+two recomputes. The mapping granularity is the object.
 """
 
 from freecad_bridge.dispatch import BridgeError, main_thread_only
@@ -34,7 +34,7 @@ def _gui():
 
 @main_thread_only
 def get_selection():
-    """Was gerade in FreeCAD ausgewaehlt ist."""
+    """What is currently selected in FreeCAD."""
     gui = _gui()
     if gui is None:
         return {"available": False, "selection": []}
@@ -60,13 +60,13 @@ def get_selection():
 
 @main_thread_only
 def set_selection(refs, zoom_to_fit=True):
-    """Im 3D-Fenster auswaehlen und optional anfahren.
+    """Select in the 3D view and optionally bring into view.
 
-    ``refs`` ist eine Liste von {doc, name, subs?}.
+    ``refs`` is a list of {doc, name, subs?}.
     """
     gui = _gui()
     if gui is None:
-        raise NoGuiError("Keine FreeCAD-Oberflaeche -- Auswahl nicht moeglich")
+        raise NoGuiError("No FreeCAD GUI -- selection not available")
 
     gui.Selection.clearSelection()
 
@@ -96,10 +96,10 @@ def set_selection(refs, zoom_to_fit=True):
 
 
 def _fit_selection(gui):
-    """Ansicht auf die Auswahl zoomen.
+    """Zoom the view to the selection.
 
-    setActiveDocument ist noetig, wenn das Ziel nicht das aktive Dokument ist --
-    sonst zoomt die falsche Ansicht.
+    setActiveDocument is needed if the target is not the active document --
+    otherwise the wrong view zooms.
     """
     try:
         view = gui.ActiveDocument.ActiveView

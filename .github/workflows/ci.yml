@@ -1,5 +1,5 @@
-# CI ohne FreeCAD: Backend gegen die nachgebaute Bruecke, Frontend-Logik, Typen und Build.
-# Die Bruecken-Tests brauchen FreeCADs Python und laufen lokal (tests/bridge/run.py).
+# CI without FreeCAD: backend against the simulated bridge, frontend logic, types and build.
+# The bridge tests need FreeCAD's Python and run locally (tests/bridge/run.py).
 name: CI
 
 on:

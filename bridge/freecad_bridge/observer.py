@@ -1,27 +1,27 @@
-"""Aenderungen in FreeCAD erkennen und als Ereignisse melden.
+"""Detect changes in FreeCAD and report them as events.
 
-MENGENPROBLEM: Das Oeffnen von BIMExample.FCStd (361 Objekte) erzeugt 26.971
-Observer-Callbacks, ein einzelner Property-Change 7. Alles synchron auf dem
-Hauptthread. Deshalb gilt:
+VOLUME PROBLEM: Opening BIMExample.FCStd (361 objects) produces 26,971
+observer callbacks, a single property change 7. All synchronous on the
+main thread. Therefore:
 
-  * Ein Slot ist O(1). Er traegt (doc, obj, prop) in ein Dict ein -- keine
-    Serialisierung, kein Wertzugriff, kein Kontakt zum asyncio-Loop.
-  * Geflusht wird KOALESZIERT, nicht entprellt: an den Grenzen, die FreeCAD
-    selbst liefert (Commit, Abbruch, Undo, Redo, Recompute), plus ein QTimer
-    mit ~100 ms Maximallatenz fuer Aenderungen ausserhalb jeder Transaktion.
-    Ein reiner Zeit-Debouncer wuerde mitten in einem Undo flushen: die
-    Aenderungen kommen VOR slotUndoDocument (empirisch geprueft).
-  * Restore-Klammer: solange doc.Restoring/Importing gesetzt ist, werden
-    Objektereignisse verworfen. Danach geht EIN doc.opened hinaus. Der
-    App-Observer hat kein slotFinishRestoreDocument -- das Flag ist der Ersatz.
-  * Ereignisse tragen nur IDENTITAET, keine Werte. Der Browser liest ueber die
-    normale Route nach, die einen konsistenten Stand sieht.
+  * A slot is O(1). It records (doc, obj, prop) in a dict -- no
+    serialization, no value access, no contact with the asyncio loop.
+  * Flushing is COALESCED, not debounced: at the boundaries FreeCAD itself
+    provides (commit, abort, undo, redo, recompute), plus a QTimer
+    with ~100 ms maximum latency for changes outside any transaction.
+    A pure time-based debouncer would flush in the middle of an undo: the
+    changes arrive BEFORE slotUndoDocument (verified empirically).
+  * Restore bracket: while doc.Restoring/Importing is set, object events
+    are discarded. Afterwards ONE doc.opened goes out. The
+    App observer has no slotFinishRestoreDocument -- the flag is the substitute.
+  * Events carry only IDENTITY, no values. The browser re-reads via the
+    normal route, which sees a consistent state.
 
-Jeder Slot laeuft in try/except: eine Exception wuerde in FreeCADs C++-Signal
-propagieren.
+Every slot runs in try/except: an exception would propagate into FreeCAD's
+C++ signal.
 
-Nach slotDeletedObject feuern noch Aenderungen am geloeschten Objekt
-(AttachmentSupport) -- die werden verworfen.
+After slotDeletedObject, changes to the deleted object still fire
+(AttachmentSupport) -- those are discarded.
 """
 
 import collections
@@ -32,14 +32,14 @@ import FreeCAD
 from freecad_bridge import documents, log, revisions, snapshot
 from freecad_bridge import state as bridge_state
 
-#: Maximale Verzoegerung fuer Aenderungen ausserhalb einer Transaktion.
+#: Maximum delay for changes outside a transaction.
 FLUSH_LATENCY_MS = 100
 
 USER_ORIGIN = "freecad:user"
 
 
 def _safe(fn):
-    """Kein Fehler darf in FreeCADs Signal-Kette gelangen."""
+    """No error may reach FreeCAD's signal chain."""
 
     @functools.wraps(fn)
     def wrapper(self, *args):
@@ -60,8 +60,8 @@ class BridgeObserver(object):
     def __init__(self, publish):
         self._publish = publish
         self._reset_pending()
-        self._opening = set()        # Dokumente, deren Restore noch laeuft
-        self._last_modified = {}     # doc -> letzter gemeldeter Dirty-Zustand
+        self._opening = set()        # documents whose restore is still running
+        self._last_modified = {}     # doc -> last reported dirty state
         self._timer = None
 
     def _reset_pending(self):
@@ -73,7 +73,7 @@ class BridgeObserver(object):
         self._origins = {}                            # (doc, obj) -> set(origin)
         self._doc_events = []
 
-    # -- Aufzeichnen (O(1)) ---------------------------------------------
+    # -- Recording (O(1)) -----------------------------------------------
 
     def _origin(self):
         request_id = getattr(bridge_state.get_state(), "active_request_id", None)
@@ -111,7 +111,7 @@ class BridgeObserver(object):
     @_safe
     def slotChangedObject(self, obj, prop):
         if prop.startswith("_"):
-            return  # interne Buchhaltung (_ElementMapVersion ...)
+            return  # internal bookkeeping (_ElementMapVersion ...)
         key = self._key(obj)
         if key is None:
             return
@@ -125,8 +125,8 @@ class BridgeObserver(object):
         self._schema[key] = True
         self._note(key, obj)
 
-    # Die Metadaten, aus denen der Editor rendert, sind nicht statisch:
-    # slotChangePropertyEditor aendert ReadOnly/Hidden OHNE Wertaenderung.
+    # The metadata the editor renders from is not static:
+    # slotChangePropertyEditor changes ReadOnly/Hidden WITHOUT a value change.
     @_safe
     def slotAppendDynamicProperty(self, obj, prop):
         self._schema_changed(obj)
@@ -143,7 +143,7 @@ class BridgeObserver(object):
     def slotAddedDynamicExtension(self, obj, ext):
         self._schema_changed(obj)
 
-    # -- Dokumentereignisse ---------------------------------------------
+    # -- Document events ------------------------------------------------
 
     def _doc_event(self, event_type, doc, **extra):
         event = {"type": event_type, "doc": doc.Name}
@@ -153,7 +153,7 @@ class BridgeObserver(object):
 
     @_safe
     def slotCreatedDocument(self, doc):
-        # Neu oder geladen: in jedem Fall erst melden, wenn der Restore vorbei ist.
+        # New or loaded: in either case report only once the restore is over.
         self._opening.add(doc.Name)
         self._schedule()
 
@@ -182,7 +182,7 @@ class BridgeObserver(object):
     def slotFinishSaveDocument(self, doc, file_name):
         self._doc_event("doc.saved", doc, fileName=file_name, label=doc.Label)
 
-    # -- Flush-Grenzen, die FreeCAD selbst liefert ----------------------
+    # -- Flush boundaries provided by FreeCAD itself -------------------
 
     @_safe
     def slotCommitTransaction(self, doc):
@@ -199,9 +199,9 @@ class BridgeObserver(object):
 
     @_safe
     def slotUndoDocument(self, doc):
-        # Undo eines Create feuert slotDeletedObject, Undo eines Delete feuert
-        # slotCreatedObject -- die Slots sagen nicht, dass es ein Undo war.
-        # Das Backend verwirft bei cad.history den Cache des Dokuments.
+        # Undo of a create fires slotDeletedObject, undo of a delete fires
+        # slotCreatedObject -- the slots do not say that it was an undo.
+        # On cad.history the backend discards the document's cache.
         self._doc_events.append({"type": "cad.history", "doc": doc.Name, "action": "undo"})
         self.flush("undo")
 
@@ -225,9 +225,9 @@ class BridgeObserver(object):
                 del table[key]
 
     def _schedule(self):
-        """QTimer fuer Aenderungen ausserhalb jeder Transaktion.
+        """QTimer for changes outside any transaction.
 
-        Headless gibt es keine Ereignisschleife -- dort ruft der Test flush().
+        Headless there is no event loop -- there the test calls flush().
         """
         if self._timer is not None:
             return
@@ -245,7 +245,7 @@ class BridgeObserver(object):
         self._timer = timer
 
     def _finish_openings(self, events):
-        """Dokumente, deren Restore vorbei ist, als geoeffnet melden."""
+        """Report documents whose restore is over as opened."""
         for doc_name in list(self._opening):
             try:
                 doc = FreeCAD.getDocument(doc_name)
@@ -257,15 +257,15 @@ class BridgeObserver(object):
             if _busy_restoring(doc):
                 continue
             self._opening.discard(doc_name)
-            # Nachzuegler-Aenderungen direkt nach dem Restore gehen im
-            # vollstaendigen Neuladen auf, das doc.opened ohnehin ausloest.
+            # Straggler changes right after the restore are subsumed by the
+            # full reload that doc.opened triggers anyway.
             self._drop_doc(doc_name)
             documents.ensure_undo_enabled(doc)
             events.append({"type": "doc.opened", "doc": doc_name,
                            "label": doc.Label, "objectCount": len(doc.Objects)})
 
     def _modified_events(self, doc_names, events):
-        """Dirty-Wechsel melden (nur mit GUI verfuegbar)."""
+        """Report dirty-state changes (available only with a GUI)."""
         for doc_name in doc_names:
             dirty = documents.is_modified(doc_name) if FreeCAD.GuiUp else None
             if dirty is None:
@@ -288,7 +288,7 @@ class BridgeObserver(object):
         }
 
     def flush(self, cause="timer"):
-        """Gesammelte Aenderungen als ein Batch melden. Nur auf dem Hauptthread."""
+        """Report collected changes as one batch. Main thread only."""
         if self._timer is not None:
             try:
                 self._timer.stop()
@@ -346,7 +346,7 @@ class BridgeObserver(object):
         try:
             self._publish(events)
         except Exception as exc:
-            log.debug("Publish fehlgeschlagen: %r" % (exc,))
+            log.debug("Publish failed: %r" % (exc,))
         return events
 
 
@@ -354,14 +354,14 @@ class BridgeObserver(object):
 
 
 def install(state, publish):
-    """Observer registrieren. Idempotent; entfernt einen alten zuerst."""
+    """Register the observer. Idempotent; removes an old one first."""
     uninstall(state)
     observer = BridgeObserver(publish)
     FreeCAD.addDocumentObserver(observer)
     state.observer = observer
 
-    # UndoMode fuer alle bereits offenen Dokumente nachziehen -- die Bruecke
-    # oeffnet keine Dokumente, der Nutzer tut es.
+    # Apply UndoMode to all already open documents -- the bridge does not
+    # open documents, the user does.
     for name in FreeCAD.listDocuments():
         try:
             documents.ensure_undo_enabled(FreeCAD.getDocument(name))
@@ -387,7 +387,7 @@ def uninstall(state):
 
 
 def flush_now(cause="write"):
-    """Sofort flushen -- von writes.py nach einem Commit aufgerufen."""
+    """Flush immediately -- called by writes.py after a commit."""
     observer = getattr(bridge_state.get_state(), "observer", None)
     if observer is None:
         return []

@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { ListTree, MousePointerClick, RefreshCw, Search, Table2 } from "lucide-react"
 import { useState, type ReactNode } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
@@ -20,11 +21,12 @@ import { PropertyPanel } from "@/features/cad/components/PropertyPanel"
 import { describeError } from "@/features/cad/format"
 import { cadKeys, documentsQuery, getSelection, recomputeDocument, treeQuery } from "@/features/cad/queries"
 import { ApiError } from "@/lib/api"
+import { useDocumentTitle } from "@/lib/useDocumentTitle"
 import { cn } from "@/lib/utils"
 
-// Adressiert wird immer ueber doc.Name (Pfad) und obj.Name (?obj=) -- nie
-// ueber Labels. Der Browser folgt bewusst NICHT automatisch dem aktiven
-// FreeCAD-Dokument: jede Schreibanfrage traegt ihr Zieldokument explizit.
+// Addressing always goes through doc.Name (path) and obj.Name (?obj=) -- never
+// through labels. The browser deliberately does NOT automatically follow the
+// active FreeCAD document: every write request carries its target document explicitly.
 const searchSchema = z.object({
   obj: z.string().optional().catch(undefined),
   internal: z.boolean().optional().catch(undefined),
@@ -37,6 +39,7 @@ export const Route = createFileRoute("/cad/$doc")({
 })
 
 function Explorer() {
+  const { t } = useTranslation()
   const { doc } = Route.useParams()
   const { obj, internal = false, view = "tree" } = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -48,17 +51,20 @@ function Explorer() {
   const tree = useQuery({ ...treeQuery(doc, internal), enabled: ready })
   const documents = useQuery({ ...documentsQuery, enabled: ready })
   const info = documents.data?.documents.find((entry) => entry.name === doc)
+  const selectedLabel = obj ? (tree.data?.nodes[obj]?.label ?? obj) : undefined
+  useDocumentTitle(selectedLabel, info?.label ?? doc, t("nav.cadExplorer"))
 
   if (!ready) return <BridgeNotReady state={bridge} />
 
-  const select = (name: string) => navigate({ search: (old) => ({ ...old, obj: name }) })
+  const select = (name: string, options?: { replace?: boolean }) =>
+    navigate({ search: (old) => ({ ...old, obj: name }), replace: options?.replace })
 
   const fromFreeCAD = async () => {
     try {
       const { available, selection } = await getSelection()
-      if (!available) return toast.info("FreeCAD läuft ohne Oberfläche – keine Auswahl verfügbar.")
+      if (!available) return toast.info(t("explorer.noGuiSelection"))
       const first = selection[0]
-      if (!first) return toast.info("In FreeCAD ist nichts ausgewählt.")
+      if (!first) return toast.info(t("explorer.nothingSelected"))
       if (first.doc !== doc) {
         return navigate({ to: "/cad/$doc", params: { doc: first.doc }, search: { obj: first.name } })
       }
@@ -71,7 +77,7 @@ function Explorer() {
   const recompute = async () => {
     try {
       const result = await recomputeDocument(doc)
-      toast.success(result.recomputed + " Objekte neu berechnet")
+      toast.success(t("explorer.recomputed", { count: result.recomputed }))
     } catch (error) {
       toast.error(describeError(error))
     } finally {
@@ -110,30 +116,30 @@ function Explorer() {
                   <RefreshCw />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Dokument neu berechnen</TooltipContent>
+              <TooltipContent>{t("explorer.recompute")}</TooltipContent>
             </Tooltip>
           </div>
           {info?.modified && (
-            <Badge variant="outline" className="border-warning text-warning" title="Gespeichert wird in FreeCAD (Strg+S)">
-              Ungespeicherte Änderungen in FreeCAD
+            <Badge variant="outline" className="border-warning text-warning" title={t("explorer.unsavedHint")}>
+              {t("explorer.unsavedBadge")}
             </Badge>
           )}
           <div className="flex items-center gap-2">
             <div className="flex rounded-md border p-0.5">
               <ViewButton active={view === "tree"} onClick={() => navigate({ search: (old) => ({ ...old, view: undefined }) })}>
-                <ListTree className="size-3.5" /> Baum
+                <ListTree className="size-3.5" /> {t("explorer.viewTree")}
               </ViewButton>
               <ViewButton active={view === "table"} onClick={() => navigate({ search: (old) => ({ ...old, view: "table" }) })}>
-                <Table2 className="size-3.5" /> Tabelle
+                <Table2 className="size-3.5" /> {t("explorer.viewTable")}
               </ViewButton>
             </div>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="sm" className="ml-auto h-7 text-xs" onClick={() => void fromFreeCAD()}>
-                  <MousePointerClick /> Aus FreeCAD
+                  <MousePointerClick /> {t("explorer.fromFreeCAD")}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Das in FreeCAD ausgewählte Objekt hier öffnen</TooltipContent>
+              <TooltipContent>{t("explorer.fromFreeCADHint")}</TooltipContent>
             </Tooltip>
           </div>
           <div className="relative">
@@ -141,7 +147,7 @@ function Explorer() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Objekt suchen (Label oder Name)"
+              placeholder={t("explorer.searchPlaceholder")}
               className="h-7 pl-7 text-xs"
             />
           </div>
@@ -152,7 +158,7 @@ function Explorer() {
               onCheckedChange={(checked) => navigate({ search: (old) => ({ ...old, internal: checked || undefined }) })}
             />
             <Label htmlFor="internal" className="text-xs font-normal text-muted-foreground">
-              Hilfsgeometrie anzeigen (Ursprung, Achsen, Ebenen)
+              {t("explorer.showInternal")}
             </Label>
           </div>
         </div>
@@ -170,7 +176,7 @@ function Explorer() {
               {describeError(tree.error)}{" "}
               {docClosed && (
                 <Link to="/cad" className="underline">
-                  Zur Dokumentliste
+                  {t("explorer.toDocumentList")}
                 </Link>
               )}
             </div>
@@ -185,12 +191,12 @@ function Explorer() {
 
         {tree.data && (
           <footer className="border-t px-3 py-1.5 text-xs text-muted-foreground">
-            {Object.keys(tree.data.nodes).length} von {tree.data.objectCount} Objekten
-            {tree.data.hiddenInternal > 0 && " · " + tree.data.hiddenInternal + " Hilfsobjekte ausgeblendet"}
+            {t("explorer.count", { shown: Object.keys(tree.data.nodes).length, total: tree.data.objectCount })}
+            {tree.data.hiddenInternal > 0 && " · " + t("explorer.hiddenInternal", { count: tree.data.hiddenInternal })}
             {!tree.data.guiAccurate && (
-              <span title="Ohne FreeCAD-Oberfläche baut die Brücke den Baum aus Gruppen nach; er kann von FreeCADs Ansicht abweichen.">
+              <span title={t("explorer.simplifiedTreeHint")}>
                 {" "}
-                · vereinfachter Baum
+                · {t("explorer.simplifiedTree")}
               </span>
             )}
           </footer>
@@ -203,9 +209,9 @@ function Explorer() {
         ) : (
           <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">
             <p>
-              Objekt im Baum wählen – oder in FreeCAD auswählen und „Aus FreeCAD“ klicken.
+              {t("explorer.emptyHint")}
               <br />
-              Änderungen werden beim Verlassen eines Feldes (oder mit Enter) übernommen, Esc verwirft.
+              {t("explorer.editHint")}
             </p>
           </div>
         )}

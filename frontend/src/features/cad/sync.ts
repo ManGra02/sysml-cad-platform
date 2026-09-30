@@ -4,22 +4,22 @@ import type { Frame } from "@/lib/ws"
 import { cadKeys, statusKey } from "./queries"
 import type { BridgeStatus, CadEvent, PlatformStatus } from "./types"
 
-// Ereignisse aus FreeCAD -> gezielte Invalidierung im Query-Cache.
+// Events from FreeCAD -> targeted invalidation in the query cache.
 //
-// Ereignisse tragen nur Identitaet, keine Werte: der Browser liest ueber die
-// normale Route nach. Zwei Regeln verhindern, dass sich der Property-Editor
-// beim Tippen selbst ueberschreibt:
-//   * das Echo einer EIGENEN Mutation (origin "bridge:<eigene Request-Id>")
-//     wird ignoriert -- die Mutation laedt nach ihrer Antwort selbst nach;
-//   * Antworten mit kleinerem rev als im Cache verwirft queries.ts.
+// Events carry only identity, no values: the browser re-reads via the
+// normal route. Two rules prevent the property editor from overwriting
+// itself while typing:
+//   * the echo of an OWN mutation (origin "bridge:<own request id>") is
+//     ignored -- the mutation reloads by itself after its response;
+//   * queries.ts discards responses with a lower rev than the cache.
 
-// -- Eigene Mutationen ---------------------------------------------------
+// -- Own mutations -------------------------------------------------------
 
-/** Wie lange eine abgeschlossene Mutation noch als "eigene" gilt: das
- *  WS-Ereignis kann auch NACH der HTTP-Antwort eintreffen. */
+/** How long a completed mutation still counts as "own": the WS event
+ *  may also arrive AFTER the HTTP response. */
 const ECHO_WINDOW_MS = 5_000
 
-const ownRequests = new Map<string, number>() // id -> Ablaufzeitpunkt (Infinity = laeuft)
+const ownRequests = new Map<string, number>() // id -> expiry time (Infinity = running)
 
 export function beginOwnRequest(id: string) {
   ownRequests.set(id, Infinity)
@@ -37,21 +37,21 @@ export function isOwnOrigin(origin: string | undefined, now = Date.now()): boole
   return ownRequests.has(origin.slice("bridge:".length))
 }
 
-// -- Planung (rein, testbar) ---------------------------------------------
+// -- Planning (pure, testable) -------------------------------------------
 
 export type InvalidationPlan = {
-  /** alles unter ["cad"] */
+  /** everything under ["cad"] */
   all: boolean
   documents: boolean
-  /** Dokumente, deren Cache komplett verworfen wird */
+  /** documents whose cache is discarded entirely */
   docs: Set<string>
   trees: Set<string>
   objects: Array<[string, string]>
 }
 
-/** Nach diesen Ereignissen wird das Dokument komplett neu geladen, nicht
- *  inkrementell: Undo eines Create feuert "deleted", Undo eines Delete
- *  "created" -- die Slots sagen nicht, dass es ein Undo war. */
+/** After these events the document is reloaded entirely, not
+ *  incrementally: undoing a create fires "deleted", undoing a delete
+ *  "created" -- the slots don't say that it was an undo. */
 const FULL_RELOAD = new Set(["cad.history", "cad.resync", "doc.opened", "doc.closed"])
 
 const DOCUMENT_LIST = new Set([
@@ -93,15 +93,15 @@ export function planInvalidation(events: CadEvent[], isOwn: (origin?: string) =>
         break
       case "cad.created":
       case "cad.deleted":
-        // Auch das Objekt selbst: eine offene Detailansicht, die eben noch
-        // "gibt es nicht" zeigte, soll das neu angelegte Objekt anzeigen.
+        // The object itself as well: an open detail view that just showed
+        // "does not exist" should display the newly created object.
         plan.trees.add(event.doc)
         if (event.obj) plan.objects.push([event.doc, event.obj])
         break
       case "cad.changed":
       case "cad.schema_changed":
         if (isOwn(event.origin)) break
-        plan.trees.add(event.doc) // Label, Sichtbarkeit, Zustand stehen im Baum
+        plan.trees.add(event.doc) // label, visibility, state live in the tree
         if (event.obj && !seen.has(event.doc + "\u0000" + event.obj)) {
           seen.add(event.doc + "\u0000" + event.obj)
           plan.objects.push([event.doc, event.obj])
@@ -112,7 +112,7 @@ export function planInvalidation(events: CadEvent[], isOwn: (origin?: string) =>
   return plan
 }
 
-// -- Anwenden ------------------------------------------------------------
+// -- Applying ------------------------------------------------------------
 
 export function applyPlan(queryClient: QueryClient, plan: InvalidationPlan) {
   if (plan.all) {
@@ -133,22 +133,22 @@ export function applyPlan(queryClient: QueryClient, plan: InvalidationPlan) {
   }
 }
 
-// -- Rahmen vom Backend --------------------------------------------------
+// -- Frames from the backend ---------------------------------------------
 
 let lastSession: string | null | undefined = undefined
 
 function setBridgeStatus(queryClient: QueryClient, bridge: BridgeStatus) {
-  // Ein laufender GET /api/status koennte sonst NACH diesem Frame ankommen
-  // und den neueren Zustand mit einem aelteren ueberschreiben.
+  // Otherwise an in-flight GET /api/status could arrive AFTER this frame
+  // and overwrite the newer state with an older one.
   void queryClient.cancelQueries({ queryKey: statusKey })
   queryClient.setQueryData<PlatformStatus>(statusKey, (old) => ({
     backend: old?.backend ?? { contract_version: bridge.contract.backend, clients: 0 },
     bridge,
   }))
   if (bridge.state !== "ok") return
-  // Neue Bruecken-Sitzung: rev beginnt von vorn. Der Cache wird deshalb
-  // ZURUECKGESETZT statt nur invalidiert -- sonst hielte die rev-Sperre in
-  // queries.ts die alten (hoeheren) Staende fest.
+  // New bridge session: rev starts over. The cache is therefore RESET
+  // instead of merely invalidated -- otherwise the rev lock in queries.ts
+  // would hold on to the old (higher) states.
   if (lastSession !== undefined && bridge.session_id !== lastSession) {
     void queryClient.resetQueries({ queryKey: cadKeys.all })
   } else {
@@ -160,7 +160,7 @@ function setBridgeStatus(queryClient: QueryClient, bridge: BridgeStatus) {
 export function handleFrame(queryClient: QueryClient, frame: Frame) {
   switch (frame.type) {
     case "hello":
-      // Jeder (Wieder-)Aufbau: was in der Zwischenzeit geschah, ist unbekannt.
+      // Every (re)connect: whatever happened in the meantime is unknown.
       setBridgeStatus(queryClient, frame.bridge as BridgeStatus)
       break
     case "bridge.status":

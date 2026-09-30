@@ -1,24 +1,24 @@
-"""Der Objektbaum -- so, wie der Nutzer ihn in FreeCAD daneben sieht.
+"""The object tree -- as the user sees it in FreeCAD next to it.
 
-Das sind technisch ZWEI verschiedene Graphen, und die Wahl ist bewusst:
+Technically these are TWO different graphs, and the choice is deliberate:
 
-  claimChildren()   reproduziert FreeCADs Baum exakt: ein Body beansprucht
-                    seine Features, ein Cut seine Base und Tool, ein Origin
-                    seine Ebenen. GUI-gebunden -- headless ist ViewObject None.
-  Group/OriginFeatures  deterministisch und headless testbar, VERLIERT aber
-                    Objekte (in AssemblyExample 8 von 56: Origin samt Datum-
-                    Achsen und -Ebenen).
-  OutList           ERFINDET Objekte: 5 Objekte werden zu 8 Knoten, ein
-                    geteilter Body erscheint unter 50 Links 50-fach, Zyklen
-                    sind moeglich.
+  claimChildren()   reproduces FreeCAD's tree exactly: a Body claims its
+                    features, a Cut its Base and Tool, an Origin its
+                    planes. GUI-bound -- headless, ViewObject is None.
+  Group/OriginFeatures  deterministic and testable headless, but LOSES
+                    objects (in AssemblyExample 8 of 56: Origin along with
+                    datum axes and planes).
+  OutList           INVENTS objects: 5 objects become 8 nodes, a shared
+                    Body appears 50 times under 50 links, cycles are
+                    possible.
 
-Deshalb: claimChildren primaer, pro Knoten mit Fallback, am Ende Abgleich
-gegen doc.Objects. Fuer ein Synchronisationsprojekt waere "sieht anders aus als
-FreeCAD" ein dauerhaftes Glaubwuerdigkeitsproblem.
+Hence: claimChildren first, with a fallback per node, and at the end a
+reconciliation against doc.Objects. For a synchronization project, "looks
+different from FreeCAD" would be a permanent credibility problem.
 
-Uebertragen wird eine FLACHE LISTE plus explizite Kanten. Die Struktur ist ein
-DAG, kein Baum: ein Objekt darf mehrfach vorkommen. Der React-Key ist deshalb
-der Pfad, nicht obj.Name.
+What is transferred is a FLAT LIST plus explicit edges. The structure is a
+DAG, not a tree: an object may occur more than once. The React key is
+therefore the path, not obj.Name.
 """
 
 from freecad_bridge import objects as objects_mod
@@ -30,10 +30,10 @@ FALLBACK = "group"
 
 
 def _claim_children(obj):
-    """Kinder laut FreeCADs eigener Baumlogik -- oder None.
+    """Children according to FreeCAD's own tree logic -- or None.
 
-    claimChildren ist bei Arch, Draft und Assembly in Python implementiert und
-    kann werfen. Ein Fehler hier darf nicht den ganzen Baum kosten.
+    claimChildren is implemented in Python for Arch, Draft and Assembly and
+    can raise. An error here must not cost the whole tree.
     """
     view_object = getattr(obj, "ViewObject", None)
     if view_object is None:
@@ -51,7 +51,7 @@ def _claim_children(obj):
 
 
 def _fallback_children(obj):
-    """Ohne GUI: Group plus die Origin-Infrastruktur."""
+    """Without a GUI: Group plus the Origin infrastructure."""
     children = []
     for attribute in ("Group", "OriginFeatures"):
         value = getattr(obj, attribute, None)
@@ -70,7 +70,7 @@ def _fallback_children(obj):
 
 @main_thread_only
 def build_tree(doc_name, include_internal=False):
-    """Flache Knotenliste plus Kanten."""
+    """Flat node list plus edges."""
     doc = get_document(doc_name)
     all_objects = list(doc.Objects)
 
@@ -90,7 +90,7 @@ def build_tree(doc_name, include_internal=False):
         else:
             source_of[obj.Name] = CLAIM
 
-        # Selbstbezug kommt vor und wuerde den Aufbau im Frontend aufhaengen.
+        # Self-references occur and would hang the build-up in the frontend.
         child_names = [
             child.Name
             for child in children
@@ -105,9 +105,9 @@ def build_tree(doc_name, include_internal=False):
             if getattr(dep, "Name", None) and dep.Name != obj.Name
         ]
 
-    # Wurzeln: alles, was niemand als Kind beansprucht. Das ist der Abgleich
-    # gegen doc.Objects -- so geht kein Objekt verloren, auch wenn eine
-    # claimChildren-Implementierung etwas verschweigt.
+    # Roots: everything nobody claims as a child. This is the reconciliation
+    # against doc.Objects -- so no object gets lost, even if a
+    # claimChildren implementation leaves something out.
     roots = [name for name in nodes if name not in claimed]
 
     if not include_internal:
@@ -136,7 +136,7 @@ def build_tree(doc_name, include_internal=False):
         "nodes": nodes,
         "objectCount": len(all_objects),
         "hiddenInternal": len(all_objects) - len(nodes),
-        # Sagt der Oberflaeche, ob der Baum FreeCADs Ansicht entspricht oder
-        # aus dem Fallback stammt (dann fehlen z. B. Origin-Kinder).
+        # Tells the UI whether the tree matches FreeCAD's view or comes
+        # from the fallback (in which case e.g. Origin children are missing).
         "guiAccurate": all(source == CLAIM for source in source_of.values()) if source_of else False,
     }

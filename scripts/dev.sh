@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Startet Backend (und Vite, sobald das Frontend existiert) fuer die Entwicklung.
-# FreeCAD startet ihr selbst; das Backend verbindet sich, sobald die Bruecke laeuft.
+# Starts the backend (and Vite, once the frontend exists) for development.
+# You start FreeCAD yourself; the backend connects as soon as the bridge is running.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -21,7 +21,7 @@ if [ -f "$REPO/frontend/package.json" ]; then
   pids+=($!)
   echo "Vite    -> http://127.0.0.1:5173"
 else
-  echo "Frontend noch nicht angelegt -- nur Backend."
+  echo "Frontend not created yet -- backend only."
 fi
 
 wait

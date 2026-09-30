@@ -1,19 +1,19 @@
-"""Logging der Bruecke.
+"""Logging of the bridge.
 
-Eigenes Modul, damit server.py die Regel "kein FreeCAD-Zugriff in der
-HTTP-Schicht" buchstaeblich einhaelt und der CI-Grep sauber bleibt.
+A separate module so that server.py literally obeys the rule "no FreeCAD
+access in the HTTP layer" and the CI grep stays clean.
 
-FreeCADs Console-Methoden sind ausdruecklich threadsicher (so vermerkt in
-FreeCADs eigenem Mod/Test/BaseTests.py) -- sie sind damit die einzige
-FreeCAD-API, die aus dem Server-Thread aufgerufen werden darf.
+FreeCAD's Console methods are explicitly thread-safe (as noted in
+FreeCAD's own Mod/Test/BaseTests.py) -- which makes them the only
+FreeCAD API that may be called from the server thread.
 
-Die Request-ID wird mitgefuehrt, damit sich eine Anfrage ueber alle drei
-Prozesse hinweg verfolgen laesst.
+The request ID is carried along so that a request can be traced across
+all three processes.
 """
 
 import FreeCAD
 
-PREFIX = "[Bruecke]"
+PREFIX = "[Bridge]"
 
 
 def _format(message, request_id=None):

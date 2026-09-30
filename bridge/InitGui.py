@@ -1,15 +1,15 @@
-"""Einstiegspunkt der GUI-Phase.
+"""Entry point of the GUI phase.
 
-BEWUSST MINIMAL. FreeCADs Loader liest diese Datei und fuehrt sie via exec
-INNERHALB EINER FUNKTION aus. Zwei Konsequenzen, die hier alles bestimmen:
+DELIBERATELY MINIMAL. FreeCAD's loader reads this file and runs it via exec
+INSIDE A FUNCTION. Two consequences that govern everything here:
 
-  1. ``__file__`` ist nicht definiert  -> Pfad ueber inspect.currentframe().
-  2. Namen auf Modulebene landen in den Locals jener Funktion und sind aus
-     Methoden heraus NICHT sichtbar (FreeCADs eigenes Mod/Assembly/InitGui.py
-     traegt dafuer einen ``global``-Workaround).
+  1. ``__file__`` is not defined  -> path via inspect.currentframe().
+  2. Module-level names end up in that function's locals and are NOT
+     visible from within methods (FreeCAD's own Mod/Assembly/InitGui.py
+     carries a ``global`` workaround for this).
 
-Deshalb steht hier nur das Noetigste; alles Echte liegt in importierbaren
-Modulen.
+Hence only the bare minimum lives here; everything real lives in importable
+modules.
 """
 
 import inspect
@@ -22,4 +22,4 @@ if _addon_dir not in sys.path:
 
 from bridge_addon.workbench import CadBridgeWorkbench  # noqa: E402
 
-FreeCADGui.addWorkbench(CadBridgeWorkbench())  # noqa: F821  (vom Loader injiziert)
+FreeCADGui.addWorkbench(CadBridgeWorkbench())  # noqa: F821  (injected by the loader)

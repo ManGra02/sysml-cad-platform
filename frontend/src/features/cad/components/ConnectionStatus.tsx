@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { Plug, Unplug } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import {
   DropdownMenu,
@@ -10,79 +11,76 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { useSocketState, type SocketState } from "@/lib/ws"
+import { useSocketState } from "@/lib/ws"
 import { statusQuery } from "../queries"
-import type { BridgeState } from "../types"
+import type { BridgeState, BridgeStatus } from "../types"
 
-// Vier Zustaende der Bruecke, nicht zwei -- "busy" heisst: FreeCAD rechnet,
-// nicht: kaputt. Dazu der eigene Draht zum Backend.
+// Four bridge states, not two -- "busy" means: FreeCAD is computing,
+// not: broken. Plus our own wire to the backend.
 
-const BRIDGE_TEXT: Record<BridgeState, { label: string; tone: string; help: string }> = {
-  ok: { label: "Verbunden", tone: "bg-success", help: "FreeCAD-Brücke antwortet." },
-  busy: {
-    label: "FreeCAD rechnet",
-    tone: "bg-warning",
-    help: "Die Brücke lebt, FreeCAD ist aber gerade beschäftigt (z. B. Neuberechnung).",
-  },
-  unreachable: {
-    label: "Brücke nicht erreichbar",
-    tone: "bg-destructive",
-    help: "FreeCAD läuft nicht mehr oder die Brücke wurde gestoppt.",
-  },
-  unconfigured: {
-    label: "Brücke nicht gestartet",
-    tone: "bg-muted-foreground",
-    help: "In FreeCAD die Workbench „SysML-CAD Brücke“ wählen und die Brücke starten.",
-  },
-}
-
-const SOCKET_TEXT: Record<SocketState, string> = {
-  open: "verbunden",
-  connecting: "verbindet …",
-  closed: "getrennt – neuer Versuch läuft",
+const TONE: Record<BridgeState, string> = {
+  ok: "bg-success",
+  busy: "bg-warning",
+  unreachable: "bg-destructive",
+  unconfigured: "bg-muted-foreground",
 }
 
 export function useBridgeState(): BridgeState | undefined {
   return useQuery(statusQuery).data?.bridge.state
 }
 
+/** More precise reason from the backend (reason) -- translated, otherwise its plain English text. */
+function useReasonText(bridge: BridgeStatus | undefined): string | null {
+  const { t, i18n } = useTranslation()
+  if (!bridge) return null
+  const key = "connection.reason." + bridge.reason
+  if (bridge.reason && i18n.exists(key)) return t(key as never)
+  return bridge.detail
+}
+
 export function ConnectionStatus() {
+  const { t } = useTranslation()
   const socket = useSocketState()
   const { data, isError } = useQuery(statusQuery)
   const bridge = data?.bridge
+  const reason = useReasonText(bridge)
   const backendDown = isError || socket === "closed"
-  const info = bridge ? BRIDGE_TEXT[bridge.state] : undefined
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="gap-2">
           {backendDown ? <Unplug className="text-destructive" /> : <Plug />}
-          <span className={cn("size-2 rounded-full", backendDown ? "bg-destructive" : (info?.tone ?? "bg-muted"))} />
-          <span className="hidden sm:inline">{backendDown ? "Backend getrennt" : (info?.label ?? "…")}</span>
+          <span
+            className={cn("size-2 rounded-full", backendDown ? "bg-destructive" : bridge ? TONE[bridge.state] : "bg-muted")}
+          />
+          <span className="hidden sm:inline">
+            {backendDown ? t("connection.backendDown") : bridge ? t(`connection.state.${bridge.state}`) : "…"}
+          </span>
           {bridge && !bridge.contract.match && <span className="text-warning">⚠</span>}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel>Verbindung</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("connection.title")}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 p-2 text-xs">
-          <dt className="text-muted-foreground">Backend</dt>
-          <dd>{SOCKET_TEXT[socket]}</dd>
-          <dt className="text-muted-foreground">Brücke</dt>
+          <dt className="text-muted-foreground">{t("connection.backend")}</dt>
+          <dd>{t(`connection.socket.${socket}`)}</dd>
+          <dt className="text-muted-foreground">{t("connection.bridge")}</dt>
           <dd>
-            {info?.label ?? "unbekannt"}
-            {info && <p className="text-muted-foreground">{info.help}</p>}
-            {bridge?.detail && <p className="text-muted-foreground">{bridge.detail}</p>}
+            {bridge ? t(`connection.state.${bridge.state}`) : t("common.unknown")}
+            {bridge && <p className="text-muted-foreground">{t(`connection.help.${bridge.state}`)}</p>}
+            {reason && <p className="text-muted-foreground">{reason}</p>}
           </dd>
-          <dt className="text-muted-foreground">Vertrag</dt>
+          <dt className="text-muted-foreground">{t("connection.contract")}</dt>
           <dd className={cn(bridge && !bridge.contract.match && "text-warning")}>
-            Brücke {bridge?.contract.bridge ?? "–"} · Backend {bridge?.contract.backend ?? "–"}
-            {bridge && !bridge.contract.match && (
-              <p>Versionen weichen ab – siehe CHANGELOG.md; Brücke oder Backend aktualisieren.</p>
-            )}
+            {t("connection.contractValues", {
+              bridge: bridge?.contract.bridge ?? "–",
+              backend: bridge?.contract.backend ?? "–",
+            })}
+            {bridge && !bridge.contract.match && <p>{t("connection.contractMismatch")}</p>}
           </dd>
-          <dt className="text-muted-foreground">Sitzung</dt>
+          <dt className="text-muted-foreground">{t("connection.session")}</dt>
           <dd className="truncate font-mono">{bridge?.session_id ?? "–"}</dd>
         </dl>
       </DropdownMenuContent>
@@ -90,15 +88,17 @@ export function ConnectionStatus() {
   )
 }
 
-/** Platzhalter fuer CAD-Seiten, solange die Bruecke nicht bereit ist. */
+/** Placeholder for CAD pages while the bridge is not ready. */
 export function BridgeNotReady({ state }: { state: BridgeState | undefined }) {
-  const info = state ? BRIDGE_TEXT[state] : undefined
+  const { t } = useTranslation()
   return (
     <div className="mx-auto max-w-md p-10 text-center">
       <Unplug className="mx-auto mb-4 size-10 text-muted-foreground" />
-      <h2 className="mb-2 text-lg font-semibold">{info?.label ?? "Verbindung wird aufgebaut …"}</h2>
+      <h2 className="mb-2 text-lg font-semibold">
+        {state ? t(`connection.state.${state}`) : t("connection.connecting")}
+      </h2>
       <p className="text-sm text-muted-foreground">
-        {info?.help ?? "Warte auf das Backend."} Die Seite aktualisiert sich von selbst, sobald FreeCAD bereit ist.
+        {state ? t(`connection.help.${state}`) : t("connection.waitBackend")} {t("connection.autoRefresh")}
       </p>
     </div>
   )

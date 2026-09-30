@@ -1,7 +1,7 @@
-"""Tests der HTTP-Schicht -- ohne echten Port, ohne Zusatzpaket.
+"""Tests of the HTTP layer -- without a real port, without extra packages.
 
-aiohttp.test_utils ist in FreeCADs Python vorhanden; pytest ist es NICHT.
-Deshalb stdlib-unittest plus AioHTTPTestCase.
+aiohttp.test_utils is available in FreeCAD's Python; pytest is NOT.
+Hence stdlib unittest plus AioHTTPTestCase.
 """
 
 import unittest
@@ -63,7 +63,7 @@ class HealthRouteTest(AioHTTPTestCase):
         self.assertEqual(resp.status, 200)
 
     async def test_fehlender_origin_geht_durch(self):
-        """curl, Tests und das Backend senden keinen Origin."""
+        """curl, tests and the backend send no Origin."""
         resp = await self.client.get("/api/cad/health", headers=self.auth_headers())
         self.assertEqual(resp.status, 200)
 

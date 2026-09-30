@@ -1,5 +1,5 @@
-# Build-Ergebnis des Frontends (wird vom Backend ausgeliefert)
-# (Vite leert das Verzeichnis bei jedem Build; ohne Build zeigt das Backend eine Hinweisseite)
+# Frontend build output (served by the backend)
+# (Vite empties the directory on every build; without a build the backend shows a notice page)
 backend/app/static/
 
 # Python
@@ -12,10 +12,10 @@ __pycache__/
 node_modules/
 .vite/
 
-# Laufzeit: Port und Token der laufenden Bruecke, nie einchecken
+# Runtime: port and token of the running bridge, never commit
 bridge.json
 
-# Werkzeuge
+# Tools
 .ruff_cache/
 .mypy_cache/
 .DS_Store

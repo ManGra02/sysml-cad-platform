@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next"
+
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -11,8 +13,9 @@ import { Button } from "@/components/ui/button"
 import type { Conflict } from "../editing"
 import { formatValue } from "../format"
 
-/** Ein Konflikt wird sichtbar gemacht -- nie still ueberschrieben. */
+/** A conflict is made visible -- never silently overwritten. */
 export function ConflictDialog({ conflict }: { conflict: Conflict | null }) {
+  const { t } = useTranslation()
   return (
     <AlertDialog
       open={conflict !== null}
@@ -24,22 +27,22 @@ export function ConflictDialog({ conflict }: { conflict: Conflict | null }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {conflict.objectLabel}.{conflict.prop} wurde inzwischen geändert
+              {t("conflict.title", { object: conflict.objectLabel, prop: conflict.prop })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Während du bearbeitet hast, hat sich der Wert in FreeCAD geändert. Welcher Wert soll gelten?
+              {t("conflict.description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-md border p-3 text-sm">
-            <dt className="text-muted-foreground">Jetzt in FreeCAD</dt>
-            <dd className="font-mono">{conflict.theirs ? formatValue(conflict.theirs.value) : "— (nicht mehr vorhanden)"}</dd>
-            <dt className="text-muted-foreground">Deine Eingabe</dt>
+            <dt className="text-muted-foreground">{t("conflict.theirs")}</dt>
+            <dd className="font-mono">{conflict.theirs ? formatValue(conflict.theirs.value) : t("conflict.gone")}</dd>
+            <dt className="text-muted-foreground">{t("conflict.mine")}</dt>
             <dd className="font-mono">{conflict.mine}</dd>
           </dl>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => conflict.resolve("discard")}>Wert aus FreeCAD übernehmen</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => conflict.resolve("discard")}>{t("conflict.keepTheirs")}</AlertDialogCancel>
             <Button variant="destructive" onClick={() => conflict.resolve("overwrite")}>
-              Meinen Wert trotzdem setzen
+              {t("conflict.overwrite")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

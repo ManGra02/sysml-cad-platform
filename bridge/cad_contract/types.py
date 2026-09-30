@@ -1,24 +1,24 @@
-"""Das Wertformat auf der Leitung.
+"""The value format on the wire.
 
-Abhaengigkeitsfrei und in FreeCADs 3.11 wie in der Backend-venv importierbar.
-Hier steht, WIE etwas aussieht -- nicht, wie es aus FreeCAD geholt wird. Die
-Umwandlung liegt in freecad_bridge.properties.
+Dependency-free and importable both in FreeCAD's 3.11 and in the backend venv.
+This defines WHAT something looks like -- not how it is fetched from FreeCAD.
+The conversion lives in freecad_bridge.properties.
 
-DREI AUSGAENGE fuer jede Property, nie mehr:
+THREE OUTCOMES for every property, never more:
 
-  encoded      Ein definiertes Format, das der Editor rendern und
-               zurueckschreiben kann.
-  derived      Abgeleitet, nur lesbar (Shape -> Volume/BoundBox/ShapeType).
-  unsupported  Vorhanden, aber hier nicht editierbar. Die Oberflaeche zeigt
-               das ehrlich an.
+  encoded      A defined format that the editor can render and
+               write back.
+  derived      Derived, read-only (Shape -> Volume/BoundBox/ShapeType).
+  unsupported  Present, but not editable here. The UI states
+               this honestly.
 
-Es gibt bewusst KEINEN str()-Fallback. repr() eines FEM-Meshes ist ein
-kompletter Mesh-Dump, und repr() eines Proxy-Objekts enthaelt eine
-Speicheradresse, die sich bei jedem Start aendert -- der Cache saehe dann
-dauernd Aenderungen, die keine sind.
+There is deliberately NO str() fallback. repr() of a FEM mesh is a
+complete mesh dump, and repr() of a proxy object contains a
+memory address that changes on every start -- the cache would then
+constantly see changes that are not real changes.
 """
 
-# -- Kind-Marker fuer kodierte Werte -----------------------------------
+# -- Kind markers for encoded values ----------------------------------
 
 QUANTITY = "quantity"
 VECTOR = "vector"
@@ -36,19 +36,19 @@ MAP = "map"
 SET = "set"
 UNSUPPORTED = "unsupported"
 
-#: Status einer Property im Transport.
+#: Status of a property in transport.
 ENCODED = "encoded"
 DERIVED = "derived"
 
 
 def obj_ref(doc, name, subs=None):
-    """Der EINZIGE Schluessel fuer ein Objekt ueber die Prozessgrenze.
+    """The ONLY key for an object across the process boundary.
 
-    Immer (doc.Name, obj.Name) -- beide unveraenderlich und pro Dokument
-    eindeutig. NIE obj.Label: das ist ein reines Anzeigefeld und nicht
-    eindeutig. In AssemblyExample.FCStd traegt das Objekt mit Name 'Shape001'
-    das Label 'Base', waehrend ein ANDERES Objekt 'Base' heisst -- ein
-    Label-als-Name-Request patcht lautlos das falsche Objekt, ohne 404.
+    Always (doc.Name, obj.Name) -- both immutable and unique per
+    document. NEVER obj.Label: that is a pure display field and not
+    unique. In AssemblyExample.FCStd the object named 'Shape001' carries
+    the label 'Base', while a DIFFERENT object is named 'Base' -- a
+    label-as-name request silently patches the wrong object, without a 404.
     """
     ref = {"doc": doc, "name": name}
     if subs:
@@ -56,20 +56,20 @@ def obj_ref(doc, name, subs=None):
     return ref
 
 
-# -- Wertformen --------------------------------------------------------
+# -- Value shapes ------------------------------------------------------
 
 
 def quantity(value, unit, text, unit_type=None):
-    """Menge mit Einheit.
+    """Quantity with unit.
 
-    ``value``     immer in FreeCADs INTERNEN Einheiten (mm, kg, s, Grad)
-    ``unit``      das Symbol zum Anzeigen ('mm', 'kg/mm^3'), leer bei dimensionslos
-    ``unit_type`` die Groessenart ('Length', 'Density') -- damit die Oberflaeche
-                  ein passendes Eingabefeld waehlen kann
-    ``text``      die verlustfreie Rundreise-Form, str(Quantity)
+    ``value``     always in FreeCAD's INTERNAL units (mm, kg, s, degrees)
+    ``unit``      the symbol for display ('mm', 'kg/mm^3'), empty if dimensionless
+    ``unit_type`` the kind of quantity ('Length', 'Density') -- so the UI
+                  can choose a suitable input field
+    ``text``      the lossless round-trip form, str(Quantity)
 
-    NIE UserString verwenden: der ist lokalisiert ('7900,00 kg/m^3') und damit
-    weder vergleichbar noch zurueck parsebar.
+    NEVER use UserString: it is localized ('7900,00 kg/m^3') and therefore
+    neither comparable nor parsable back.
     """
     return {
         "kind": QUANTITY,
@@ -85,10 +85,10 @@ def vector(x, y, z):
 
 
 def placement(position, quaternion):
-    """Lage als Position + Quaternion.
+    """Placement as position + quaternion.
 
-    Quaternion, nicht Yaw-Pitch-Roll: Rotation.Angle ist in Radiant, und nur
-    ueber .Q ist die Rundreise verlustfrei.
+    Quaternion, not yaw-pitch-roll: Rotation.Angle is in radians, and only
+    via .Q is the round trip lossless.
     """
     return {"kind": PLACEMENT, "pos": list(position), "q": list(quaternion)}
 
@@ -106,10 +106,10 @@ def color(rgba):
 
 
 def enum(value, choices):
-    """Aufzaehlung.
+    """Enumeration.
 
-    Beim Schreiben nur str oder int senden: eine LISTE ersetzt die Auswahlwerte,
-    statt einen auszuwaehlen.
+    When writing, send only str or int: a LIST replaces the choices
+    instead of selecting one.
     """
     return {"kind": ENUM, "value": value, "choices": list(choices or [])}
 
@@ -131,10 +131,10 @@ def link_sub_list(refs):
 
 
 def material_ref(uuid, name):
-    """Material reist als UUID.
+    """Material travels as a UUID.
 
-    FreeCAD persistiert ShapeMaterial ebenfalls nur als UUID -- selbst erzeugte
-    Materialien ueberleben Speichern/Laden nicht.
+    FreeCAD likewise persists ShapeMaterial only as a UUID -- self-created
+    materials do not survive save/load.
     """
     return {"kind": MATERIAL_REF, "uuid": uuid, "name": name}
 
@@ -148,16 +148,16 @@ def value_set(values):
 
 
 def unsupported(type_id, summary):
-    """Vorhanden, aber nicht transportierbar. Ehrlich statt str()."""
+    """Present, but not transportable. Honest instead of str()."""
     return {"kind": UNSUPPORTED, "typeId": type_id, "summary": summary}
 
 
-# -- Property-Beschreibung ---------------------------------------------
+# -- Property description ----------------------------------------------
 
 
 def property_entry(name, type_id, status, value, group=None, doc=None,
                    flags=(), writable=False, dynamic=False, expression=None):
-    """Eine Property samt allem, was der generische Editor zum Rendern braucht."""
+    """A property along with everything the generic editor needs to render it."""
     return {
         "name": name,
         "typeId": type_id,
@@ -168,11 +168,11 @@ def property_entry(name, type_id, status, value, group=None, doc=None,
         "flags": list(flags),
         "writable": bool(writable),
         "dynamic": bool(dynamic),
-        "expression": expression,  # gebunden -> Schreiben waere wirkungslos
+        "expression": expression,  # bound -> writing would have no effect
     }
 
 
-# -- Operationen eines Vorgangs (POST .../operations) --------------------
+# -- Operations of a batch (POST .../operations) ------------------------
 
 OP_CREATE = "create"
 OP_DELETE = "delete"

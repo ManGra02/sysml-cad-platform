@@ -1,12 +1,12 @@
-"""Gemeinsamer, abhaengigkeitsfreier Vertrag zwischen Bruecke und Backend.
+"""Shared, dependency-free contract between bridge and backend.
 
-Dieses Paket liegt physisch im Addon-Verzeichnis, damit FreeCAD es ohne
-sys.path-Code und ohne .pth importieren kann (``import FreeCAD`` legt alle
-User-Mod-Unterverzeichnisse selbst auf den Pfad). Das Backend bindet dasselbe
-Verzeichnis editierbar ein.
+This package physically lives in the addon directory so FreeCAD can import it
+without sys.path code and without a .pth (``import FreeCAD`` puts all
+user Mod subdirectories on the path itself). The backend includes the same
+directory as an editable install.
 
-HARTE REGEL: keine Abhaengigkeiten ausserhalb der Standardbibliothek, und
-nichts, was FreeCADs Python 3.11 nicht versteht (kein PEP-695).
+HARD RULE: no dependencies outside the standard library, and
+nothing FreeCAD's Python 3.11 does not understand (no PEP 695).
 """
 
 from cad_contract.version import CONTRACT_VERSION

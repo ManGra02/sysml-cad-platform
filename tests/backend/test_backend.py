@@ -1,6 +1,6 @@
-"""M5: Backend -- Verbindung, Resync, Weiterreichen, Absicherung.
+"""M5: Backend -- connection, resync, pass-through, hardening.
 
-Alles gegen eine nachgebaute Bruecke, ohne FreeCAD.
+Everything against a mock bridge, without FreeCAD.
 """
 
 import asyncio
@@ -15,7 +15,7 @@ from app import bridge_client
 from conftest import BROWSER_ORIGIN, BrowserClient, MockBridge, wait_for
 
 
-# -- Verbindungszustaende ----------------------------------------------
+# -- Connection states ------------------------------------------------
 
 
 async def test_ohne_handshake_unconfigured(backend):
@@ -37,7 +37,7 @@ async def test_verbindet_sich_mit_der_bruecke(bridge, backend):
 
 
 async def test_bruecke_startet_spaeter(handshake, backend):
-    """FreeCAD wird NACH dem Backend gestartet -- der Normalfall."""
+    """FreeCAD is started AFTER the backend -- the normal case."""
     assert (await backend.status())["state"] == "unconfigured"
     mock = MockBridge(str(handshake))
     await mock.start()
@@ -50,23 +50,23 @@ async def test_bruecke_startet_spaeter(handshake, backend):
 async def test_bruecke_verschwindet(bridge, backend, browser):
     await wait_for(lambda: backend.state.bridge.state == "ok")
     await bridge.stop(remove_handshake=False)
-    # Auf den BROWSER warten, nicht nur auf den Backend-Zustand -- die
-    # WebSocket-Nachricht ist sonst noch unterwegs.
+    # Wait for the BROWSER, not just for the backend state -- otherwise the
+    # WebSocket message may still be in flight.
     await wait_for(lambda: any(s["state"] != "ok" for s in browser.statuses()))
 
 
 async def test_verwaiste_handshake_datei(handshake, backend):
-    """Nach einem Absturz lebt die Datei, FreeCAD nicht."""
+    """After a crash the file lives on, FreeCAD doesn't."""
     mock = MockBridge(str(handshake))
     await mock.start()
     mock.write_handshake(pid=_dead_pid())
     try:
-        await wait_for(lambda: "verwaist" in backend.state.bridge.detail, timeout=10)
+        await wait_for(lambda: backend.state.bridge.reason == "orphaned_handshake", timeout=10)
         status = await backend.status()
         assert status["state"] == "unconfigured"
-        # Und vor allem: HTTP versucht es gar nicht erst gegen eine tote PID.
+        # And above all: HTTP doesn't even try against a dead PID.
         code, body = await backend.get("/api/cad/documents")
-        assert code == 503 and "verwaist" in body["error"]["message"]
+        assert code == 503 and body["error"]["detail"]["reason"] == "orphaned_handshake"
     finally:
         await mock.stop()
 
@@ -78,11 +78,11 @@ def _dead_pid():
 
 
 def test_pid_probe_beendet_keinen_prozess():
-    """os.kill(pid, 0) waere unter Windows TerminateProcess -- das darf nicht passieren."""
+    """os.kill(pid, 0) would be TerminateProcess on Windows -- that must not happen."""
     process = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"])
     try:
         assert bridge_client.pid_alive(process.pid) is True
-        assert process.poll() is None, "Die Probe hat den Prozess beendet!"
+        assert process.poll() is None, "The probe killed the process!"
     finally:
         process.kill()
         process.wait()
@@ -93,9 +93,9 @@ def test_pid_probe_beendet_keinen_prozess():
 
 
 async def test_spaeter_verbundener_browser_kennt_den_zustand(bridge, backend):
-    """Ein Browser, der NACH der Brueckenverbindung kommt, hat das first_connect-
-    Resync verpasst. Er braucht es nicht: er laedt beim Oeffnen ohnehin alles,
-    und das hello nennt ihm den aktuellen Brueckenzustand."""
+    """A browser that connects AFTER the bridge connection has missed the
+    first_connect resync. It doesn't need it: it loads everything on open anyway,
+    and the hello tells it the current bridge state."""
     await wait_for(lambda: backend.state.bridge.state == "ok")
     client = await BrowserClient(backend.url).connect()
     try:
@@ -125,33 +125,33 @@ async def test_luecke_in_seq_loest_resync_aus(bridge, backend, browser):
 
 
 async def test_verpasste_ereignisse_waehrend_trennung(bridge, backend, browser):
-    """Bruecke kurz weg, dazwischen passiert etwas -> beim Wiederverbinden Resync."""
+    """Bridge briefly gone, something happens meanwhile -> resync on reconnect."""
     await wait_for(lambda: bridge.ws_count == 1)
     await bridge.stop(remove_handshake=False)
     await wait_for(lambda: backend.state.bridge.state != "ok")
 
-    bridge.happened_while_nobody_listened(3)   # z. B. drei Objekte angelegt
+    bridge.happened_while_nobody_listened(3)   # e.g. three objects created
     await bridge.start(new_session=False)
     await wait_for(lambda: any(e["reason"] == "missed_events" for e in browser.events("cad.resync")),
                    timeout=10)
 
 
 async def test_neustart_der_bruecke_rotiert_token_und_sitzung(bridge, backend, browser):
-    """Das Backend muss die Handshake-Datei bei JEDEM Versuch neu lesen."""
+    """The backend has to re-read the handshake file on EVERY attempt."""
     await wait_for(lambda: backend.state.bridge.state == "ok")
     old_session = bridge.session_id
 
     await bridge.stop()
-    await bridge.start(new_session=True)          # neues Token, neue Sitzung
+    await bridge.start(new_session=True)          # new token, new session
     await wait_for(lambda: backend.state.bridge.session_id == bridge.session_id, timeout=10)
     assert bridge.session_id != old_session
     await wait_for(lambda: any(e["reason"] == "new_session" for e in browser.events("cad.resync")))
 
     code, body = await backend.get("/api/cad/documents")
-    assert code == 200, "HTTP muss mit dem neuen Token funktionieren"
+    assert code == 200, "HTTP must work with the new token"
 
 
-# -- Weiterreichen -----------------------------------------------------
+# -- Pass-through -------------------------------------------------------
 
 
 async def test_get_wird_weitergereicht(bridge, backend):
@@ -198,12 +198,12 @@ async def test_token_verlaesst_das_backend_nie(bridge, backend):
 
 
 async def test_browser_authorization_wird_nicht_weitergereicht(bridge, backend):
-    await backend.get("/api/cad/documents", headers={"Authorization": "Bearer boese"})
+    await backend.get("/api/cad/documents", headers={"Authorization": "Bearer evil"})
     forwarded = [r for r in bridge.requests if r["path"] == "/api/cad/documents"][-1]
     assert forwarded["headers"]["Authorization"] == "Bearer %s" % bridge.token
 
 
-# -- Absicherung -------------------------------------------------------
+# -- Hardening ----------------------------------------------------------
 
 
 async def test_fremder_origin_403(bridge, backend):
@@ -213,7 +213,7 @@ async def test_fremder_origin_403(bridge, backend):
 
 
 async def test_fremder_origin_auch_bei_post(bridge, backend):
-    """Ein bodyloser POST braucht keinen Preflight -- ohne Pruefung ginge er durch."""
+    """A bodyless POST needs no preflight -- without the check it would go through."""
     async with backend.http.post(backend.url + "/api/cad/documents/Doc/recompute",
                                  headers={"Origin": "http://evil.example"}) as response:
         assert response.status == 403
@@ -222,7 +222,7 @@ async def test_fremder_origin_auch_bei_post(bridge, backend):
 
 async def test_fremder_host_403(backend):
     async with backend.http.get(backend.url + "/api/status",
-                                headers={"Host": "angreifer.example"}) as response:
+                                headers={"Host": "attacker.example"}) as response:
         assert response.status == 403
 
 
@@ -236,7 +236,7 @@ async def test_websocket_von_fremder_seite_abgewiesen(backend):
             rejected = message.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED)
         except aiohttp.WSServerHandshakeError:
             rejected = True
-        assert rejected, "Nachbar-Tab koennte den Modellstrom mitlesen"
+        assert rejected, "A neighbouring tab could read along the model stream"
     finally:
         await session.close()
 
@@ -255,17 +255,17 @@ async def test_keine_cors_header(backend):
         assert "access-control-allow-origin" not in {k.lower() for k in response.headers}
 
 
-# -- Oberflaeche -------------------------------------------------------
+# -- UI ---------------------------------------------------------------
 
 
 async def test_spa_catch_all(backend):
-    async with backend.http.get(backend.url + "/cad/irgendwas") as response:
+    async with backend.http.get(backend.url + "/cad/anything") as response:
         assert response.status == 200
         assert "SysML-CAD Platform" in await response.text()
 
 
 async def test_unbekannte_api_route_ist_json_404(backend):
-    code, body = await backend.get("/api/gibtsnicht")
+    code, body = await backend.get("/api/doesnotexist")
     assert code == 404
     assert body["error"]["code"] == "not_found"
 

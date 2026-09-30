@@ -1,16 +1,16 @@
-"""Was ein Projektmodul ist und was es von der Plattform bekommt.
+"""What a project module is and what it gets from the platform.
 
-Ein Projekt (BDS, MCR, ...) ist schlicht ein Python-Paket unter
-``app/projects/<id>/``. Es erbt von ``ProjectModule`` und bekommt:
+A project (BDS, MCR, ...) is simply a Python package under
+``app/projects/<id>/``. It inherits from ``ProjectModule`` and gets:
 
-  * eigene HTTP-Routen unter ``/api/projects/<id>/*``      (register_routes)
-  * jede Aenderung aus FreeCAD, solange es aktiv ist       (on_cad_event)
-  * einen CAD-Zugang, der das Bruecken-Token nie sieht     (ctx.cad)
-  * einen Kanal zum Browser, WebSocket-Typen ``<id>.*``    (ctx.publish)
+  * its own HTTP routes under ``/api/projects/<id>/*``     (register_routes)
+  * every change from FreeCAD, as long as it is active     (on_cad_event)
+  * CAD access that never sees the bridge token            (ctx.cad)
+  * a channel to the browser, WebSocket types ``<id>.*``   (ctx.publish)
 
-Die Bruecke merkt davon nichts: Fachlogik gehoert hierher, nie nach bridge/.
-Namensraum-Regel: alles eines Moduls traegt seine id -- Routen, WS-Typen,
-Query-Keys, Frontend-Ordner (src/features/<id>/).
+The bridge knows nothing about this: domain logic belongs here, never in bridge/.
+Namespace rule: everything of a module carries its id -- routes, WS types,
+query keys, frontend folder (src/features/<id>/).
 """
 
 import collections
@@ -26,10 +26,10 @@ log = logging.getLogger("platform.projects")
 
 
 class CadError(Exception):
-    """Die Bruecke hat mit einem Fehler geantwortet (oder ist nicht erreichbar).
+    """The bridge responded with an error (or is unreachable).
 
-    ``failed_op``: bei einem Vorgang der Index der gescheiterten Operation --
-    alles davor wurde zurueckgenommen.
+    ``failed_op``: for a transaction, the index of the failed operation --
+    everything before it was rolled back.
     """
 
     def __init__(self, status, code, message, detail=None):
@@ -42,10 +42,10 @@ class CadError(Exception):
 
 
 class Ref:
-    """Platzhalter fuer ein Objekt, das erst im selben Vorgang angelegt wird.
+    """Placeholder for an object that is only created in the same transaction.
 
-    FreeCAD benennt bei Kollision um ("Motor" -> "Motor001"); den echten Namen
-    liefert ``tx.result.name(ref)`` nach dem Vorgang.
+    FreeCAD renames on collision ("Motor" -> "Motor001"); ``tx.result.name(ref)``
+    returns the actual name after the transaction.
     """
 
     def __init__(self, alias):
@@ -68,20 +68,20 @@ class TransactionResult:
         self.created = {ref: raw.get("created", {}).get(ref.alias) for ref in refs}
 
     def name(self, ref):
-        """Echter Objektname eines im Vorgang angelegten Objekts."""
+        """Actual object name of an object created in the transaction."""
         return self.created[ref]
 
 
 class Transaction:
-    """Mehrere Aenderungen als EIN Vorgang: ein Undo-Schritt, alles oder nichts.
+    """Several changes as ONE transaction: one undo step, all or nothing.
 
-        async with ctx.cad.transaction("Doc", "BDS: Motor anlegen") as tx:
+        async with ctx.cad.transaction("Doc", "BDS: create motor") as tx:
             m = tx.create("Part::Box", name="Motor", props={"Length": "40 mm"})
             tx.add_property(m, "App::PropertyString", "SysMLId", value=element_id)
-        tx.result.name(m)   # -> "Motor" oder "Motor001"
+        tx.result.name(m)   # -> "Motor" or "Motor001"
 
-    Gesendet wird beim Verlassen des Blocks in EINER Anfrage. Wirft der Block
-    selbst eine Exception, wird nichts gesendet.
+    Everything is sent in ONE request when the block is exited. If the block
+    itself raises an exception, nothing is sent.
     """
 
     def __init__(self, cad, doc, name=None, strict=True):
@@ -99,7 +99,7 @@ class Transaction:
             return "$" + obj.alias
         if isinstance(obj, str) and obj:
             return obj
-        raise TypeError("Objekt als Name (str) oder Ref erwartet, nicht %r" % (obj,))
+        raise TypeError("Object expected as name (str) or Ref, not %r" % (obj,))
 
     def create(self, type_id, name=None, *, label=None, group=None, props=None):
         ref = Ref("o%d" % len(self.refs))
@@ -126,11 +126,11 @@ class Transaction:
         self.ops.append(op)
 
     def set_expression(self, obj, prop, expr):
-        """``expr=None`` entfernt die Formel."""
+        """``expr=None`` removes the expression."""
         self.ops.append({"op": "set_expression", "obj": self._obj(obj), "prop": prop, "expr": expr})
 
     def set_cells(self, sheet, cells=None, aliases=None):
-        """``cells={"A1": "40 mm"}``, ``aliases={"A1": "laenge"}``; None leert."""
+        """``cells={"A1": "40 mm"}``, ``aliases={"A1": "length"}``; None clears."""
         op = {"op": "set_cells", "sheet": self._obj(sheet)}
         if cells:
             op["cells"] = cells
@@ -169,18 +169,18 @@ class Transaction:
 
 
 def seg(value):
-    """Pfadsegment kodieren -- Objektnamen duerfen beliebiges Unicode enthalten."""
+    """Encode a path segment -- object names may contain arbitrary Unicode."""
     return quote(value, safe="")
 
 
 class CadClient:
-    """Zugang eines Moduls zum CAD-Modell -- dieselbe API wie der Browser sie sieht.
+    """A module's access to the CAD model -- the same API the browser sees.
 
-    Pfade sind relativ zu ``/api/cad``: ``await ctx.cad.get("/documents")``.
+    Paths are relative to ``/api/cad``: ``await ctx.cad.get("/documents")``.
 
-    Jede Schreibanfrage traegt eine eigene X-Request-Id. Das Echo in
-    ``on_cad_event`` erkennt ``is_own(event)`` -- ohne das schaukelt sich eine
-    Synchronisation in beide Richtungen an ihren eigenen Aenderungen auf.
+    Every write request carries its own X-Request-Id. ``is_own(event)``
+    recognizes the echo in ``on_cad_event`` -- without it, a bidirectional
+    synchronization would feed back on its own changes.
     """
 
     OWN_HISTORY = 500
@@ -223,11 +223,11 @@ class CadClient:
         return request_id
 
     def is_own(self, event):
-        """Stammt dieses Ereignis aus einer Schreibanfrage DIESES Moduls?"""
+        """Does this event stem from a write request of THIS module?"""
         origin = event.get("origin") or ""
         return origin.startswith("bridge:") and origin[len("bridge:"):] in self._own
 
-    # -- Bequeme Formen ---------------------------------------------------
+    # -- Convenience forms ------------------------------------------------
 
     async def get(self, path, **query):
         return await self._call("GET", path, query={k: v for k, v in query.items() if v is not None} or None)
@@ -242,7 +242,7 @@ class CadClient:
         return await self.get("/documents/%s/objects/%s" % (seg(doc), seg(name)))
 
     async def patch(self, doc, name, changes, if_match=None):
-        """Properties setzen -- ein Aufruf ist in FreeCAD genau ein Undo-Schritt."""
+        """Set properties -- one call is exactly one undo step in FreeCAD."""
         return await self._call(
             "PATCH",
             "/documents/%s/objects/%s" % (seg(doc), seg(name)),
@@ -252,15 +252,15 @@ class CadClient:
         )
 
     async def cells(self, doc, sheet, cell_range=None):
-        """Benutzte Zellen einer Tabelle: {"A1": {content, value, alias}}."""
+        """Used cells of a spreadsheet: {"A1": {content, value, alias}}."""
         return await self.get("/documents/%s/sheets/%s/cells" % (seg(doc), seg(sheet)), range=cell_range)
 
     def transaction(self, doc, name=None, strict=True):
-        """Mehrere Aenderungen als ein Vorgang -- siehe Transaction."""
+        """Several changes as one transaction -- see Transaction."""
         return Transaction(self, doc, name, strict)
 
     async def operations(self, doc, ops, name=None, strict=True):
-        """Rohform von transaction(): eine Liste von Operationen senden."""
+        """Raw form of transaction(): send a list of operations."""
         body = {"ops": ops, "strict": strict}
         if name:
             body["name"] = name
@@ -272,10 +272,10 @@ class CadClient:
             timeout=config.RECOMPUTE_TIMEOUT_S,
         )
 
-    # Kurzformen: je ein Vorgang mit einer Operation.
+    # Shorthands: one transaction with a single operation each.
 
     async def create(self, doc, type_id, name=None, **kw):
-        """Ein Objekt anlegen; liefert den echten Namen."""
+        """Create an object; returns the actual name."""
         tx = self.transaction(doc)
         ref = tx.create(type_id, name, **kw)
         return (await tx.commit()).name(ref)
@@ -315,7 +315,7 @@ class CadClient:
 
 
 class ProjectContext:
-    """Was ein Modul von der Plattform in die Hand bekommt."""
+    """What a module is handed by the platform."""
 
     def __init__(self, module_id, cad, publish):
         self.module_id = module_id
@@ -324,7 +324,7 @@ class ProjectContext:
         self.log = logging.getLogger("platform.projects." + module_id)
 
     def publish(self, kind, payload=None):
-        """Ereignis an alle Browser-Tabs: WebSocket-Typ ``<id>.<kind>``."""
+        """Event to all browser tabs: WebSocket type ``<id>.<kind>``."""
         frame = {"type": "%s.%s" % (self.module_id, kind)}
         if payload:
             frame["data"] = payload
@@ -332,34 +332,34 @@ class ProjectContext:
 
 
 class ProjectModule:
-    """Basisklasse. Alle Haken sind optional; ueberschreiben, was man braucht."""
+    """Base class. All hooks are optional; override what you need."""
 
-    #: Kurz, klein, stabil -- steckt in URLs, WS-Typen und Ordnernamen.
+    #: Short, lowercase, stable -- ends up in URLs, WS types and folder names.
     id = ""
     title = ""
     description = ""
-    #: Name eines lucide-Icons (https://lucide.dev), z. B. "arrow-left-right"
+    #: Name of a lucide icon (https://lucide.dev), e.g. "arrow-left-right"
     icon = "boxes"
 
-    #: Wird von der Registry gesetzt, bevor irgendein Haken laeuft.
+    #: Set by the registry before any hook runs.
     ctx: ProjectContext
 
     def register_routes(self, router):
-        """Eigene Routen an ``router`` haengen (Prefix /api/projects/<id>).
+        """Attach your own routes to ``router`` (prefix /api/projects/<id>).
 
-        Reserviert: ``/activate``.
+        Reserved: ``/activate``.
         """
 
     async def on_activate(self):
-        """Das Projekt wurde gewaehlt (auch beim Backend-Start, wenn es aktiv war)."""
+        """The project was selected (also on backend start, if it was active)."""
 
     async def on_deactivate(self):
-        """Ein anderes Projekt wurde gewaehlt."""
+        """Another project was selected."""
 
     async def on_cad_event(self, event):
-        """Eine Aenderung aus FreeCAD -- nur, solange dieses Projekt aktiv ist.
+        """A change from FreeCAD -- only while this project is active.
 
-        ``event`` ist ein Ereignis aus cad_contract.events (cad.changed, doc.opened ...).
-        Es traegt nur Identitaet; Werte liest man ueber ``self.ctx.cad`` nach.
-        Bei ``cad.resync`` ist der eigene Stand komplett neu aufzubauen.
+        ``event`` is an event from cad_contract.events (cad.changed, doc.opened ...).
+        It carries identity only; read the values via ``self.ctx.cad``.
+        On ``cad.resync`` the module's own state has to be rebuilt from scratch.
         """

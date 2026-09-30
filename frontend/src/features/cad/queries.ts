@@ -12,8 +12,8 @@ import type {
   WriteResult,
 } from "./types"
 
-// Query-Keys: alles eines Dokuments liegt unter ["cad", "doc", <name>], damit
-// ein Ereignis wie cad.history das ganze Dokument auf einmal verwerfen kann.
+// Query keys: everything of a document lives under ["cad", "doc", <name>], so
+// that an event like cad.history can discard the whole document at once.
 export const cadKeys = {
   all: ["cad"] as const,
   documents: () => ["cad", "documents"] as const,
@@ -33,8 +33,8 @@ const base = (doc: string) => "/api/cad/documents/" + seg(doc)
 export const statusQuery = queryOptions({
   queryKey: statusKey,
   queryFn: () => api<PlatformStatus>("/api/status"),
-  // Massgeblich ist der WebSocket (hello + bridge.status); der GET liefert
-  // nur den Anfangszustand.
+  // The WebSocket is authoritative (hello + bridge.status); the GET only
+  // provides the initial state.
   staleTime: Infinity,
 })
 
@@ -50,9 +50,9 @@ export const treeQuery = (doc: string, internal: boolean) =>
   })
 
 /**
- * Eine Antwort mit kleinerem rev als im Cache ist veraltet und wird verworfen.
- * Innerhalb einer Bruecken-Sitzung steigt rev monoton; bei einer neuen Sitzung
- * wird der Cache ohnehin zurueckgesetzt (siehe sync.ts).
+ * A response with a lower rev than the cache is stale and gets discarded.
+ * Within a bridge session rev increases monotonically; on a new session the
+ * cache is reset anyway (see sync.ts).
  */
 function keepNewerRevision(old: unknown, next: unknown): unknown {
   const previous = old as ObjectDetail | undefined
@@ -68,7 +68,7 @@ export const objectQuery = (doc: string, name: string) =>
     structuralSharing: keepNewerRevision,
   })
 
-/** Abgeleitete Geometrie ist teuer (FreeCAD cacht Shape.Volume nicht) -- nur auf Anforderung. */
+/** Derived geometry is expensive (FreeCAD doesn't cache Shape.Volume) -- only on demand. */
 export const geometryQuery = (doc: string, name: string) =>
   queryOptions({
     queryKey: cadKeys.geometry(doc, name),
@@ -80,7 +80,7 @@ export const geometryQuery = (doc: string, name: string) =>
     },
   })
 
-/** Batch-Route: alle Objekte mit ausgewaehlten Properties in EINER Dispatch-Runde. */
+/** Batch route: all objects with selected properties in ONE dispatch round. */
 export const batchQuery = (doc: string, fields: string[]) =>
   queryOptions({
     queryKey: cadKeys.batch(doc, fields),

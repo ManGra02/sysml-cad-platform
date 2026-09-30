@@ -1,9 +1,9 @@
-"""Tests fuer den Dispatch -- inklusive der Thread-Affinitaet.
+"""Tests for the dispatch -- including thread affinity.
 
-Die Annahme, Tests koennten Thread-Affinitaetsfehler nicht fangen, ist falsch.
-Sie koennen es, wenn der Adapter sich selbst absichert: @main_thread_only macht
-aus einem nicht-deterministischen Absturz irgendwo in Coin3D einen
-deterministischen RuntimeError mit Stacktrace an der Aufrufstelle.
+The assumption that tests cannot catch thread-affinity errors is wrong.
+They can, if the adapter guards itself: @main_thread_only turns a
+non-deterministic crash somewhere in Coin3D into a deterministic
+RuntimeError with a stack trace at the call site.
 """
 
 import asyncio
@@ -36,20 +36,20 @@ class MainThreadGuardTest(unittest.TestCase):
         thread.start()
         thread.join(5)
 
-        self.assertIn("error", captured, "Der Guard hat den Fremdthread nicht bemerkt")
+        self.assertIn("error", captured, "The guard did not notice the foreign thread")
         message = str(captured["error"])
-        self.assertIn("test-worker", message, "Der Threadname gehoert in die Meldung")
-        self.assertIn("dispatch()", message, "Die Meldung muss den richtigen Weg nennen")
+        self.assertIn("test-worker", message, "The thread name belongs in the message")
+        self.assertIn("dispatch()", message, "The message must name the correct path")
 
     def test_behaelt_metadaten(self):
         self.assertEqual(_needs_main_thread.__name__, "_needs_main_thread")
 
 
 class DispatchFastPathTest(unittest.IsolatedAsyncioTestCase):
-    """Ohne QApplication laeuft alles inline.
+    """Without a QApplication everything runs inline.
 
-    Ohne diesen Fast-Path liefe jeder Test in den Timeout: es gibt headless
-    niemanden, der die Queue leert.
+    Without this fast path every test would run into the timeout: headless,
+    there is nobody to drain the queue.
     """
 
     async def test_fuehrt_inline_aus(self):
@@ -76,10 +76,10 @@ class DispatchFastPathTest(unittest.IsolatedAsyncioTestCase):
 
 class FastPathThreadTest(unittest.TestCase):
     def test_kein_schnellweg_ausserhalb_des_hauptthreads(self):
-        """Headless darf der Server-Thread FreeCAD NICHT direkt ausfuehren.
+        """Headless, the server thread must NOT execute FreeCAD directly.
 
-        Frueher galt "kein QApplication -> inline". Der echte Server lief dann
-        headless FreeCAD-Code im Server-Thread aus; @main_thread_only fing es.
+        The old rule was "no QApplication -> inline". The real server then ran
+        FreeCAD code headless in the server thread; @main_thread_only caught it.
         """
         seen = {}
 
@@ -90,12 +90,12 @@ class FastPathThreadTest(unittest.TestCase):
         thread.start()
         thread.join(5)
         self.assertFalse(seen["fast"])
-        self.assertTrue(dispatch.fast_path_available(), "auf dem Hauptthread schon")
+        self.assertTrue(dispatch.fast_path_available(), "but it is on the main thread")
 
 
 class QueueTeardownTest(unittest.TestCase):
     def test_clear_queue_loest_wartende_auf(self):
-        """Wartende Tasks werden aufgeloest, nicht in den Timeout geschickt."""
+        """Waiting tasks are resolved, not sent into the timeout."""
         loop = asyncio.new_event_loop()
         try:
             future = loop.create_future()
@@ -116,7 +116,7 @@ class QueueTeardownTest(unittest.TestCase):
 
 class GuardTest(unittest.TestCase):
     def test_headless_blockiert_nicht(self):
-        """Ohne GUI gibt es nichts zu schuetzen -- Schreiben muss laufen."""
+        """Without a GUI there is nothing to protect -- writing must work."""
         self.assertIsNone(dispatch.gui_block_reason())
 
 

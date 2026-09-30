@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState, type KeyboardEvent } from "react"
+import { useTranslation } from "react-i18next"
 
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -13,11 +14,11 @@ const ROW_HEIGHT = 30
 const DEFAULT_COLUMNS = "Placement"
 
 /**
- * Alle Objekte als Tabelle, frei waehlbare Property-Spalten.
+ * All objects as a table, with freely selectable property columns.
  *
- * Die Spalten kommen ueber die Batch-Route: EINE Anfrage fuer alle Objekte
- * statt einer pro Zeile (ohne sie waeren das N+1 Spruenge auf FreeCADs
- * Hauptthread).
+ * The columns come via the batch route: ONE request for all objects
+ * instead of one per row (without it, that would be N+1 hops onto FreeCAD's
+ * main thread).
  */
 export function ObjectTable({
   doc,
@@ -30,8 +31,9 @@ export function ObjectTable({
   tree: Tree
   selected: string | undefined
   search: string
-  onSelect: (name: string) => void
+  onSelect: (name: string, options?: { replace?: boolean }) => void
 }) {
+  const { t } = useTranslation()
   const [columnText, setColumnText] = useState(DEFAULT_COLUMNS)
   const [committed, setCommitted] = useState(DEFAULT_COLUMNS)
   const fields = useMemo(
@@ -69,30 +71,53 @@ export function ObjectTable({
     overscan: 12,
   })
 
+  // ↑/↓/Home/End select the adjacent row; the selection follows the focus.
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget || !rows.length) return
+    const current = rows.findIndex((node) => node.name === selected)
+    const last = rows.length - 1
+    const next =
+      event.key === "ArrowDown" ? Math.min(current + 1, last)
+      : event.key === "ArrowUp" ? Math.max(current - 1, 0)
+      : event.key === "Home" ? 0
+      : event.key === "End" ? last
+      : null
+    if (next === null) return
+    event.preventDefault()
+    virtualizer.scrollToIndex(next, { align: "auto" })
+    if (rows[next].name !== selected) onSelect(rows[next].name, { replace: true })
+  }
+
   const template = "minmax(10rem,1.2fr) minmax(8rem,1fr) " + fields.map(() => "minmax(8rem,1fr)").join(" ")
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 border-b p-2">
-        <span className="shrink-0 text-xs text-muted-foreground">Spalten</span>
+        <span className="shrink-0 text-xs text-muted-foreground">{t("table.columns")}</span>
         <Input
           value={columnText}
           onChange={(event) => setColumnText(event.target.value)}
           onBlur={() => setCommitted(columnText)}
           onKeyDown={(event) => event.key === "Enter" && setCommitted(columnText)}
-          placeholder="z. B. Length, Width, Placement"
+          placeholder={t("table.columnsPlaceholder")}
           className="h-7 text-xs"
         />
       </div>
       {batch.isError && <p className="p-2 text-xs text-destructive">{describeError(batch.error)}</p>}
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+      <div
+        ref={scrollRef}
+        tabIndex={0}
+        aria-label={t("table.label")}
+        onKeyDown={onKeyDown}
+        className="min-h-0 flex-1 overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset"
+      >
         <div className="min-w-max">
           <div
             className="sticky top-0 z-10 grid border-b bg-background text-xs font-medium text-muted-foreground"
             style={{ gridTemplateColumns: template }}
           >
-            <div className="px-2 py-1.5">Objekt</div>
-            <div className="px-2 py-1.5">Typ</div>
+            <div className="px-2 py-1.5">{t("table.object")}</div>
+            <div className="px-2 py-1.5">{t("table.type")}</div>
             {fields.map((field) => (
               <div key={field} className="px-2 py-1.5">
                 {field}

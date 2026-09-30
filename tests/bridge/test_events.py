@@ -1,9 +1,9 @@
-"""M4: Ereignisse -- koalesziert, identitaetsbasiert, ohne Sturm.
+"""M4: Events -- coalesced, identity-based, without a storm.
 
-Headless gibt es keine Qt-Ereignisschleife, der 100-ms-Timer feuert also nie.
-Die Tests rufen flush() dort selbst auf, wo sonst der Timer greifen wuerde.
-Alle anderen Flush-Grenzen (Commit, Undo, Recompute, Close) loest FreeCAD
-selbst aus -- die werden hier unveraendert geprueft.
+Headless there is no Qt event loop, so the 100 ms timer never fires.
+The tests call flush() themselves wherever the timer would otherwise kick in.
+All other flush boundaries (commit, undo, recompute, close) are triggered by
+FreeCAD itself -- those are tested here unchanged.
 """
 
 import asyncio
@@ -30,7 +30,7 @@ def close_all():
 
 
 class ObserverTestCase(unittest.TestCase):
-    """Observer mit einer Auffangliste statt des WebSocket-Hubs."""
+    """Observer with a capture list instead of the WebSocket hub."""
 
     def setUp(self):
         close_all()
@@ -79,7 +79,7 @@ class CoalescingTest(ObserverTestCase):
             self.box.Length = value
         self.observer.flush("timer")
         changed = [e for e in self.events("cad.changed") if e["obj"] == "Box"]
-        self.assertEqual(len(changed), 1, "50 Aenderungen muessen zu EINEM Ereignis werden")
+        self.assertEqual(len(changed), 1, "50 changes must become ONE event")
 
     def test_ein_flush_ist_ein_batch(self):
         self.box.Length = 12
@@ -95,7 +95,7 @@ class CoalescingTest(ObserverTestCase):
                 self.assertFalse(prop.startswith("_"), prop)
 
     def test_ereignisse_tragen_keine_werte(self):
-        """Nur Identitaet -- der Browser liest ueber die normale Route nach."""
+        """Identity only -- the browser re-reads via the normal route."""
         self.box.Length = 14
         self.observer.flush("timer")
         event = self.events("cad.changed")[0]
@@ -123,7 +123,7 @@ class CoalescingTest(ObserverTestCase):
 
 
 class BoundaryTest(ObserverTestCase):
-    """FreeCADs eigene Grenzen loesen den Flush aus -- ohne Timer."""
+    """FreeCAD's own boundaries trigger the flush -- without a timer."""
 
     def test_recompute_flusht(self):
         self.box.Length = 20
@@ -131,7 +131,7 @@ class BoundaryTest(ObserverTestCase):
         self.assertTrue(self.events("cad.recomputed"))
         names = {e["obj"] for e in self.events("cad.changed")}
         self.assertIn("Box", names)
-        self.assertIn("Schnitt", names, "abhaengiges Objekt wurde neu berechnet")
+        self.assertIn("Schnitt", names, "dependent object was recomputed")
 
     def test_commit_flusht(self):
         FreeCAD.setActiveTransaction("Nutzer")
@@ -142,7 +142,7 @@ class BoundaryTest(ObserverTestCase):
         self.assertEqual(transactions[0]["name"], "Nutzer")
 
     def test_undo_ist_als_history_erkennbar(self):
-        """Undo eines Create feuert slotDeletedObject -- ohne cad.history nicht unterscheidbar."""
+        """Undoing a create fires slotDeletedObject -- indistinguishable without cad.history."""
         FreeCAD.setActiveTransaction("t")
         self.box.Length = 22
         FreeCAD.closeActiveTransaction()
@@ -153,7 +153,7 @@ class BoundaryTest(ObserverTestCase):
         self.assertEqual(len(history), 1)
         self.assertEqual(history[0]["action"], "undo")
         changed = [e for e in self.events("cad.changed") if e["obj"] == "Box"]
-        self.assertEqual(changed[0]["cause"], "undo", "Aenderungen kommen VOR slotUndoDocument")
+        self.assertEqual(changed[0]["cause"], "undo", "changes arrive BEFORE slotUndoDocument")
 
 
 class LifecycleEventTest(ObserverTestCase):
@@ -164,10 +164,10 @@ class LifecycleEventTest(ObserverTestCase):
         created = [e for e in self.events("cad.created") if e["obj"] == "Kugel"]
         changed = [e for e in self.events("cad.changed") if e["obj"] == "Kugel"]
         self.assertEqual(len(created), 1)
-        self.assertEqual(changed, [], "created impliziert vollstaendiges Nachlesen")
+        self.assertEqual(changed, [], "created implies a full re-read")
 
     def test_geloeschtes_objekt_nur_als_deleted(self):
-        """Nach slotDeletedObject feuern noch Aenderungen (AttachmentSupport)."""
+        """Changes still fire after slotDeletedObject (AttachmentSupport)."""
         self.doc.removeObject("Zylinder")
         self.observer.flush("timer")
         deleted = [e for e in self.events("cad.deleted") if e["obj"] == "Zylinder"]
@@ -206,21 +206,21 @@ class RestoreTest(ObserverTestCase):
         self.assertEqual(len(opened), 1)
         self.assertEqual(opened[0]["objectCount"], len(reopened.Objects))
         object_events = [e for e in self.events() if e["type"].startswith("cad.") and e.get("obj")]
-        self.assertEqual(object_events, [], "Restore-Ereignisse muessen verworfen werden")
-        self.assertEqual(reopened.UndoMode, 1, "UndoMode wird nach dem Restore nachgezogen")
+        self.assertEqual(object_events, [], "restore events must be discarded")
+        self.assertEqual(reopened.UndoMode, 1, "UndoMode is brought up to date after the restore")
 
     @unittest.skipUnless(
         os.path.isfile(os.path.join(EXAMPLES, "BIMExample.FCStd")),
-        "BIMExample.FCStd nicht mitgeliefert",
+        "BIMExample.FCStd not bundled",
     )
     def test_bim_beispiel_ohne_ereignissturm(self):
-        """Abnahme M4: 26.971 Callbacks duerfen nicht zu 26.971 Frames werden."""
+        """M4 acceptance: 26,971 callbacks must not become 26,971 frames."""
         self.batches.clear()
         doc = FreeCAD.openDocument(os.path.join(EXAMPLES, "BIMExample.FCStd"))
         self.observer.flush("timer")
         opened = [e for e in self.events("doc.opened") if e["doc"] == doc.Name]
         self.assertEqual(len(opened), 1)
-        self.assertLess(len(self.events()), 10, "Ereignissturm: %d" % len(self.events()))
+        self.assertLess(len(self.events()), 10, "event storm: %d" % len(self.events()))
 
 
 class RobustnessTest(ObserverTestCase):
@@ -230,7 +230,7 @@ class RobustnessTest(ObserverTestCase):
 
         self.observer._publish = broken
         self.box.Length = 30
-        self.observer.flush("timer")  # darf nicht werfen
+        self.observer.flush("timer")  # must not raise
 
     def test_uninstall_stoppt_meldungen(self):
         observer.uninstall(self.state)
@@ -246,7 +246,7 @@ class WriteOriginTest(ObserverTestCase):
         self.assertTrue(box_events)
         self.assertEqual(box_events[-1]["origin"], "bridge:req-7")
         self.assertEqual(result["rev"], box_events[-1]["rev"],
-                         "Antwort und Ereignis muessen dieselbe Revision tragen")
+                         "response and event must carry the same revision")
 
     def test_abhaengige_objekte_tragen_dieselbe_herkunft(self):
         writes.patch_object(DOC_NAME, "Box", {"Length": "34 mm"}, request_id="req-8")
@@ -256,10 +256,10 @@ class WriteOriginTest(ObserverTestCase):
 
 
 def run_with_main_thread_pump(scenario_factory, timeout=20.0):
-    """Client-Szenario in einem Worker, Hauptthread leert die Dispatch-Queue.
+    """Client scenario in a worker, the main thread drains the dispatch queue.
 
-    Das bildet den GUI-Betrieb nach: dort ruft Qt drain() auf dem Hauptthread
-    auf. Headless gibt es niemanden dafuer -- also pumpt der Test.
+    This mimics GUI operation: there, Qt calls drain() on the main thread.
+    Headless there is nobody to do that -- so the test pumps.
     """
     import threading
     import time
@@ -271,7 +271,7 @@ def run_with_main_thread_pump(scenario_factory, timeout=20.0):
     def worker():
         try:
             box["result"] = asyncio.run(scenario_factory())
-        except BaseException as exc:  # noqa: BLE001 - an den Test weiterreichen
+        except BaseException as exc:  # noqa: BLE001 - pass on to the test
             box["error"] = exc
 
     thread = threading.Thread(target=worker, name="ws-client")
@@ -284,7 +284,7 @@ def run_with_main_thread_pump(scenario_factory, timeout=20.0):
     if "error" in box:
         raise box["error"]
     if "result" not in box:
-        raise AssertionError("Szenario nicht innerhalb von %ss beendet" % timeout)
+        raise AssertionError("scenario did not finish within %ss" % timeout)
     return box["result"]
 
 
@@ -298,13 +298,13 @@ def port_is_taken():
 
 
 class WebSocketEndToEndTest(unittest.TestCase):
-    """Echter Server, echter WebSocket: PATCH -> Ereignis beim Client."""
+    """Real server, real WebSocket: PATCH -> event at the client."""
 
     def setUp(self):
         close_all()
         runner.stop_bridge(quiet=True)
         if port_is_taken():
-            self.skipTest("Port %d belegt (FreeCAD mit laufender Bruecke?)" % runner.PORT)
+            self.skipTest("port %d in use (FreeCAD with a running bridge?)" % runner.PORT)
         runner.start_bridge()
         self.state = bridge_state.get_state()
         doc = FreeCAD.newDocument(DOC_NAME)

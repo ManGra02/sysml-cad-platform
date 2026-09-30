@@ -1,14 +1,14 @@
-# Nur fuer das Backend: macht cad_contract als editierbares Paket einbindbar.
-# FreeCAD ignoriert diese Datei; es findet cad_contract ueber sein eigenes
-# Mod-Verzeichnis.
+# For the backend only: makes cad_contract installable as an editable package.
+# FreeCAD ignores this file; it finds cad_contract via its own
+# Mod directory.
 #
-# Bewusst NUR cad_contract -- freecad_bridge und bridge_addon importieren
-# FreeCAD und gehoeren nie in die Backend-Umgebung.
+# Deliberately ONLY cad_contract -- freecad_bridge and bridge_addon import
+# FreeCAD and never belong in the backend environment.
 
 [project]
 name = "cad-contract"
 version = "0.3.0"
-description = "Gemeinsamer Vertrag zwischen FreeCAD-Bruecke und Plattform-Backend"
+description = "Shared contract between the FreeCAD bridge and the platform backend"
 requires-python = ">=3.11,<3.12"
 dependencies = []
 

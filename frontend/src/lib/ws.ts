@@ -1,10 +1,10 @@
 import { useSyncExternalStore } from "react"
 
-// Genau EINE WebSocket-Verbindung -- zum Backend, nie zur Bruecke. Der Kanal
-// ist server->client; geschrieben wird ausschliesslich ueber HTTP.
+// Exactly ONE WebSocket connection -- to the backend, never to the bridge. The
+// channel is server->client; writes go exclusively through HTTP.
 //
-// Verpasste Ereignisse werden nicht nachgeholt: bei jedem (Wieder-)Verbinden
-// schickt das Backend "hello", und der Empfaenger laedt dann neu.
+// Missed events are not replayed: on every (re)connect the backend sends
+// "hello", and the receiver then reloads.
 
 export type SocketState = "connecting" | "open" | "closed"
 export type Frame = { type: string; [key: string]: unknown }

@@ -1,45 +1,45 @@
 # SysML-CAD Platform
 
-Gemeinsame Grundlage für zwei Projekte der Projektgruppe: **Bi-Directional
-Synchronization** und **Missing CAD Component Recommendation**.
+Shared foundation for two projects of the project group: **Bi-Directional
+Synchronization** and **Missing CAD Component Recommendation**.
 
-**Leitidee:** FreeCAD ist nur die *Brücke* zum CAD-Modell. Die Plattform — Oberfläche,
-Projekt-Registry, jede Fachlogik — lebt in einem eigenen Python-Prozess, der von der
-Browser-Anwendung gesteuert wird und FreeCAD lediglich als Dienst benutzt.
+**Guiding principle:** FreeCAD is only the *bridge* to the CAD model. The platform — UI,
+project registry, all domain logic — lives in its own Python process, which is driven by
+the browser application and uses FreeCAD merely as a service.
 
 ```
 Browser (React + shadcn/ui)
    │  HTTP + WebSocket
    ▼
-Plattform-Backend  :8000     eigener Prozess, eigene venv
-   │  HTTP + WebSocket, Token im Authorization-Header
+Platform backend   :8000     own process, own venv
+   │  HTTP + WebSocket, token in the Authorization header
    ▼
-FreeCAD-Brücke     :8765     Addon im FreeCAD-Prozess
+FreeCAD bridge     :8765     addon inside the FreeCAD process
 ```
 
 ---
 
-## Läuft ausschließlich lokal
+## Runs locally only
 
-Alle drei Prozesse laufen auf dem Rechner des Nutzers, für genau einen Nutzer, und
-binden nur an `127.0.0.1`. Das ist eine feste Annahme, keine vorläufige Vereinfachung.
+All three processes run on the user's machine, for exactly one user, and bind only to
+`127.0.0.1`. This is a fixed assumption, not a temporary simplification.
 
-**Ausdrückliche Nicht-Ziele:** kein HTTPS, keine Nutzerkonten, keine Rate-Limits, kein
-Audit-Log, keine Verteidigung gegen bösartige Prozesse desselben Nutzers.
+**Explicit non-goals:** no HTTPS, no user accounts, no rate limits, no audit log, no
+defense against malicious processes running as the same user.
 
-Was trotzdem abgesichert ist: jede Webseite im Browser des Nutzers kann Requests an
-`localhost` schicken. Dagegen stehen Origin- und Host-Prüfung sowie ein Token, das
-ausschließlich im `Authorization`-Header akzeptiert wird — auch beim WebSocket. Browser
-können bei `new WebSocket()` keine Header setzen; damit ist der Brücken-WS für
-Web-Angreifer strukturell unerreichbar.
+What is protected nonetheless: any web page in the user's browser can send requests to
+`localhost`. This is countered by Origin and Host checks plus a token that is accepted
+exclusively in the `Authorization` header — including for the WebSocket. Browsers
+cannot set headers on `new WebSocket()`; this makes the bridge WS structurally
+unreachable for web attackers.
 
 ---
 
-## Einrichtung
+## Setup
 
-Voraussetzungen: **FreeCAD 1.1**, git, [uv](https://docs.astral.sh/uv/), **Node 22 LTS**
-(oder ≥ 20.19). pnpm ≥ 10 ist schön, aber nicht nötig: fehlt es oder ist es älter, nehmen die
-Skripte `corepack pnpm` (kommt mit Node) in genau der Version aus `frontend/package.json`.
+Prerequisites: **FreeCAD 1.1**, git, [uv](https://docs.astral.sh/uv/), **Node 22 LTS**
+(or ≥ 20.19). pnpm ≥ 10 is nice but not required: if it is missing or older, the scripts
+use `corepack pnpm` (ships with Node) in exactly the version from `frontend/package.json`.
 
 ```bash
 git clone <repo> && cd sysml-cad-platform
@@ -47,122 +47,153 @@ pwsh scripts/setup.ps1        # Windows
 bash scripts/setup.sh         # macOS / Linux
 ```
 
-`setup` erledigt alles in einem Lauf und ist wiederholbar (auch nach `git pull`):
-Python-Umgebung (`uv sync`), Frontend-Abhängigkeiten, Oberfläche bauen, Addon nach FreeCAD
-verlinken, Diagnose. Für eine zweite Arbeitskopie ohne Addon-Link: `-SkipLink` bzw.
-`--skip-link`. Liegt FreeCAD nicht am üblichen Ort: `-FreeCadPython <pfad>` bzw.
-`FREECAD_PYTHON=<pfad>`.
+`setup` does everything in one run and is repeatable (also after `git pull`):
+Python environment (`uv sync`), frontend dependencies, UI build, linking the addon into
+FreeCAD, diagnostics. For a second working copy without the addon link: `-SkipLink` or
+`--skip-link`. If FreeCAD is not in its usual location: `-FreeCadPython <path>` or
+`FREECAD_PYTHON=<path>`.
 
-**Starten** — ein Prozess, eine Adresse:
+**Starting** — one process, one address:
 
 ```bash
-pwsh scripts/start.ps1        # bzw. bash scripts/start.sh   -> http://127.0.0.1:8000
+pwsh scripts/start.ps1        # or bash scripts/start.sh   -> http://127.0.0.1:8000
 ```
 
-Das Backend liefert die gebaute Oberfläche selbst aus. Ist sie veraltet (nach `git pull`
-oder eigenen Änderungen), baut `start` sie vorher neu. Dann FreeCAD starten, Workbench
-„SysML-CAD Brücke“ wählen, Brücke starten — die Reihenfolge ist egal.
+The backend serves the built UI itself. If it is stale (after `git pull` or your own
+changes), `start` rebuilds it first. Then start FreeCAD, select the "SysML-CAD Bridge"
+workbench, start the bridge — the order does not matter.
 
-**Wenn etwas nicht geht:** `cd backend && uv run python ../scripts/doctor.py` (und für die
-FreeCAD-Seite `"<FreeCAD>/bin/python.exe" scripts/doctor.py`). Jede Meldung nennt die Behebung —
-auch „laufende Brücke hat einen anderen Vertrag → FreeCAD neu starten“ nach einem `git pull`.
+**If something doesn't work:** `cd backend && uv run python ../scripts/doctor.py` (and for the
+FreeCAD side `"<FreeCAD>/bin/python.exe" scripts/doctor.py`). Every message names the fix —
+including "running bridge has a different contract → restart FreeCAD" after a `git pull`.
 
-Alternative zum Verlinken, gut zum Ausprobieren: `freecad -M "<repo>/bridge"`.
+Alternative to linking, good for trying things out: `freecad -M "<repo>/bridge"`.
 
-> **Das Repo gehört nicht in einen Cloud-Mirror** (Google Drive, OneDrive, Dropbox).
-> `.git/objects`, `node_modules` und eine Addon-Junction darin erzeugen EPERM-Fehler,
-> „datei (1)"-Duplikate und im schlimmsten Fall ein korruptes `.git`.
+> **The repo does not belong in a cloud mirror** (Google Drive, OneDrive, Dropbox).
+> `.git/objects`, `node_modules` and an addon junction inside it cause EPERM errors,
+> "file (1)" duplicates and, in the worst case, a corrupted `.git`.
 
-> **Windows: `pnpm` meldet „OpenSSL configuration error“?** Eine andere Installation
-> (z. B. PostgreSQL) hat `OPENSSL_CONF` auf eine fehlende Datei gesetzt. Die Skripte
-> leeren die Variable für sich; von Hand: `$env:OPENSSL_CONF=""` vor `pnpm`.
+> **Windows: `pnpm` reports "OpenSSL configuration error"?** Another installation
+> (e.g. PostgreSQL) has set `OPENSSL_CONF` to a missing file. The scripts clear the
+> variable for themselves; manually: `$env:OPENSSL_CONF=""` before `pnpm`.
 
 ---
 
-## Entwickeln
+## Development
 
-Mit Hot-Reload laufen drei Dinge: FreeCAD, Backend (`--reload --dev`), Vite.
+With hot reload, three things run: FreeCAD, the backend (`--reload --dev`), Vite.
 
 ```bash
-pwsh scripts/dev.ps1          # bzw. bash scripts/dev.sh   -> http://127.0.0.1:5173
+pwsh scripts/dev.ps1          # or bash scripts/dev.sh   -> http://127.0.0.1:5173
 ```
 
-Im Dev-Betrieb öffnet man **http://127.0.0.1:5173**: Vite reicht `/api` und `/ws` an das
-Backend weiter, das dafür mit `--dev` laufen muss (erlaubt den Origin `:5173`). Von Hand:
-`cd backend && uv run python -m app --reload --dev` und `cd frontend && pnpm dev`.
+In dev mode you open **http://127.0.0.1:5173**: Vite forwards `/api` and `/ws` to the
+backend, which must run with `--dev` for this (allows the `:5173` origin). Manually:
+`cd backend && uv run python -m app --reload --dev` and `cd frontend && pnpm dev`.
 
 | | `start` | `dev` |
 | --- | --- | --- |
-| Adresse | http://127.0.0.1:8000 | http://127.0.0.1:5173 |
-| Prozesse | Backend | Backend + Vite |
-| Oberfläche | gebaut, bei Bedarf neu | live, Hot-Reload |
-| Backend-Code | Neustart nötig | lädt selbst neu |
+| Address | http://127.0.0.1:8000 | http://127.0.0.1:5173 |
+| Processes | Backend | Backend + Vite |
+| UI | built, rebuilt when needed | live, hot reload |
+| Backend code | restart required | reloads itself |
 
-### Im Browser bearbeiten
+### Editing in the browser
 
-- Eingaben werden beim **Verlassen des Feldes oder mit Enter** übernommen, **Esc** verwirft.
-  Jede Übernahme ist in FreeCAD genau **ein** Undo-Schritt („Browser: Box.Length“).
-- Lage und Vektoren werden als Ganzes übernommen, wenn der Fokus die Gruppe verlässt.
-- **Konflikte werden sichtbar, nie still überschrieben:** hat sich genau das bearbeitete
-  Feld inzwischen in FreeCAD geändert, fragt ein Dialog, welcher Wert gelten soll.
-  Änderungen an *anderen* Feldern desselben Objekts sind kein Konflikt. Technisch:
-  `If-Match: <rev>` am PATCH, `409 rev_mismatch` mit dem aktuellen Stand.
-- Gesperrte Felder tragen ein Schloss (schreibgeschützt) oder ƒ (an eine Expression
-  gebunden – in FreeCAD bearbeiten).
+- Input is applied when you **leave the field or press Enter**; **Esc** discards it.
+  Each applied edit is exactly **one** undo step in FreeCAD ("Browser: Box.Length").
+- Placement and vectors are applied as a whole when focus leaves the group.
+- **Conflicts are made visible, never silently overwritten:** if exactly the field being
+  edited has changed in FreeCAD in the meantime, a dialog asks which value should win.
+  Changes to *other* fields of the same object are not a conflict. Technically:
+  `If-Match: <rev>` on the PATCH, `409 rev_mismatch` with the current state.
+- Locked fields show a lock (read-only) or ƒ (bound to an expression
+  – edit in FreeCAD).
 
-**`PYTHONNOUSERSITE=1` gehört in jedes Startskript.** Das user-site-Verzeichnis wird mit
-einem separat installierten Python geteilt und steht *vor* FreeCADs site-packages — ohne
-das Flag schattet es die gebündelten Pakete. In FreeCADs Python wird nichts installiert.
+### Languages
+
+The UI is available in **English (default)** and **German**; switch at the top right
+(the 文A icon), the browser remembers the choice. Implemented with `i18next` +
+`react-i18next`:
+
+- Texts live as JSON in `frontend/src/i18n/locales/en.json` (source of all keys)
+  and `de.json` -- the format that translation tools (Crowdin, Weblate, i18n Ally) also
+  read. They are part of the bundle and not loaded lazily: the UI works offline
+  and starts without flicker.
+- The typecheck checks every `t("…")` against `en.json` (typos get caught). That `de.json`
+  is complete and has the same placeholders is checked by `src/i18n/i18n.test.ts`.
+- New texts: add the key in **both** files; in components use
+  `const { t } = useTranslation()`, outside React `i18n.t(…)` from `@/i18n`.
+- Notation: `{{name}}` gets interpolated; `_one`/`_other` are plural forms (i18next
+  chooses via `count`); `<strong>…</strong>` or similar inside a text is turned into real
+  elements by the `<Trans>` component. `unitTypes` translates FreeCAD's quantity kinds
+  (`Length` → "Länge" in German); unknown ones stay as they are.
+- **Store errors as the cause, not as text.** Anything that keeps a message around (e.g. below
+  an input field) stores the error itself (`ApiError`, `TranslatableError`) and
+  calls `describeError()` only when displaying it -- otherwise the message stays in the old
+  language after a language switch.
+- **Errors are translated by their code, never by their message.** Bridge and backend
+  respond in English and machine-readably (`error.code`, for `invalid_value` additionally
+  `detail.reason`, for the bridge status `reason`); `describeError()` builds the text from that.
+  Unknown codes show the English message.
+- Property names and groups (`Length`, `Placement`, "Attachment") come from FreeCAD
+  and stay untranslated – that is also what they are called in Python code and in FreeCAD's own editor.
+- The FreeCAD side (workbench, commands, dock panel) follows the language FreeCAD
+  actually displays (`FreeCADGui.getLocale()`, else the preference, else the system language):
+  German or English. Texts in `bridge/bridge_addon/i18n.py`.
+
+**`PYTHONNOUSERSITE=1` belongs in every start script.** The user-site directory is shared
+with a separately installed Python and comes *before* FreeCAD's site-packages — without
+the flag it shadows the bundled packages. Nothing gets installed into FreeCAD's Python.
 
 ### Tests
 
 ```bash
-# Brücke -- braucht FreeCADs Python (aiohttp + unittest sind dort vorhanden, pytest nicht)
+# Bridge -- needs FreeCAD's Python (aiohttp + unittest are available there, pytest is not)
 PYTHONNOUSERSITE=1 "<FreeCAD>/bin/python.exe" tests/bridge/run.py
 
-# Backend -- ohne FreeCAD, gegen eine nachgebaute Bruecke
+# Backend -- without FreeCAD, against a simulated bridge
 cd backend && uv run pytest
 
-# Ende-zu-Ende: echte Bruecke, echtes Backend, simulierter Browser
+# End-to-end: real bridge, real backend, simulated browser
 cd backend && uv run python ../scripts/e2e/m5_acceptance.py
-# ... und ein Projektmodul, das programmatisch am CAD-Modell arbeitet
+# ... and a project module that works on the CAD model programmatically
 cd backend && uv run python ../scripts/e2e/m8_acceptance.py
 
-# (Backend-Tests enthalten die Projekt-Registry: tests/backend/test_projects.py)
+# (Backend tests include the project registry: tests/backend/test_projects.py)
 
-# Frontend -- reine Logik (Baum, Ereignisse, Drehung, Formate) und Typen
+# Frontend -- pure logic (tree, events, rotation, formats) and types
 cd frontend && pnpm test && pnpm typecheck
 ```
 
-Der Ende-zu-Ende-Test braucht die Ports 8000 und 8765 -- FreeCAD mit laufender Bruecke
-vorher beenden. Er prueft den Abnahmefall aus M5: Bruecke stoppen, in FreeCAD Objekte
-anlegen, Bruecke starten -- der Browser ist danach aktuell, ohne neu zu laden.
+The end-to-end test needs ports 8000 and 8765 -- quit FreeCAD with a running bridge
+first. It checks the M5 acceptance case: stop the bridge, create objects in FreeCAD,
+start the bridge -- afterwards the browser is up to date without reloading.
 
-Läuft FreeCAD mit gestarteter Brücke, überspringen sich die Lebenszyklus-Tests von
-selbst — sie brauchen Port 8765. Für den vollständigen Lauf die Brücke im Dock-Panel
-stoppen.
+If FreeCAD is running with the bridge started, the lifecycle tests skip themselves
+— they need port 8765. For the full run, stop the bridge in the dock panel.
 
-`freecadcmd -t` wird **nie** automatisiert benutzt: es druckt `FAILED` und liefert
-trotzdem Exit-Code 0. Eine CI darauf wäre dauerhaft grün.
+`freecadcmd -t` is **never** used in automation: it prints `FAILED` and still
+returns exit code 0. A CI based on it would be permanently green.
 
 ---
 
-## Aufbau
+## Structure
 
-| Verzeichnis | Inhalt |
+| Directory | Contents |
 | --- | --- |
-| `bridge/` | Das FreeCAD-Addon. Wird nach `Mod/` verlinkt. |
-| `bridge/cad_contract/` | Gemeinsamer, abhängigkeitsfreier Vertrag — von beiden Pythons importiert. |
-| `backend/` | Plattform-Backend (FastAPI), eigene venv. |
-| `frontend/` | React + shadcn/ui, gebaut nach `backend/app/static/`. |
-| `scripts/` | Verlinken, Diagnose, Entwicklungsstart. |
-| `tests/` | `bridge/` (FreeCADs Python), `backend/` (gegen Mock), `contract/`. |
+| `bridge/` | The FreeCAD addon. Gets linked into `Mod/`. |
+| `bridge/cad_contract/` | Shared, dependency-free contract — imported by both Pythons. |
+| `backend/` | Platform backend (FastAPI), own venv. |
+| `frontend/` | React + shadcn/ui, built into `backend/app/static/`. |
+| `scripts/` | Linking, diagnostics, dev startup. |
+| `tests/` | `bridge/` (FreeCAD's Python), `backend/` (against a mock), `contract/`. |
 
-### Wo die eigene Logik hinkommt: Projektmodule
+### Where your own logic goes: project modules
 
-Jedes Projekt ist ein Python-Paket unter `backend/app/projects/<id>/` plus eine Oberfläche
-unter `frontend/src/features/<id>/`. Die Startseite `/` wählt das aktive Projekt; die
-Wahl gilt für alle Tabs und wird im Backend gemerkt (`~/.sysml-cad-platform/state.json`).
+Each project is a Python package under `backend/app/projects/<id>/` plus a UI
+under `frontend/src/features/<id>/`. The start page `/` selects the active project; the
+choice applies to all tabs and is remembered by the backend (`~/.sysml-cad-platform/state.json`).
 
 ```python
 class BdsModule(ProjectModule):
@@ -172,78 +203,78 @@ class BdsModule(ProjectModule):
         @router.get("/mapping")
         async def mapping(): ...
 
-    async def on_cad_event(self, event):         # jede Änderung aus FreeCAD (nur aktiv)
-        if self.ctx.cad.is_own(event):            # Echo eigener Schreibvorgänge
+    async def on_cad_event(self, event):         # every change from FreeCAD (active only)
+        if self.ctx.cad.is_own(event):            # echo of our own writes
             return
         obj = await self.ctx.cad.object(event["doc"], event["obj"])
-        self.ctx.publish("mapping_changed", {...})   # -> Browser, WS-Typ "bds.mapping_changed"
+        self.ctx.publish("mapping_changed", {...})   # -> browser, WS type "bds.mapping_changed"
 ```
 
-- `self.ctx.cad` liest und schreibt das CAD-Modell über die Brücke. Fehler kommen als
-  `CadError` (`code`, `status`, `detail`, bei Vorgängen `failed_op`).
+- `self.ctx.cad` reads and writes the CAD model via the bridge. Errors arrive as
+  `CadError` (`code`, `status`, `detail`, for operations `failed_op`).
 
-**Mehrere Änderungen als ein Vorgang** — in FreeCAD genau ein Undo-Schritt, alles oder nichts:
+**Several changes as one operation** — exactly one undo step in FreeCAD, all or nothing:
 
 ```python
-async with self.ctx.cad.transaction("Doc", "BDS: Motor anlegen") as tx:
-    group = tx.create("App::DocumentObjectGroup", name="Antrieb")
+async with self.ctx.cad.transaction("Doc", "BDS: create motor") as tx:
+    group = tx.create("App::DocumentObjectGroup", name="Drive")
     motor = tx.create("Part::Box", name="Motor", group=group, props={"Width": "12 mm"})
     tx.add_property(motor, "App::PropertyString", "SysMLId", value=element_id, group="SysML")
-    tx.set_cells("Params", {"A1": "40 mm"}, aliases={"A1": "motor_laenge"})
-    tx.set_expression(motor, "Length", "Params.motor_laenge")
-name = tx.result.name(motor)   # echter Name -- FreeCAD benennt bei Kollision um ("Motor001")
+    tx.set_cells("Params", {"A1": "40 mm"}, aliases={"A1": "motor_length"})
+    tx.set_expression(motor, "Length", "Params.motor_length")
+name = tx.result.name(motor)   # actual name -- FreeCAD renames on collision ("Motor001")
 ```
 
-| Operation | Zweck |
+| Operation | Purpose |
 | --- | --- |
-| `create(type, name, label=, group=, props=)` | Objekt anlegen (keine `*FeaturePython*`), optional in Gruppe/Part/Body |
-| `delete(obj, force=False)` | löschen; hängen andere Objekte davon ab → `CadError("has_dependents")` |
-| `patch(obj, props, if_match=)` | Properties setzen |
-| `set_expression(obj, prop, expr)` | Formel binden (`None` entfernt sie) — die Bindung lebt in FreeCAD |
-| `set_cells(sheet, cells, aliases)` | Tabellenzellen und Aliase (`None` leert) |
-| `add_property` / `remove_property` | eigene Properties, z. B. die SysML-ID; werden in der `.FCStd` gespeichert |
+| `create(type, name, label=, group=, props=)` | create an object (no `*FeaturePython*`), optionally in a group/Part/Body |
+| `delete(obj, force=False)` | delete; if other objects depend on it → `CadError("has_dependents")` |
+| `patch(obj, props, if_match=)` | set properties |
+| `set_expression(obj, prop, expr)` | bind a formula (`None` removes it) — the binding lives in FreeCAD |
+| `set_cells(sheet, cells, aliases)` | spreadsheet cells and aliases (`None` clears) |
+| `add_property` / `remove_property` | custom properties, e.g. the SysML ID; saved in the `.FCStd` |
 
-Lesen: `documents()`, `tree(doc)`, `object(doc, name)`, `cells(doc, sheet, "A1:D100")`.
-Jede Operation gibt es auch als Kurzform (`await cad.create(doc, ...)`), dann als eigener
-Vorgang. Wird ein Objekt durch den Vorgang ungültig (etwa Formel auf einen unbekannten
-Alias), wird alles zurückgenommen (`recompute_failed`); `transaction(..., strict=False)`
-meldet es nur. Die Ereignisse eines Vorgangs erkennt `self.ctx.cad.is_own(event)`.
-- Neue Projekte werden **ausdrücklich** in `backend/app/projects/registry.py` (`MODULES`)
-  eingetragen und bekommen eine Route `frontend/src/routes/projects.<id>.tsx` plus einen
-  Eintrag in `PROJECT_ROUTES` (`frontend/src/features/projects/queries.ts`).
-- Namensraum: alles eines Moduls trägt seine id — Routen, WebSocket-Typen, Query-Keys, Ordner.
-- `bridge/` wird dafür **nie** angefasst.
+Reading: `documents()`, `tree(doc)`, `object(doc, name)`, `cells(doc, sheet, "A1:D100")`.
+Every operation also exists in short form (`await cad.create(doc, ...)`), then as its own
+operation. If an object becomes invalid through the operation (e.g. a formula referencing an
+unknown alias), everything is rolled back (`recompute_failed`); `transaction(..., strict=False)`
+only reports it. The events of an operation are recognized by `self.ctx.cad.is_own(event)`.
+- New projects are registered **explicitly** in `backend/app/projects/registry.py` (`MODULES`)
+  and get a route `frontend/src/routes/projects.<id>.tsx` plus an
+  entry in `PROJECT_ROUTES` (`frontend/src/features/projects/queries.ts`).
+- Namespace: everything belonging to a module carries its id — routes, WebSocket types, query keys, folders.
+- `bridge/` is **never** touched for this.
 
-### Die eine Regel für `bridge/`
+### The one rule for `bridge/`
 
-**Alles, was die FreeCAD-API nicht anfasst, gehört nicht in die Brücke.** Keine
-Fachlogik, keine Registry, keine Auslieferung der Oberfläche, kein Proxy. Jede Änderung
-dort kostet allen einen FreeCAD-Neustart, jede Änderung im Backend eine Sekunde.
+**Anything that doesn't touch the FreeCAD API does not belong in the bridge.** No
+domain logic, no registry, no serving of the UI, no proxy. Every change
+there costs everyone a FreeCAD restart; every change in the backend costs a second.
 
-Und: **jeder** Zugriff auf Dokument, Objekte oder Views läuft durch `dispatch()`. Die
-FreeCAD-API ist nicht threadsicher. Der Dekorator `@main_thread_only` macht aus einem
-sonst nicht-deterministischen Absturz in Coin3D einen klaren `RuntimeError` an der
-Aufrufstelle.
+And: **every** access to the document, objects or views goes through `dispatch()`. The
+FreeCAD API is not thread-safe. The `@main_thread_only` decorator turns what would
+otherwise be a non-deterministic crash in Coin3D into a clear `RuntimeError` at the
+call site.
 
-`cad_contract` liegt bewusst *im* Addon-Verzeichnis: ein Geschwisterordner wäre durch die
-Junction nicht erreichbar, weil FreeCAD nur `Mod/SysMLCadPlatform` sieht.
+`cad_contract` deliberately lives *inside* the addon directory: a sibling folder would not
+be reachable through the junction, because FreeCAD only sees `Mod/SysMLCadPlatform`.
 
 ---
 
-## Stand
+## Status
 
-| Meilenstein | Status |
+| Milestone | Status |
 | --- | --- |
-| M0 Repo, Verlinkung, Addon lädt, `doctor` grün | ✅ |
-| M1 Brücke: Server, Dispatch, `stop_bridge()` | ✅ |
-| M2 Brücke: Lesen (Baum, Batch, Detail, Auswahl) | ✅ |
-| M3 Brücke: Schreiben | ✅ |
-| M4 Brücke: Events | ✅ |
-| M5 Backend verbindet sich, Resync | ✅ |
-| M6 Frontend: Explorer + Property-Editor, `If-Match` | ✅ |
-| M7 Launcher + Projekt-Registry | ✅ |
-| M8 Programmatische CAD-Schnittstelle für Projektmodule | ✅ |
-| M9 Produktions-Build, Einrichtung von Null | ✅ |
+| M0 Repo, linking, addon loads, `doctor` green | ✅ |
+| M1 Bridge: server, dispatch, `stop_bridge()` | ✅ |
+| M2 Bridge: reading (tree, batch, detail, selection) | ✅ |
+| M3 Bridge: writing | ✅ |
+| M4 Bridge: events | ✅ |
+| M5 Backend connects, resync | ✅ |
+| M6 Frontend: explorer + property editor, `If-Match` | ✅ |
+| M7 Launcher + project registry | ✅ |
+| M8 Programmatic CAD interface for project modules | ✅ |
+| M9 Production build, setup from scratch | ✅ |
 
-SysML v2 ist bewusst **nicht** Teil dieser Grundlage. Der Zugriff darauf ist reines HTTP
-und gehört später ins Backend, ohne die Brücke zu berühren.
+SysML v2 is deliberately **not** part of this foundation. Accessing it is plain HTTP
+and belongs in the backend later, without touching the bridge.

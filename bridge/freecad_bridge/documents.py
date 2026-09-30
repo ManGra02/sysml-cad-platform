@@ -1,10 +1,10 @@
-"""Dokumente lesen.
+"""Read documents.
 
-Identitaet ist immer ``doc.Name`` -- unveraenderlich und eindeutig. ``Label``
-wird nur angezeigt. ``doc.Uid`` ist ausdruecklich KEIN Schluessel: zwei Kopien
-derselben Datei teilen sie (verifiziert). Fuer persistierten Zustand ist der
-normalisierte absolute ``FileName`` der richtige Schluessel; ist er leer, wurde
-das Dokument nie gespeichert und ist nicht referenzierbar.
+Identity is always ``doc.Name`` -- immutable and unique. ``Label`` is
+only displayed. ``doc.Uid`` is explicitly NOT a key: two copies of the
+same file share it (verified). For persisted state the normalized
+absolute ``FileName`` is the right key; if it is empty, the document was
+never saved and cannot be referenced.
 """
 
 import os
@@ -21,23 +21,23 @@ class DocumentNotOpen(BridgeError):
 
 @main_thread_only
 def get_document(name):
-    """Dokument holen oder mit einem Fehler antworten, den die UI versteht.
+    """Get the document or respond with an error the UI understands.
 
-    Wichtig fuer das Frontend: bei doc.closed soll es navigieren, nicht in eine
-    Retry-Schleife laufen -- deshalb ein eigener Code statt eines generischen 404.
+    Important for the frontend: on doc.closed it should navigate, not run into
+    a retry loop -- hence a dedicated code instead of a generic 404.
     """
     try:
         doc = FreeCAD.getDocument(name)
     except Exception:
         doc = None
     if doc is None:
-        raise DocumentNotOpen("Dokument %r ist nicht geoeffnet" % name, name)
+        raise DocumentNotOpen("Document %r is not open" % name, name)
     return doc
 
 
 @main_thread_only
 def gui_document(name):
-    """GUI-Dokument, falls eine Oberflaeche laeuft -- sonst None."""
+    """GUI document if a GUI is running -- otherwise None."""
     try:
         import FreeCADGui
 
@@ -48,9 +48,9 @@ def gui_document(name):
 
 @main_thread_only
 def is_modified(name):
-    """Dirty-Zustand haengt am GUI-Dokument.
+    """The dirty state lives on the GUI document.
 
-    Verifiziert: doc.Modified existiert auf dem App-Dokument NICHT.
+    Verified: doc.Modified does NOT exist on the App document.
     """
     gui_doc = gui_document(name)
     if gui_doc is None:
@@ -94,10 +94,10 @@ def list_documents():
 
 @main_thread_only
 def ensure_undo_enabled(doc):
-    """UndoMode = 0 macht Transaktionen wirkungslos -- ohne jeden Fehler.
+    """UndoMode = 0 makes transactions ineffective -- without any error.
 
-    Die Bruecke oeffnet keine Dokumente, der Nutzer tut es. Deshalb wird das
-    hier bei jeder Gelegenheit nachgezogen statt einmalig beim Start.
+    The bridge does not open documents, the user does. That is why this is
+    re-applied here at every opportunity instead of once at startup.
     """
     try:
         if doc.UndoMode == 0:

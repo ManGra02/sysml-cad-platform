@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Keine Web-Fonts: die Oberflaeche laeuft vollstaendig offline. */
+/* No web fonts: the UI works fully offline. */
 
 @custom-variant dark (&:is(.dark *));
 

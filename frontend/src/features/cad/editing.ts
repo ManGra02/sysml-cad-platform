@@ -2,27 +2,29 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import i18n, { TranslatableError } from "@/i18n"
 import { ApiError, newRequestId } from "@/lib/api"
 import { describeError, sameValue } from "./format"
 import { cadKeys, patchObject } from "./queries"
 import { beginOwnRequest, endOwnRequest } from "./sync"
 import type { ObjectDetail, PropertyEntry, PropertyValue, RevisionConflictDetail, WriteResult } from "./types"
 
-// Schreiben aus dem Property-Editor -- mit optimistischer Sperre.
+// Writing from the property editor -- with optimistic locking.
 //
-// Beim ersten Anfassen eines Feldes merkt sich der Editor den Wert und den rev
-// des Objekts ("Basis"). Beim Absenden:
-//   1. Hat sich GENAU DIESES Feld seitdem geaendert (in FreeCAD oder von einem
-//      anderen Tab)? -> Konflikt sofort anzeigen, ohne Anfrage.
-//   2. Sonst PATCH mit If-Match: <aktueller rev>. Aenderungen an ANDEREN
-//      Feldern desselben Objekts sind kein Konflikt -- der Editor zieht die
-//      Basis still nach ("rebase").
-//   3. 409 rev_mismatch (jemand war in den Millisekunden dazwischen schneller):
-//      die Antwort traegt den aktuellen Stand; betrifft er dieses Feld,
-//      entscheidet der Nutzer: neu laden oder ueberschreiben.
-// Nichts wird still ueberschrieben.
+// When a field is first touched, the editor remembers its value and the
+// object's rev (the "base"). On submit:
+//   1. Has EXACTLY THIS field changed since then (in FreeCAD or from another
+//      tab)? -> show the conflict immediately, without a request.
+//   2. Otherwise PATCH with If-Match: <current rev>. Changes to OTHER fields
+//      of the same object are not a conflict -- the editor silently moves
+//      the base forward ("rebase").
+//   3. 409 rev_mismatch (someone was faster in the milliseconds in between):
+//      the response carries the current state; if it affects this field,
+//      the user decides: reload or overwrite.
+// Nothing is ever silently overwritten.
 
-export type CommitOutcome = { ok: true } | { ok: false; message?: string; discarded?: boolean }
+/** error: the cause (ApiError, TranslatableError) -- the text is only built at display time. */
+export type CommitOutcome = { ok: true } | { ok: false; error?: unknown; discarded?: boolean }
 
 export type Conflict = {
   objectLabel: string
@@ -44,7 +46,7 @@ export function useObjectEditor(doc: string, name: string) {
 
   const current = useCallback(() => queryClient.getQueryData<ObjectDetail>(key), [queryClient, doc, name])
 
-  /** Beim Fokus: die Basis festhalten, gegen die spaeter verglichen wird. */
+  /** On focus: capture the base that later comparisons are made against. */
   const begin = useCallback(
     (entry: PropertyEntry) => {
       if (bases.current.has(entry.name)) return
@@ -59,7 +61,7 @@ export function useObjectEditor(doc: string, name: string) {
 
   const ask = (prop: string, mine: string, theirs: PropertyEntry | undefined) =>
     new Promise<"overwrite" | "discard">((resolve) => {
-      // Erst nach dem laufenden Tastatur-Ereignis oeffnen (siehe TextField).
+      // Open only after the current keyboard event (see TextField).
       setTimeout(() => setConflict({
         objectLabel: current()?.label ?? name,
         prop,
@@ -83,7 +85,7 @@ export function useObjectEditor(doc: string, name: string) {
 
   const send = async (changes: Record<string, unknown>, ifMatch: number | undefined) => {
     const requestId = newRequestId()
-    beginOwnRequest(requestId) // das WS-Echo dieser Anfrage wird ignoriert
+    beginOwnRequest(requestId) // the WS echo of this request is ignored
     try {
       return await patchObject({ doc, name, changes, requestId, ifMatch })
     } finally {
@@ -114,17 +116,17 @@ export function useObjectEditor(doc: string, name: string) {
           queryClient.setQueryData(key, detail.object)
           rev = detail.current
           const theirs = detail.object.properties.find((p) => p.name === prop)
-          if (theirs && sameValue(theirs.value, base.value)) continue // nur andere Felder -> rebase
+          if (theirs && sameValue(theirs.value, base.value)) continue // only other fields -> rebase
           if ((await ask(prop, mine, theirs)) === "discard") return { ok: false, discarded: true }
-          base.value = theirs?.value ?? null // "ueberschreiben" bezieht sich auf DIESEN Stand
+          base.value = theirs?.value ?? null // "overwrite" refers to THIS state
           continue
         }
         report(result)
         return { ok: true }
       }
-      return { ok: false, message: "Das Objekt aendert sich gerade laufend -- bitte erneut versuchen." }
+      return { ok: false, error: new TranslatableError("editing.keepsChanging") }
     } catch (error) {
-      return { ok: false, message: describeError(error) }
+      return { ok: false, error }
     } finally {
       bases.current.delete(prop)
       await refresh()
@@ -136,18 +138,18 @@ export function useObjectEditor(doc: string, name: string) {
 
 function report(result: WriteResult) {
   if (!result.atomic) {
-    toast.warning("Änderung übernommen, aber nicht als eigener Undo-Schritt", {
-      description: "Ein FreeCAD-Befehl lief gleichzeitig; Strg+Z nimmt beides zusammen zurück.",
+    toast.warning(i18n.t("editing.notAtomicTitle"), {
+      description: i18n.t("editing.notAtomicHint"),
     })
   }
   if (result.errors.length) {
-    toast.warning("Nach dem Neuberechnen sind Objekte fehlerhaft", {
+    toast.warning(i18n.t("editing.brokenTitle"), {
       description: result.errors.map((error) => error.name + " (" + error.state.join(", ") + ")").join(" · "),
     })
   }
 }
 
-/** Sichtbarkeit umschalten -- ohne Konfliktdialog, der Zustand ist binaer. */
+/** Toggle visibility -- without a conflict dialog, the state is binary. */
 export async function toggleVisibility(queryClient: ReturnType<typeof useQueryClient>, doc: string, name: string, visible: boolean) {
   const requestId = newRequestId()
   beginOwnRequest(requestId)

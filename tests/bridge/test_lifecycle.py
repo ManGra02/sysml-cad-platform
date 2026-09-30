@@ -1,9 +1,9 @@
-"""Lebenszyklus der Bruecke: Start, Handshake, Absicherung, sauberer Abbau.
+"""Bridge lifecycle: startup, handshake, security, clean teardown.
 
-Diese Tests starten einen echten Server auf 127.0.0.1:8765. Sie laufen deshalb
-seriell und raeumen in tearDown auf -- eine haengende Bruecke wuerde jeden
-weiteren Lauf mit "Port belegt" scheitern lassen, was genau das gewuenschte
-Verhalten ist, aber als Testartefakt nichts taugt.
+These tests start a real server on 127.0.0.1:8765. They therefore run
+serially and clean up in tearDown -- a hanging bridge would make every
+subsequent run fail with "port in use", which is exactly the desired
+behavior, but is useless as a test artifact.
 """
 
 import os
@@ -19,12 +19,12 @@ BASE = "http://127.0.0.1:8765"
 
 
 def port_is_taken():
-    """Haelt ein FREMDER Prozess den Port?
+    """Is a FOREIGN process holding the port?
 
-    Der haeufigste Fall im Alltag: FreeCAD laeuft mit gestarteter Bruecke,
-    waehrend jemand die Tests anstoesst. Das ist kein Testfehler, sondern genau
-    das beabsichtigte Verhalten des festen Ports -- also ueberspringen statt
-    zwoelf rote Meldungen zu erzeugen.
+    The most common case in practice: FreeCAD is running with the bridge started
+    while someone kicks off the tests. That is not a test failure but exactly
+    the intended behavior of the fixed port -- so skip instead of producing
+    twelve red failures.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         try:
@@ -39,8 +39,8 @@ class BridgeLifecycleTest(unittest.TestCase):
         runner.stop_bridge(quiet=True)
         if port_is_taken():
             self.skipTest(
-                "Port %d ist von einem anderen Prozess belegt (meist FreeCAD mit "
-                "gestarteter Bruecke). Im Dock-Panel stoppen und erneut laufen lassen."
+                "Port %d is in use by another process (usually FreeCAD with the "
+                "bridge started). Stop it in the dock panel and run again."
                 % runner.PORT
             )
         runner.start_bridge()
@@ -75,7 +75,7 @@ class BridgeLifecycleTest(unittest.TestCase):
         self.assertTrue(data["contract_version"])
 
     def test_stop_entfernt_nur_die_eigene_handshake_datei(self):
-        """Sonst raeumt eine zweite Instanz der laufenden ersten die Datei weg."""
+        """Otherwise a second instance would delete the running first one's file."""
         self.assertFalse(auth.remove_handshake("fremde-sitzung"))
         self.assertIsNotNone(auth.read_handshake())
         self.assertTrue(auth.remove_handshake(self.state.session_id))
@@ -104,7 +104,7 @@ class BridgeLifecycleTest(unittest.TestCase):
         finally:
             FreeCAD.closeDocument(doc.Name)
 
-    # -- Absicherung ----------------------------------------------------
+    # -- Security ------------------------------------------------------
 
     def test_ohne_token_401(self):
         resp = requests.get(BASE + "/api/cad/health", timeout=5)
@@ -116,7 +116,7 @@ class BridgeLifecycleTest(unittest.TestCase):
         resp = requests.get(BASE + "/api/cad/health", headers=headers, timeout=5)
         self.assertEqual(resp.status_code, 403)
 
-    # -- Abbau ----------------------------------------------------------
+    # -- Teardown ------------------------------------------------------
 
     def test_stop_raeumt_vollstaendig_ab(self):
         runner.stop_bridge()
@@ -133,11 +133,11 @@ class BridgeLifecycleTest(unittest.TestCase):
 
     def test_stop_ist_idempotent(self):
         runner.stop_bridge()
-        runner.stop_bridge()  # darf nicht werfen
+        runner.stop_bridge()  # must not raise
         self.assertFalse(bridge_state.get_state().running)
 
     def test_neustart_rotiert_das_token(self):
-        """Deshalb muss das Backend die Handshake-Datei bei JEDEM Versuch neu lesen."""
+        """That is why the backend must re-read the handshake file on EVERY attempt."""
         first_token = self.state.token
         first_session = self.state.session_id
 

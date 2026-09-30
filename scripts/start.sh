@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Startet die Plattform im Normalbetrieb: EIN Prozess, http://127.0.0.1:8000.
+# Starts the platform in normal mode: ONE process, http://127.0.0.1:8000.
 #
-# Das Backend liefert die gebaute Oberflaeche selbst aus. Ist der Build
-# veraltet (etwa nach "git pull"), wird vorher neu gebaut.
+# The backend serves the built UI itself. If the build is
+# stale (e.g. after "git pull"), it is rebuilt first.
 #
 #   bash scripts/start.sh [--no-browser] [--rebuild]
 #
-# Zum Entwickeln mit Hot-Reload stattdessen scripts/dev.sh.
+# For development with hot reload, use scripts/dev.sh instead.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,7 +16,7 @@ for arg in "$@"; do
   case "$arg" in
     --no-browser) NO_BROWSER=1 ;;
     --rebuild) REBUILD=1 ;;
-    *) echo "Unbekannte Option: $arg" >&2; exit 2 ;;
+    *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
 done
 # shellcheck source=_common.sh
@@ -30,17 +30,17 @@ open_browser() {
   fi
 }
 
-[ -d "$REPO/backend/.venv" ] || { echo "Backend nicht eingerichtet. Zuerst scripts/setup.sh ausfuehren." >&2; exit 1; }
+[ -d "$REPO/backend/.venv" ] || { echo "Backend not set up. Run scripts/setup.sh first." >&2; exit 1; }
 
 if backend_up; then
-  echo "Backend laeuft bereits -> $URL"
+  echo "Backend already running -> $URL"
   open_browser
   exit 0
 fi
 
 STATE="$(cd "$REPO/backend" && uv run python ../scripts/build_status.py || true)"
 if [ -n "$REBUILD" ] || [ "${STATE%% *}" != "fresh" ]; then
-  echo "Oberflaeche: $STATE -> baue neu ..."
+  echo "UI: $STATE -> rebuilding ..."
   (cd "$REPO/frontend" && pnpm_cmd install --frozen-lockfile && pnpm_cmd build)
 fi
 
@@ -50,13 +50,13 @@ trap 'kill "$BACKEND" 2>/dev/null || true' EXIT INT TERM
 
 for _ in $(seq 1 100); do
   backend_up && break
-  kill -0 "$BACKEND" 2>/dev/null || { echo "Backend beendet sich sofort (Port 8000 belegt?)." >&2; exit 1; }
+  kill -0 "$BACKEND" 2>/dev/null || { echo "Backend exits immediately (port 8000 in use?)." >&2; exit 1; }
   sleep 0.3
 done
-backend_up || { echo "Backend antwortet nicht innerhalb von 30 s." >&2; exit 1; }
+backend_up || { echo "Backend does not respond within 30 s." >&2; exit 1; }
 
 echo ""
-echo "Plattform laeuft -> $URL"
-echo "FreeCAD: Workbench 'SysML-CAD Bruecke', Bruecke starten. Strg+C beendet."
+echo "Platform running -> $URL"
+echo "FreeCAD: 'SysML-CAD Bridge' workbench, start the bridge. Ctrl+C stops."
 open_browser
 wait "$BACKEND"

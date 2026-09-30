@@ -1,13 +1,13 @@
-"""Diagnose der Entwicklungsumgebung.
+"""Diagnostics for the development environment.
 
-Laeuft in BEIDEN Pythons -- FreeCADs gebuendeltem und der Backend-venv -- und
-prueft, was erfahrungsgemaess schiefgeht. Jede Meldung nennt die Behebung.
+Runs in BOTH Pythons -- FreeCAD's bundled one and the backend venv -- and
+checks what experience shows tends to go wrong. Every message names the fix.
 
-Der Grund fuer dieses Skript: "Bruecke nicht verbunden" ist ein Normalzustand
-und verraet keine Ursache. Ohne doctor sucht jede Person im Team dieselbe
-halbe Stunde.
+The reason for this script: "bridge not connected" is a normal state
+and reveals no cause. Without doctor, every person on the team spends the same
+half hour searching.
 
-Aufruf:
+Usage:
     "<FreeCAD>/bin/python.exe" scripts/doctor.py
     uv run python scripts/doctor.py
 """
@@ -36,25 +36,25 @@ def report(level, what, detail="", fix=""):
         print("       -> " + fix)
 
 
-# -- Python und Umgebung ------------------------------------------------
+# -- Python and environment ---------------------------------------------
 
 
 def check_python():
     version = "%d.%d.%d" % sys.version_info[:3]
     in_freecad = _freecad_module() is not None
-    report(OK, "Python", "%s (%s)" % (version, "FreeCAD" if in_freecad else "extern"))
+    report(OK, "Python", "%s (%s)" % (version, "FreeCAD" if in_freecad else "external"))
 
     if in_freecad and sys.version_info[:2] != (3, 11):
         report(
             WARN,
-            "Python-Version in FreeCAD",
+            "Python version in FreeCAD",
             version,
-            "cad_contract muss zu 3.11 passen; kein PEP-695 verwenden.",
+            "cad_contract must match 3.11; do not use PEP 695.",
         )
 
 
 def check_user_site():
-    """Das user-site schattet FreeCADs gebuendelte Pakete."""
+    """The user site shadows FreeCAD's bundled packages."""
     import site
 
     try:
@@ -67,20 +67,20 @@ def check_user_site():
     if enabled and exists and _freecad_module() is not None:
         report(
             WARN,
-            "user-site aktiv",
+            "user-site active",
             user_site,
-            "PYTHONNOUSERSITE=1 setzen. Das Verzeichnis wird mit einem separat "
-            "installierten Python geteilt und steht VOR FreeCADs site-packages.",
+            "Set PYTHONNOUSERSITE=1. The directory is shared with a separately "
+            "installed Python and comes BEFORE FreeCAD's site-packages.",
         )
     else:
-        report(OK, "user-site", "nicht wirksam")
+        report(OK, "user-site", "not in effect")
 
 
 # -- FreeCAD ------------------------------------------------------------
 
 
 def _freecad_module():
-    """FreeCAD-Modul, falls dieses Python es laden kann."""
+    """The FreeCAD module, if this Python can load it."""
     module = sys.modules.get("FreeCAD")
     if module is not None:
         return module
@@ -97,9 +97,9 @@ def check_freecad():
     except ImportError:
         report(
             WARN,
-            "FreeCAD nicht importierbar",
-            "(erwartet, wenn dies die Backend-venv ist)",
-            "Fuer die Bruecken-Pruefungen mit FreeCADs Python starten.",
+            "FreeCAD not importable",
+            "(expected if this is the backend venv)",
+            "Run with FreeCAD's Python for the bridge checks.",
         )
         return None
 
@@ -109,13 +109,13 @@ def check_freecad():
     user_dir = FreeCAD.getUserAppDataDir().rstrip("\\/")
     leaf = os.path.basename(user_dir)
     if leaf.startswith("v") and "-" in leaf:
-        report(OK, "Benutzerverzeichnis", user_dir)
+        report(OK, "User directory", user_dir)
     else:
         report(
             WARN,
-            "Benutzerverzeichnis unversioniert",
+            "User directory unversioned",
             user_dir,
-            "FreeCAD 1.1 nutzt versionierte Verzeichnisse (v1-1, mit Bindestrich).",
+            "FreeCAD 1.1 uses versioned directories (v1-1, with a hyphen).",
         )
     return FreeCAD
 
@@ -125,7 +125,7 @@ def check_addon_link(freecad):
         return
     mod_dir = os.path.join(freecad.getUserAppDataDir(), "Mod")
     if not os.path.isdir(mod_dir):
-        report(FAIL, "Mod-Verzeichnis fehlt", mod_dir, "scripts/link-addon ausfuehren.")
+        report(FAIL, "Mod directory missing", mod_dir, "Run scripts/link-addon.")
         return
 
     candidates = [
@@ -137,23 +137,23 @@ def check_addon_link(freecad):
     if not candidates:
         report(
             WARN,
-            "Addon nicht in Mod/ verlinkt",
+            "Addon not linked into Mod/",
             mod_dir,
-            "scripts/link-addon ausfuehren -- oder FreeCAD mit "
-            '-M "%s" starten.' % BRIDGE,
+            "Run scripts/link-addon -- or start FreeCAD with "
+            '-M "%s".' % BRIDGE,
         )
         return
 
     path = os.path.join(mod_dir, candidates[0])
     if _is_link(path):
-        report(OK, "Addon verlinkt", "%s -> %s" % (candidates[0], os.path.realpath(path)))
+        report(OK, "Addon linked", "%s -> %s" % (candidates[0], os.path.realpath(path)))
     else:
         report(
             WARN,
-            "Addon ist eine KOPIE, kein Link",
+            "Addon is a COPY, not a link",
             path,
-            "Verzeichnis loeschen und scripts/link-addon ausfuehren, sonst "
-            "bearbeitet ihr eine tote Kopie.",
+            "Delete the directory and run scripts/link-addon, otherwise "
+            "you are editing a dead copy.",
         )
 
 
@@ -176,7 +176,7 @@ def _is_link(path):
     return False
 
 
-# -- Vertrag ------------------------------------------------------------
+# -- Contract -----------------------------------------------------------
 
 
 def check_contract():
@@ -187,21 +187,21 @@ def check_contract():
     except ImportError as exc:
         report(
             FAIL,
-            "cad_contract nicht importierbar",
+            "cad_contract not importable",
             exc,
-            "Es muss unter bridge/cad_contract liegen; das Backend bindet es "
-            "editierbar ueber [tool.uv.sources].",
+            "It must live under bridge/cad_contract; the backend includes it "
+            "as editable via [tool.uv.sources].",
         )
         return None
     report(OK, "cad_contract", CONTRACT_VERSION)
     return CONTRACT_VERSION
 
 
-# -- Laufende Bruecke ---------------------------------------------------
+# -- Running bridge -----------------------------------------------------
 
 
 def _handshake_path(freecad):
-    """Wie das Backend: ohne FreeCAD aus dem OS-Standardpfad (app/config.py)."""
+    """Like the backend: without FreeCAD, from the OS default path (app/config.py)."""
     if freecad is not None:
         return os.path.join(freecad.getUserAppDataDir(), "sysml-cad-platform", "bridge.json")
     if sys.platform.startswith("win"):
@@ -216,32 +216,32 @@ def _handshake_path(freecad):
 def check_bridge(freecad, contract_version=None):
     path = os.environ.get("BRIDGE_HANDSHAKE") or _handshake_path(freecad)
     if not os.path.isfile(path):
-        report(OK, "Bruecke", "nicht gestartet (Normalzustand)")
+        report(OK, "Bridge", "not started (normal state)")
         return
     try:
         with open(path, "r", encoding="utf-8") as handle:
             data = json.load(handle)
     except (OSError, ValueError) as exc:
-        report(WARN, "Handshake-Datei unlesbar", exc, "Datei loeschen: %s" % path)
+        report(WARN, "Handshake file unreadable", exc, "Delete the file: %s" % path)
         return
 
     if not _pid_alive(data.get("pid")):
         report(
             WARN,
-            "Handshake-Datei verwaist",
-            "PID %s lebt nicht mehr" % data.get("pid"),
-            "Datei loeschen: %s" % path,
+            "Handshake file orphaned",
+            "PID %s is no longer alive" % data.get("pid"),
+            "Delete the file: %s" % path,
         )
         return
-    report(OK, "Bruecke", "laeuft, PID %s, Port %s" % (data.get("pid"), data.get("port")))
+    report(OK, "Bridge", "running, PID %s, port %s" % (data.get("pid"), data.get("port")))
 
     running = data.get("contract_version")
     if contract_version and running and running != contract_version:
         report(
             WARN,
-            "Laufende Bruecke hat einen anderen Vertrag",
-            "Bruecke %s, Repo %s" % (running, contract_version),
-            "FreeCAD neu starten -- die Bruecke laedt Codeaenderungen erst dann (CHANGELOG.md).",
+            "Running bridge has a different contract",
+            "bridge %s, repo %s" % (running, contract_version),
+            "Restart FreeCAD -- the bridge only loads code changes then (CHANGELOG.md).",
         )
 
 
@@ -263,9 +263,9 @@ def _pid_alive(pid):
 
 
 def check_ports():
-    for port, who in ((8765, "Bruecke"), (8000, "Backend")):
+    for port, who in ((8765, "Bridge"), (8000, "Backend")):
         free = _port_free(port)
-        report(OK, "Port %d (%s)" % (port, who), "frei" if free else "belegt")
+        report(OK, "Port %d (%s)" % (port, who), "free" if free else "in use")
 
 
 def _port_free(port):
@@ -277,40 +277,40 @@ def _port_free(port):
             return False
 
 
-# -- Frontend und Backend ----------------------------------------------
+# -- Frontend and backend ----------------------------------------------
 
 
 def check_backend_env():
     venv = os.path.join(REPO, "backend", ".venv")
     if os.path.isdir(venv):
-        report(OK, "Backend-venv", venv)
+        report(OK, "Backend venv", venv)
     else:
-        report(WARN, "Backend-venv fehlt", venv, "scripts/setup ausfuehren (oder: cd backend && uv sync).")
+        report(WARN, "Backend venv missing", venv, "Run scripts/setup (or: cd backend && uv sync).")
 
 
 def check_frontend():
     if not os.path.isdir(os.path.join(REPO, "frontend", "node_modules")):
-        report(WARN, "Frontend-Abhaengigkeiten fehlen", "", "scripts/setup ausfuehren (oder: cd frontend && pnpm install).")
+        report(WARN, "Frontend dependencies missing", "", "Run scripts/setup (or: cd frontend && pnpm install).")
 
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import build_status
 
     state, newest = build_status.status()
     if state == "fresh":
-        report(OK, "Oberflaeche gebaut", "aktuell")
+        report(OK, "UI built", "up to date")
     elif state == "stale":
         report(
             WARN,
-            "Oberflaeche veraltet",
-            "neuer: %s" % os.path.relpath(newest, REPO),
-            "scripts/start baut automatisch neu (oder: cd frontend && pnpm build).",
+            "UI stale",
+            "newer: %s" % os.path.relpath(newest, REPO),
+            "scripts/start rebuilds automatically (or: cd frontend && pnpm build).",
         )
     else:
-        report(WARN, "Oberflaeche nicht gebaut", "", "scripts/setup ausfuehren (oder: cd frontend && pnpm build).")
+        report(WARN, "UI not built", "", "Run scripts/setup (or: cd frontend && pnpm build).")
 
 
 def check_running_backend():
-    """Laeuft schon ein Backend auf 8000 -- und ist es unseres?"""
+    """Is a backend already running on 8000 -- and is it ours?"""
     if _port_free(8000):
         return
     try:
@@ -319,34 +319,34 @@ def check_running_backend():
         with urlopen("http://127.0.0.1:8000/api/status", timeout=2) as response:
             data = json.loads(response.read().decode("utf-8"))
         bridge = data.get("bridge", {})
-        report(OK, "Backend laeuft", "Bruecke: %s" % bridge.get("state"))
+        report(OK, "Backend running", "bridge: %s" % bridge.get("state"))
     except Exception:
         report(
             WARN,
-            "Port 8000 belegt, aber nicht von diesem Backend",
+            "Port 8000 in use, but not by this backend",
             "",
-            "Den Prozess auf Port 8000 beenden; das Backend nutzt bewusst einen festen Port.",
+            "Stop the process on port 8000; the backend deliberately uses a fixed port.",
         )
 
 
-# -- Werkzeuge ----------------------------------------------------------
+# -- Tools --------------------------------------------------------------
 
 
 def check_openssl_conf():
-    """Eine andere Installation (z. B. PostgreSQL) setzt OPENSSL_CONF auf eine
-    fehlende Datei -- node und pnpm brechen dann mit 'OpenSSL configuration error' ab."""
+    """Another installation (e.g. PostgreSQL) sets OPENSSL_CONF to a
+    missing file -- node and pnpm then abort with 'OpenSSL configuration error'."""
     value = os.environ.get("OPENSSL_CONF")
     if value and not os.path.isfile(value):
         report(
             WARN,
-            "OPENSSL_CONF zeigt auf eine fehlende Datei",
+            "OPENSSL_CONF points to a missing file",
             value,
-            "Die Skripte in scripts/ leeren die Variable fuer sich; von Hand: OPENSSL_CONF leeren.",
+            "The scripts in scripts/ clear the variable for themselves; manually: clear OPENSSL_CONF.",
         )
 
 
 def check_pnpm_version():
-    """Das Lockfile ist v9 (pnpm >= 10). Ein aelteres pnpm loest es still neu auf."""
+    """The lockfile is v9 (pnpm >= 10). An older pnpm silently re-resolves it."""
     pnpm = shutil.which("pnpm")
     if not pnpm:
         return
@@ -357,18 +357,18 @@ def check_pnpm_version():
         out = subprocess.run([pnpm, "--version"], capture_output=True, text=True, timeout=30, env=env)
         major = int(out.stdout.strip().split(".")[0])
     except Exception:
-        report(WARN, "pnpm startet nicht", pnpm, "pnpm neu installieren: npm i -g pnpm@10")
+        report(WARN, "pnpm does not start", pnpm, "Reinstall pnpm: npm i -g pnpm@10")
         return
     if major < 10:
         report(
             WARN,
-            "pnpm zu alt",
+            "pnpm too old",
             out.stdout.strip(),
-            "Die Skripte weichen auf 'corepack pnpm' aus. Von Hand: 'corepack pnpm ...' "
-            "oder pnpm aktualisieren (npm i -g pnpm@10).",
+            "The scripts fall back to 'corepack pnpm'. Manually: 'corepack pnpm ...' "
+            "or update pnpm (npm i -g pnpm@10).",
         )
     else:
-        report(OK, "pnpm-Version", out.stdout.strip())
+        report(OK, "pnpm version", out.stdout.strip())
 
 
 def check_node_version():
@@ -380,29 +380,29 @@ def check_node_version():
         major, minor = [int(part) for part in out.stdout.strip().split(".")[:2]]
     except Exception:
         return
-    # Vite 8 verlangt Node 20.19+ bzw. 22.12+.
+    # Vite 8 requires Node 20.19+ or 22.12+.
     if (major, minor) < (20, 19) or (major == 21) or (major == 22 and minor < 12):
-        report(WARN, "Node zu alt fuer Vite 8", "%d.%d" % (major, minor), "Node 22 LTS oder neuer installieren.")
+        report(WARN, "Node too old for Vite 8", "%d.%d" % (major, minor), "Install Node 22 LTS or newer.")
     else:
-        report(OK, "Node-Version", "%d.%d" % (major, minor))
+        report(OK, "Node version", "%d.%d" % (major, minor))
 
 
 def check_tools():
     for tool, fix in (
         ("git", "https://git-scm.com"),
         ("node", "https://nodejs.org (>= 20)"),
-        ("pnpm", "npm i -g pnpm@10  (oder corepack, kommt mit node)"),
+        ("pnpm", "npm i -g pnpm@10  (or corepack, ships with node)"),
         ("uv", "https://docs.astral.sh/uv/"),
     ):
         path = shutil.which(tool)
         if path:
             report(OK, tool, path)
         else:
-            report(WARN, "%s fehlt" % tool, "", fix)
+            report(WARN, "%s missing" % tool, "", fix)
 
 
 def main():
-    print("SysML-CAD Platform -- Diagnose")
+    print("SysML-CAD Platform -- Diagnostics")
     print("Repo: %s\n" % REPO)
 
     check_python()
@@ -422,7 +422,7 @@ def main():
 
     fails = [r for r in _results if r[0] == FAIL]
     warns = [r for r in _results if r[0] == WARN]
-    print("\n%d OK, %d Warnungen, %d Fehler" % (len(_results) - len(fails) - len(warns), len(warns), len(fails)))
+    print("\n%d OK, %d warnings, %d errors" % (len(_results) - len(fails) - len(warns), len(warns), len(fails)))
     return 1 if fails else 0
 
 

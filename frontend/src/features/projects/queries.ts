@@ -1,12 +1,13 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import { redirect } from "@tanstack/react-router"
 
+import i18n from "@/i18n"
 import { api, seg } from "@/lib/api"
 import type { Frame } from "@/lib/ws"
 
-// Die Projekt-Registry lebt im Backend. Welches Projekt aktiv ist, ist eine
-// Einstellung des BACKENDS (nicht des Tabs): nur so bekommt das richtige Modul
-// die FreeCAD-Ereignisse, auch wenn gerade kein Tab die Projektseite zeigt.
+// The project registry lives in the backend. Which project is active is a
+// setting of the BACKEND (not of the tab): only then does the right module
+// receive the FreeCAD events, even when no tab is showing the project page.
 
 export type ProjectInfo = {
   id: string
@@ -19,13 +20,21 @@ export type ProjectInfo = {
 export type ProjectList = { active: string | null; projects: ProjectInfo[] }
 
 /**
- * Projekte mit eigener Oberflaeche. Die Routen existieren STATISCH (TanStack
- * Routers Typsicherheit entsteht zur Build-Zeit); das Backend bestimmt nur,
- * welche Projekte es gibt und welches aktiv ist.
+ * Projects with their own UI. The routes exist STATICALLY (TanStack
+ * Router's type safety is established at build time); the backend only
+ * determines which projects exist and which one is active.
  */
 export const PROJECT_ROUTES: Partial<Record<string, "/projects/bds" | "/projects/mcr">> = {
   bds: "/projects/bds",
   mcr: "/projects/mcr",
+}
+
+/**
+ * Description in the UI language. The projects themselves provide it in
+ * English (backend); known projects have a translation.
+ */
+export function projectDescription(project: ProjectInfo): string {
+  return i18n.t(("projects.descriptions." + project.id) as never, { defaultValue: project.description })
 }
 
 export const projectKeys = {
@@ -36,7 +45,7 @@ export const projectKeys = {
 export const projectsQuery = queryOptions({
   queryKey: projectKeys.list(),
   queryFn: () => api<ProjectList>("/api/projects"),
-  staleTime: Infinity, // Wechsel kommen als "project.activated" ueber den WebSocket
+  staleTime: Infinity, // changes arrive as "project.activated" via the WebSocket
 })
 
 export async function activateProject(queryClient: QueryClient, id: string) {
@@ -46,22 +55,24 @@ export async function activateProject(queryClient: QueryClient, id: string) {
 }
 
 /**
- * beforeLoad einer Projektroute: die URL IST der Modus. Wer /projects/bds
- * oeffnet (auch per Lesezeichen), schaltet damit auf BDS um.
+ * beforeLoad of a project route: checks ONLY that the project exists.
+ *
+ * It deliberately does NOT activate: beforeLoad also runs during preloading,
+ * which the router already triggers when a link is hovered ("intent").
+ * Activation only happens through a user action (useOpenProject, ProjectFrame).
  */
-export async function ensureActive(queryClient: QueryClient, id: string) {
+export async function ensureKnown(queryClient: QueryClient, id: string) {
   const list = await queryClient.ensureQueryData(projectsQuery)
   if (!list.projects.some((project) => project.id === id)) throw redirect({ to: "/" })
-  if (list.active !== id) await activateProject(queryClient, id)
 }
 
-/** Frames vom Backend, die Projekte betreffen. */
+/** Frames from the backend that concern projects. */
 export function handleProjectFrame(queryClient: QueryClient, frame: Frame) {
   if (frame.type === "hello" || frame.type === "project.activated") {
     void queryClient.invalidateQueries({ queryKey: projectKeys.list(), exact: true })
     return
   }
-  // Ereignisse eines Moduls tragen seine id als Praefix: "bds.cad_seen".
+  // A module's events carry its id as a prefix: "bds.cad_seen".
   const prefix = frame.type.split(".")[0]
   const list = queryClient.getQueryData<ProjectList>(projectKeys.list())
   if (list?.projects.some((project) => project.id === prefix)) {

@@ -1,24 +1,24 @@
-"""Schreiben -- ein Vorgang ist genau ein Undo, oder ehrlich nicht.
+"""Writing -- one transaction is exactly one undo, or honestly not.
 
-Empirisch an FreeCAD 1.1 geklaert, bevor diese Datei entstand:
+Established empirically on FreeCAD 1.1 before this file was written:
 
-  * ``App.setActiveTransaction`` legt die Transaktion ERST beim ersten
-    Schreibzugriff an. ``HasPendingTransaction`` ist direkt danach ``False`` --
-    auch bei UndoMode 1. Pruefen laesst sich das also erst nach dem ersten Wert.
-  * Bei ``UndoMode == 0`` bleibt ein Wert nach dem "Abbruch" einfach stehen,
-    ohne Fehler. Deshalb wird UndoMode VOR dem ersten Schreibzugriff geprueft.
-  * ``closeActiveTransaction(True)`` rollt alle Werte der Transaktion zurueck;
-    ein Undo nimmt die ganze Transaktion auf einmal zurueck.
-  * Ein zweites setActiveTransaction (z. B. ein FreeCAD-Befehl, den der Nutzer
-    waehrend eines Recomputes klickt) uebernimmt still den aktiven Handle. Ein
-    spaeteres Abort waere dann ein No-Op. Deshalb wird vor dem Schliessen
-    geprueft, ob die Transaktion noch unsere ist, und sonst ``atomic: false``
-    gemeldet statt Atomaritaet vorzutaeuschen.
-  * Falsche Einheit -> ArithmeticError, unparsbarer Text -> ParserError.
+  * ``App.setActiveTransaction`` creates the transaction only on the FIRST
+    write access. ``HasPendingTransaction`` is ``False`` right after it --
+    even with UndoMode 1. So this can only be checked after the first value.
+  * With ``UndoMode == 0`` a value simply stays in place after the "abort",
+    without an error. That is why UndoMode is checked BEFORE the first write.
+  * ``closeActiveTransaction(True)`` rolls back all values of the transaction;
+    an undo reverts the whole transaction at once.
+  * A second setActiveTransaction (e.g. a FreeCAD command the user clicks
+    during a recompute) silently takes over the active handle. A later
+    abort would then be a no-op. That is why, before closing, we check
+    whether the transaction is still ours, and otherwise report
+    ``atomic: false`` instead of pretending to be atomic.
+  * Wrong unit -> ArithmeticError, unparsable text -> ParserError.
 
-Ablauf: alle Felder VORHER pruefen und umwandeln (ein ungueltiges Feld fasst
-nichts an) -> Transaktion -> Werte setzen -> recompute -> Handle pruefen ->
-commit. Scheitert etwas dazwischen: Abbruch, Nachrechnen, Fehler melden.
+Flow: check and convert all fields BEFOREHAND (an invalid field touches
+nothing) -> transaction -> set values -> recompute -> check handle ->
+commit. If something fails in between: abort, recompute, report the error.
 """
 
 import collections
@@ -29,9 +29,9 @@ from freecad_bridge import documents, log, objects, observer, properties, revisi
 from freecad_bridge import state as bridge_state
 from freecad_bridge.dispatch import BridgeError, CadBusyError, main_thread_only
 
-#: Wie viele Antworten fuer idempotente Wiederholungen gemerkt werden.
-#: Ein automatischer Retry (etwa von TanStack Query) mit derselben
-#: X-Request-Id darf die Aenderung nicht ein zweites Mal ausfuehren.
+#: How many responses are remembered for idempotent retries.
+#: An automatic retry (e.g. from TanStack Query) with the same
+#: X-Request-Id must not apply the change a second time.
 REPLAY_CACHE_SIZE = 100
 
 _replay_cache = collections.OrderedDict()
@@ -48,18 +48,18 @@ class InvalidPatch(BridgeError):
 
 
 class RevisionConflict(BridgeError):
-    """Das Objekt hat sich geaendert, seit der Client es gelesen hat.
+    """The object has changed since the client read it.
 
-    ``detail`` traegt den aktuellen Stand des Objekts mit, damit die
-    Oberflaeche "neu laden oder ueberschreiben" anbieten kann, ohne ein
-    weiteres Mal zu fragen.
+    ``detail`` carries the object's current state along, so that the
+    UI can offer "reload or overwrite" without having to ask a second
+    time.
     """
 
     code = "rev_mismatch"
     http_status = 409
 
 
-# -- Idempotenz --------------------------------------------------------
+# -- Idempotency -------------------------------------------------------
 
 
 def cached_response(request_id):
@@ -78,11 +78,11 @@ def remember_response(request_id, response):
         _replay_cache.popitem(last=False)
 
 
-# -- Hilfen ------------------------------------------------------------
+# -- Helpers -----------------------------------------------------------
 
 
 def _transaction_name(obj, names):
-    """Sprechend, damit der Nutzer in FreeCADs Undo-Liste sieht, was vom Browser kam."""
+    """Descriptive, so the user sees in FreeCAD's undo list what came from the browser."""
     if len(names) == 1:
         return "Browser: %s.%s" % (obj.Label, names[0])
     return "Browser: %s (%d Properties)" % (obj.Label, len(names))
@@ -96,9 +96,9 @@ def active_transaction_id():
 
 
 def state_errors(objs):
-    """Objekte, die nach dem Recompute fehlerhaft sind.
+    """Objects that are in error after the recompute.
 
-    Sonst meldete die Bruecke 200, waehrend ein Feature ungueltig geworden ist.
+    Otherwise the bridge would report 200 while a feature has become invalid.
     """
     errors = []
     for obj in objs:
@@ -113,7 +113,7 @@ def state_errors(objs):
 
 
 def _affected(obj):
-    """Das Objekt selbst plus alles, was davon abhaengt."""
+    """The object itself plus everything that depends on it."""
     try:
         dependents = list(obj.InListRecursive)
     except Exception:
@@ -122,13 +122,13 @@ def _affected(obj):
 
 
 def same_value(current, new):
-    """Ist ``new`` derselbe Wert wie ``current``?
+    """Is ``new`` the same value as ``current``?
 
-    Noetig, weil FreeCAD das nicht einheitlich erkennt: bei Bool und Text
-    entsteht fuer einen unveraenderten Wert keine Transaktion, bei Quantity
-    schon -- inklusive Undo-Eintrag und Recompute. Ohne diese Pruefung fuellte
-    ein Formular, das alle Felder mitschickt, den 20 Eintraege kurzen
-    Undo-Stack mit Leerlaeufen.
+    Needed because FreeCAD does not detect this consistently: for bool and
+    text an unchanged value creates no transaction, for Quantity it does --
+    including an undo entry and a recompute. Without this check, a form that
+    sends all fields would fill the undo stack, only 20 entries deep, with
+    no-ops.
     """
     try:
         if isinstance(current, FreeCAD.Units.Quantity):
@@ -145,8 +145,22 @@ def same_value(current, new):
         return False
 
 
+def _failure(exc):
+    """A single error as an entry in the aggregate invalid_patch response.
+
+    Passes on ``reason`` and parameters (for invalid_value) so that the
+    UI can build each message in the user's language.
+    """
+    entry = {"code": exc.code, "message": exc.message}
+    if isinstance(exc.detail, dict):
+        entry.update(exc.detail)
+    else:
+        entry["field"] = exc.detail
+    return entry
+
+
 def decode_all(obj, changes):
-    """Alle Felder pruefen, bevor irgendetwas angefasst wird."""
+    """Check all fields before anything is touched."""
     decoded = collections.OrderedDict()
     failures = []
     for name, payload in changes.items():
@@ -158,28 +172,28 @@ def decode_all(obj, changes):
     if not failures:
         return decoded
     if len(failures) == 1:
-        raise failures[0]  # Einzelfehler mit seinem eigenen Code (z. B. 409)
+        raise failures[0]  # single error with its own code (e.g. 409)
     raise InvalidPatch(
-        "%d Felder sind ungueltig" % len(failures),
-        [{"code": f.code, "message": f.message, "field": f.detail} for f in failures],
+        "%d fields are invalid" % len(failures),
+        [_failure(f) for f in failures],
     )
 
 
-# -- Oeffentliche Operationen ------------------------------------------
+# -- Public operations -------------------------------------------------
 
 
 def check_revision(obj, if_match):
-    """Optimistische Sperre: nur schreiben, wenn der Client den aktuellen Stand kennt.
+    """Optimistic locking: only write if the client knows the current state.
 
-    Vorher wird geflusht: eine Aenderung in FreeCAD, deren Flush noch aussteht
-    (bis zu 100 ms), haette ihren rev sonst noch nicht erhoeht -- und der PATCH
-    ginge ueber sie hinweg.
+    A flush happens first: a change in FreeCAD whose flush is still pending
+    (up to 100 ms) would otherwise not have bumped its rev yet -- and the
+    PATCH would run over it.
     """
     observer.flush_now("precondition")
     current = revisions.current(obj.Document.Name, obj.Name)
     if current != if_match:
         raise RevisionConflict(
-            "%s wurde inzwischen geaendert (rev %d, erwartet %d)" % (obj.Label, current, if_match),
+            "%s has changed in the meantime (rev %d, expected %d)" % (obj.Label, current, if_match),
             {
                 "expected": if_match,
                 "current": current,
@@ -190,17 +204,17 @@ def check_revision(obj, if_match):
 
 @main_thread_only
 def patch_object(doc_name, obj_name, changes, request_id=None, recompute=True, if_match=None):
-    """Properties eines Objekts setzen -- alle in EINER Transaktion.
+    """Set an object's properties -- all in ONE transaction.
 
-    ``if_match`` ist der ``rev``, den der Client gesehen hat. Weicht er ab,
-    wird nichts geschrieben (409 rev_mismatch). None = ohne Pruefung.
+    ``if_match`` is the ``rev`` the client has seen. If it differs,
+    nothing is written (409 rev_mismatch). None = no check.
     """
     replay = cached_response(request_id)
     if replay is not None:
         return replay
 
     if not isinstance(changes, dict) or not changes:
-        raise InvalidPatch("Mindestens ein Feld erwartet: {\"Property\": Wert}")
+        raise InvalidPatch("At least one field expected: {\"Property\": value}")
 
     obj = objects.get_object(doc_name, obj_name)
     doc = obj.Document
@@ -211,20 +225,20 @@ def patch_object(doc_name, obj_name, changes, request_id=None, recompute=True, i
     documents.ensure_undo_enabled(doc)
     if doc.UndoMode == 0:
         raise UndoDisabled(
-            "Undo ist fuer %r abgeschaltet -- ohne Undo waere kein Abbruch moeglich" % doc.Name
+            "Undo is disabled for %r -- without undo nothing could be rolled back" % doc.Name
         )
 
     if active_transaction_id() is not None:
-        # Ein FreeCAD-Befehl des Nutzers laeuft gerade. Hineinzuschreiben
-        # wuerde unsere Aenderung in SEINE Undo-Einheit mischen.
-        raise CadBusyError("In FreeCAD ist gerade eine Transaktion offen", "transaction_open")
+        # A FreeCAD command of the user is currently running. Writing into it
+        # would mix our change into ITS undo unit.
+        raise CadBusyError("A transaction is currently open in FreeCAD", "transaction_open")
 
     unchanged = [name for name, value in decoded.items() if same_value(getattr(obj, name), value)]
     for name in unchanged:
         del decoded[name]
 
     if not decoded:
-        # Nichts zu tun: keine Transaktion, kein Undo-Eintrag, kein Recompute.
+        # Nothing to do: no transaction, no undo entry, no recompute.
         response = {
             "status": "done",
             "atomic": True,
@@ -240,8 +254,8 @@ def patch_object(doc_name, obj_name, changes, request_id=None, recompute=True, i
         return response
 
     state = bridge_state.get_state()
-    # Markiert alle Aenderungen dieses Fensters als "bridge:<id>", damit das
-    # Frontend das Echo seiner eigenen Mutation erkennt und ignoriert.
+    # Marks all changes in this window as "bridge:<id>" so that the frontend
+    # recognizes the echo of its own mutation and ignores it.
     state.active_request_id = request_id or "anonymous"
     try:
         response = _apply(doc, obj, decoded, unchanged, request_id, recompute)
@@ -249,8 +263,8 @@ def patch_object(doc_name, obj_name, changes, request_id=None, recompute=True, i
         state.active_request_id = None
     observer.flush_now("write")
 
-    # Mit laufendem Observer hat der Flush die Revision bereits erhoeht --
-    # das Ereignis und diese Antwort tragen dann denselben Wert.
+    # With the observer running, the flush has already bumped the revision --
+    # the event and this response then carry the same value.
     if response["changed"] and getattr(state, "observer", None) is None:
         response["rev"] = revisions.bump(doc.Name, obj.Name)
     else:
@@ -267,10 +281,10 @@ def _apply(doc, obj, decoded, unchanged, request_id, recompute):
         for name, value in decoded.items():
             setattr(obj, name, value)
             applied.append(name)
-        # Einen Wert auf seinen bisherigen Wert zu setzen, ist fuer FreeCAD
-        # keine Aenderung -- es entsteht keine Transaktion. Da UndoMode oben
-        # bereits sichergestellt ist, heisst "keine Transaktion" hier also
-        # "nichts geaendert", nicht "Undo kaputt".
+        # Setting a value to its previous value is not a change for FreeCAD
+        # -- no transaction is created. Since UndoMode has already been
+        # ensured above, "no transaction" here therefore means "nothing
+        # changed", not "undo broken".
         changed = bool(doc.HasPendingTransaction)
         recomputed = doc.recompute() if (recompute and changed) else 0
     except Exception as exc:
@@ -278,18 +292,22 @@ def _apply(doc, obj, decoded, unchanged, request_id, recompute):
         if ours:
             FreeCAD.closeActiveTransaction(True)
             try:
-                doc.recompute()  # sonst bleibt ein Touched-Marker fuer Zurueckgerolltes
+                doc.recompute()  # otherwise a Touched marker remains for what was rolled back
             except Exception:
                 pass
         if isinstance(exc, BridgeError):
             raise
         if isinstance(exc, (ArithmeticError, ValueError, TypeError)) or type(exc).__name__ == "ParserError":
             raise properties.InvalidValue(
-                "%s: %s" % (applied[-1] if applied else "Wert", exc),
-                {"rolledBack": ours, "applied": applied},
+                "%s: %s" % (applied[-1] if applied else "value", exc),
+                applied[-1] if applied else None,
+                "rejected",
+                error=str(exc),
+                rolledBack=ours,
+                applied=applied,
             )
         raise BridgeError(
-            "Schreiben fehlgeschlagen: %s" % exc,
+            "Write failed: %s" % exc,
             {"rolledBack": ours, "applied": applied},
         )
 
@@ -298,27 +316,27 @@ def _apply(doc, obj, decoded, unchanged, request_id, recompute):
         FreeCAD.closeActiveTransaction()
     else:
         log.warn(
-            "Transaktion %s wurde von einem FreeCAD-Befehl uebernommen; "
-            "die Aenderung ist nicht als eigene Undo-Einheit gesichert" % tid,
+            "Transaction %s was taken over by a FreeCAD command; "
+            "the change is not a separate undo step" % tid,
             request_id,
         )
 
     return {
-        "status": "done",  # spaeter additiv: "running" + "job_id"
+        "status": "done",  # later, additively: "running" + "job_id"
         "atomic": atomic,
         "changed": changed,
         "applied": applied,
         "unchanged": unchanged,
         "recomputed": recomputed,
         "errors": state_errors(_affected(obj)),
-        "rev": None,  # setzt patch_object nach dem Flush
+        "rev": None,  # set by patch_object after the flush
         "ref": {"doc": doc.Name, "name": obj.Name},
     }
 
 
 @main_thread_only
 def recompute_document(doc_name, request_id=None):
-    """Dokument neu berechnen -- ohne Transaktion, denn es aendert keine Eingaben."""
+    """Recompute the document -- without a transaction, since it changes no inputs."""
     replay = cached_response(request_id)
     if replay is not None:
         return replay

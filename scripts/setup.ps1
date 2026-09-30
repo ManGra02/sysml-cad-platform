@@ -1,21 +1,21 @@
 <#
 .SYNOPSIS
-    Einrichtung von Null: Abhaengigkeiten, Oberflaeche bauen, Addon verlinken, Diagnose.
+    Setup from scratch: dependencies, UI build, addon link, diagnostics.
 
 .DESCRIPTION
-    Nach einem frischen "git clone" genuegt dieses eine Skript. Es ist
-    wiederholbar: ein zweiter Lauf aktualisiert nur, was sich geaendert hat
-    (etwa nach einem "git pull").
+    After a fresh "git clone", this one script is all you need. It is
+    repeatable: a second run only updates what has changed
+    (e.g. after a "git pull").
 
-    Voraussetzungen: FreeCAD 1.1, uv, node (22 LTS), pnpm >= 10 (sonst
-    uebernimmt corepack, das mit node kommt).
+    Prerequisites: FreeCAD 1.1, uv, node (22 LTS), pnpm >= 10 (otherwise
+    corepack, which ships with node, takes over).
 
 .PARAMETER FreeCadPython
-    Pfad zu FreeCADs python.exe, falls nicht am ueblichen Ort.
+    Path to FreeCAD's python.exe, if not in the usual location.
 
 .PARAMETER SkipLink
-    Addon nicht nach FreeCADs Mod-Verzeichnis verlinken (etwa fuer eine
-    zweite Arbeitskopie, waehrend FreeCAD die erste benutzt).
+    Don't link the addon into FreeCAD's Mod directory (e.g. for a
+    second working copy while FreeCAD uses the first one).
 #>
 [CmdletBinding()]
 param(
@@ -34,45 +34,45 @@ function Step([string]$title) {
 }
 
 
-Step "Werkzeuge"
+Step "Tools"
 $missing = @()
 foreach ($tool in @(
         @{ Name = 'uv'; Hint = 'https://docs.astral.sh/uv/  (winget install astral-sh.uv)' },
         @{ Name = 'node'; Hint = 'https://nodejs.org  (Node 22 LTS)' })) {
     $found = Get-Command $tool.Name -ErrorAction SilentlyContinue
     if ($found) { Write-Host ("  {0,-5} {1}" -f $tool.Name, $found.Source) }
-    else { $missing += "  $($tool.Name) fehlt -> $($tool.Hint)" }
+    else { $missing += "  $($tool.Name) missing -> $($tool.Hint)" }
 }
 if ($missing) {
     $missing | ForEach-Object { Write-Host $_ -ForegroundColor Red }
-    throw "Bitte die fehlenden Werkzeuge installieren und das Skript erneut starten."
+    throw "Please install the missing tools and run the script again."
 }
 $pnpm = @(Get-PnpmCommand)
 Write-Host "  pnpm  $($pnpm -join ' ')"
 
-Step "Backend: Python-Umgebung (uv sync)"
+Step "Backend: Python environment (uv sync)"
 Invoke-Checked (Join-Path $repo 'backend') @('uv', 'sync')
 
-Step "Frontend: Abhaengigkeiten (pnpm install)"
+Step "Frontend: dependencies (pnpm install)"
 Invoke-Pnpm (Join-Path $repo 'frontend') @('install', '--frozen-lockfile')
 
-Step "Frontend: Oberflaeche bauen (pnpm build)"
+Step "Frontend: build UI (pnpm build)"
 Invoke-Pnpm (Join-Path $repo 'frontend') @('build')
 
 if ($SkipLink) {
-    Step "Addon verlinken: uebersprungen (-SkipLink)"
+    Step "Link addon: skipped (-SkipLink)"
 } else {
-    Step "Addon nach FreeCAD verlinken"
+    Step "Link addon into FreeCAD"
     $linkArgs = @{}
     if ($FreeCadPython) { $linkArgs.FreeCadPython = $FreeCadPython }
     & (Join-Path $PSScriptRoot 'link-addon.ps1') @linkArgs
 }
 
-Step "Diagnose"
+Step "Diagnostics"
 Invoke-Checked (Join-Path $repo 'backend') @('uv', 'run', 'python', '../scripts/doctor.py')
 
 Write-Host ""
-Write-Host "Fertig." -ForegroundColor Green
-Write-Host "  1. FreeCAD starten, Workbench 'SysML-CAD Bruecke' waehlen, Bruecke starten"
+Write-Host "Done." -ForegroundColor Green
+Write-Host "  1. Start FreeCAD, select the 'SysML-CAD Bridge' workbench, start the bridge"
 Write-Host "  2. scripts\start.ps1     -> http://127.0.0.1:8000"
-Write-Host "     (Entwicklung mit Hot-Reload: scripts\dev.ps1 -> http://127.0.0.1:5173)"
+Write-Host "     (development with hot reload: scripts\dev.ps1 -> http://127.0.0.1:5173)"

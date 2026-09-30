@@ -1,17 +1,17 @@
-"""Das Plattform-Backend.
+"""The platform backend.
 
-Sitzt zwischen Browser und FreeCAD-Bruecke und ist der einzige Teil, der beide
-kennt. Importiert FreeCAD NIE -- das CAD-Modell wird ausschliesslich ueber die
-HTTP-Schnittstelle der Bruecke angefasst. Deshalb laeuft dieser Prozess in
-einer normalen venv und auch dort, wo FreeCAD gar nicht installiert ist.
+Sits between the browser and the FreeCAD bridge and is the only part that
+knows both. NEVER imports FreeCAD -- the CAD model is touched exclusively via
+the bridge's HTTP interface. That is why this process runs in an ordinary
+venv, even where FreeCAD isn't installed at all.
 
-Aufgaben:
-  1. die Oberflaeche ausliefern
-  2. die Verbindung zur Bruecke verwalten (vier Zustaende, Resync)
-  3. /api/cad/* an die Bruecke durchreichen -- das Token bleibt hier
-  4. einen gebuendelten Ereignisstrom zum Browser liefern
-  5. die Projektmodule beherbergen (app/projects/): Registry, aktives
-     Projekt, deren Routen unter /api/projects/<id>/* und ihre Fachlogik
+Responsibilities:
+  1. serve the UI
+  2. manage the connection to the bridge (four states, resync)
+  3. pass /api/cad/* through to the bridge -- the token stays here
+  4. deliver a batched event stream to the browser
+  5. host the project modules (app/projects/): registry, active
+     project, their routes under /api/projects/<id>/* and their domain logic
 """
 
 import contextlib
@@ -28,8 +28,8 @@ from app.projects.registry import ProjectRegistry, UnknownProject
 from app.security import LocalOnlyMiddleware
 from cad_contract.version import CONTRACT_VERSION
 
-#: Header, die an die Bruecke weitergereicht werden. Alles andere bleibt hier --
-#: insbesondere kein Authorization-Header aus dem Browser.
+#: Headers that are forwarded to the bridge. Everything else stays here --
+#: in particular no Authorization header from the browser.
 FORWARDED_REQUEST_HEADERS = ("content-type", "x-request-id", "if-match")
 
 
@@ -39,7 +39,7 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None):
 
     def on_events(events):
         hub.publish_events(events)
-        registry.on_events(events)  # nur das aktive Projekt bekommt sie
+        registry.on_events(events)  # only the active project receives them
 
     bridge = bridge_client_factory(on_events=on_events, on_status=hub.publish_status)
     registry = ProjectRegistry(bridge, hub.publish, modules=project_modules)
@@ -64,7 +64,7 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None):
     app.state.bridge = bridge
     app.state.hub = hub
     app.state.registry = registry
-    # Keine CORSMiddleware -- Begruendung in security.py.
+    # No CORSMiddleware -- rationale in security.py.
     app.add_middleware(LocalOnlyMiddleware)
 
     # -- Status ---------------------------------------------------------
@@ -77,7 +77,7 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None):
             "bridge": bridge.status(),
         }
 
-    # -- Projekte ---------------------------------------------------------
+    # -- Projects ---------------------------------------------------------
 
     @app.get("/api/projects")
     async def projects():
@@ -90,19 +90,19 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None):
         except UnknownProject:
             return JSONResponse(
                 {"error": {"code": "project_not_found",
-                           "message": "Unbekanntes Projekt %r" % project_id}},
+                           "message": "Unknown project %r" % project_id}},
                 status_code=404,
             )
         return registry.describe()
 
-    registry.mount(app)  # /api/projects/<id>/* der Module
+    registry.mount(app)  # the modules' /api/projects/<id>/*
 
-    # -- CAD: Durchreichen an die Bruecke --------------------------------
+    # -- CAD: pass-through to the bridge ---------------------------------
 
     @app.api_route("/api/cad/{path:path}", methods=["GET", "PATCH", "POST", "PUT"])
     async def cad_proxy(path: str, request: Request):
-        """Byte-Proxy. Der Body wird nicht dekodiert -- der Engpass waere sonst
-        der JSON-Codec (gemessen 0,35 s fuer 5,9 MB), nicht der Transport."""
+        """Byte proxy. The body is not decoded -- otherwise the bottleneck would
+        be the JSON codec (measured 0.35 s for 5.9 MB), not the transport."""
         raw_path = request.scope.get("raw_path") or request.url.path.encode()
         target = raw_path.decode("latin-1")
 
@@ -132,7 +132,7 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None):
         except BridgeUnavailable as exc:
             return JSONResponse(
                 {"error": {"code": "bridge_%s" % exc.state, "message": exc.detail,
-                           "detail": {"state": exc.state}}},
+                           "detail": {"state": exc.state, "reason": exc.reason}}},
                 status_code=503,
             )
         return Response(
@@ -141,11 +141,11 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None):
             media_type=content_type or "application/json",
         )
 
-    # -- Ereignisstrom --------------------------------------------------
+    # -- Event stream ---------------------------------------------------
 
     @app.websocket("/ws")
     async def events_socket(websocket: WebSocket):
-        # Origin und Host hat LocalOnlyMiddleware bereits VOR accept() geprueft.
+        # LocalOnlyMiddleware has already checked Origin and Host BEFORE accept().
         await websocket.accept()
         await hub.serve(
             websocket,
@@ -157,34 +157,34 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None):
             },
         )
 
-    # -- Oberflaeche ------------------------------------------------------
+    # -- UI -------------------------------------------------------------
 
     _mount_frontend(app)
     return app
 
 
-_PLACEHOLDER = """<!doctype html><html lang="de"><meta charset="utf-8">
+_PLACEHOLDER = """<!doctype html><html lang="en"><meta charset="utf-8">
 <title>SysML-CAD Platform</title>
 <body style="font-family:system-ui;max-width:40rem;margin:4rem auto;line-height:1.5">
 <h1>SysML-CAD Platform</h1>
-<p>Das Backend laeuft. Die Oberflaeche ist noch nicht gebaut:
-<code>scripts/setup</code> ausfuehren oder <code>pnpm build</code> im Ordner
-<code>frontend/</code>.</p>
-<p><a href="/api/status">/api/status</a> &middot; <a href="/api/docs">API-Dokumentation</a></p>
+<p>The backend is running. The user interface has not been built yet:
+run <code>scripts/setup</code> or <code>pnpm build</code> in the
+<code>frontend/</code> folder.</p>
+<p><a href="/api/status">/api/status</a> &middot; <a href="/api/docs">API documentation</a></p>
 </body></html>"""
 
-#: Vite versieht jede Datei unter assets/ mit einem Inhalts-Hash im Namen --
-#: sie aendert sich nie und darf beliebig lange zwischengespeichert werden.
+#: Vite puts a content hash into the name of every file under assets/ --
+#: it never changes and may be cached indefinitely.
 IMMUTABLE = "public, max-age=31536000, immutable"
-#: index.html dagegen verweist auf die aktuellen Hash-Namen und muss nach
-#: jedem Build neu geholt werden, sonst laedt der Browser eine alte Oberflaeche.
+#: index.html, on the other hand, refers to the current hashed names and must
+#: be re-fetched after every build, otherwise the browser loads a stale UI.
 REVALIDATE = "no-cache"
 
 
 class _HashedAssets(StaticFiles):
     async def check_config(self):
-        # Fehlt das Verzeichnis (noch nicht gebaut), ist das kein Serverfehler,
-        # sondern schlicht 404 -- Starlette wuerde hier sonst mit 500 abbrechen.
+        # If the directory is missing (not built yet), that is not a server
+        # error but simply a 404 -- Starlette would otherwise fail with a 500 here.
         if os.path.isdir(self.directory):
             await super().check_config()
 
@@ -196,7 +196,7 @@ class _HashedAssets(StaticFiles):
 
 
 def frontend_build_info():
-    """Ob und wann die Oberflaeche gebaut wurde -- fuer /api/status und doctor."""
+    """Whether and when the UI was built -- for /api/status and doctor."""
     index = config.STATIC_DIR / "index.html"
     if not index.is_file():
         return {"built": False, "builtAt": None}
@@ -204,9 +204,9 @@ def frontend_build_info():
 
 
 def _mount_frontend(app):
-    # check_dir=False: das Verzeichnis darf beim Start fehlen oder waehrend
-    # eines Builds kurz verschwinden. Ein spaeterer Build wird ohne
-    # Backend-Neustart ausgeliefert.
+    # check_dir=False: the directory may be missing at startup or briefly
+    # disappear during a build. A later build is served without restarting
+    # the backend.
     app.mount(
         "/assets",
         _HashedAssets(directory=config.STATIC_DIR / "assets", check_dir=False),
@@ -215,15 +215,15 @@ def _mount_frontend(app):
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa(full_path: str):
-        """SPA-Catch-all fuer TanStack Routers Browser-History.
+        """SPA catch-all for TanStack Router's browser history.
 
-        Liefert NUR index.html und setzt den Pfad nie in einen Dateinamen ein:
-        Path('static') / 'C:/Windows/win.ini' ergibt unter Windows
-        C:/Windows/win.ini.
+        Serves ONLY index.html and never puts the path into a file name:
+        Path('static') / 'C:/Windows/win.ini' yields C:/Windows/win.ini
+        on Windows.
         """
         if full_path.startswith("api/"):
             return JSONResponse(
-                {"error": {"code": "not_found", "message": "Unbekannte API-Route"}},
+                {"error": {"code": "not_found", "message": "Unknown API route"}},
                 status_code=404,
             )
         index = config.STATIC_DIR / "index.html"

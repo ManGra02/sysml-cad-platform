@@ -1,13 +1,13 @@
-"""Der Zustands-Schnappschuss, den /api/cad/health liest.
+"""The state snapshot that /api/cad/health reads.
 
-WARUM UEBERHAUPT EIN SNAPSHOT: Wuerde /health dispatchen, luege der
-Liveness-Check genau dann, wenn FreeCAD am meisten arbeitet -- ein
-20-Sekunden-Recompute haelt den Hauptthread, /health liefe in den Timeout,
-das Backend markierte "nicht verbunden" und baute die WS-Verbindung ab.
-Ausgerechnet waehrend alles in Ordnung ist.
+WHY A SNAPSHOT AT ALL: If /health dispatched, the liveness check would lie
+precisely when FreeCAD is working hardest -- a 20-second recompute holds
+the main thread, /health would run into the timeout, the backend would mark
+"not connected" and tear down the WS connection. Of all times, while
+everything is fine.
 
-Stattdessen aktualisieren Heartbeat und Observer den Snapshot AUF dem
-Hauptthread; der Handler liest nur und antwortet immer sofort.
+Instead, heartbeat and observer update the snapshot ON the main thread;
+the handler only reads and always answers immediately.
 """
 
 import copy
@@ -35,9 +35,9 @@ _snapshot = {
 
 
 def _gui_modified_flag(doc_name):
-    """Dirty-Zustand haengt am GUI-Dokument, nicht am App-Dokument.
+    """The dirty state lives on the GUI document, not the App document.
 
-    Verifiziert: doc.Modified existiert auf dem App-Dokument NICHT.
+    Verified: doc.Modified does NOT exist on the App document.
     """
     try:
         import FreeCADGui
@@ -53,7 +53,7 @@ def _gui_modified_flag(doc_name):
 
 @main_thread_only
 def refresh():
-    """Snapshot neu erheben. Nur auf dem Hauptthread."""
+    """Collect the snapshot anew. Main thread only."""
     from freecad_bridge import dispatch
 
     state = bridge_state.get_state()
@@ -102,12 +102,12 @@ def _pid():
 
 
 def read():
-    """Snapshot lesen. Von jedem Thread aus erlaubt -- reine Kopie."""
+    """Read the snapshot. Allowed from any thread -- a plain copy."""
     with _lock:
         return copy.deepcopy(_snapshot)
 
 
 def note_event(seq):
-    """Vom Observer aufgerufen, damit last_seq ohne vollen Refresh mitlaeuft."""
+    """Called by the observer so last_seq keeps up without a full refresh."""
     with _lock:
         _snapshot["last_seq"] = seq

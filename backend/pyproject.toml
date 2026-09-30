@@ -1,9 +1,9 @@
 [project]
 name = "sysml-cad-backend"
 version = "0.1.0"
-description = "Plattform-Backend: liefert die Oberflaeche aus, verwaltet die Verbindung zur FreeCAD-Bruecke und beherbergt die Fachlogik der Projekte"
-# Gepinnt auf 3.11 wie FreeCADs gebuendeltes Python: cad_contract laeuft in
-# beiden Umgebungen, und PEP-695-Syntax darf nicht versehentlich hineinrutschen.
+description = "Platform backend: serves the UI, manages the connection to the FreeCAD bridge and hosts the projects' domain logic"
+# Pinned to 3.11 like FreeCAD's bundled Python: cad_contract runs in
+# both environments, and PEP 695 syntax must not slip in by accident.
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "fastapi>=0.115",

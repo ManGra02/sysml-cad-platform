@@ -1,7 +1,7 @@
-"""FreeCAD-Befehle der Bruecke.
+"""FreeCAD commands of the bridge.
 
-GetResources() darf nur Strings enthalten (ausser Checkable/Exclusive/
-DropDownMenu) -- FreeCAD prueft das und meldet sonst
+GetResources() may contain only strings (except Checkable/Exclusive/
+DropDownMenu) -- FreeCAD checks this and otherwise reports
 "returns a dictionary which holds not only strings".
 """
 
@@ -10,15 +10,16 @@ import webbrowser
 import FreeCAD
 import FreeCADGui
 
+from bridge_addon.i18n import tr
 from freecad_bridge import runner
 from freecad_bridge import state as bridge_state
 
-#: Wohin "Oberflaeche oeffnen" zeigt. Das Backend liefert die SPA aus.
+#: Where "Open user interface" points. The backend serves the SPA.
 BACKEND_URL = "http://127.0.0.1:8000/"
 
 
 def _report(exc, what):
-    FreeCAD.Console.PrintError("[Bruecke] %s fehlgeschlagen: %s\n" % (what, exc))
+    FreeCAD.Console.PrintError("[Bridge] %s\n" % tr("failed", what=what, error=exc))
 
 
 def _refresh_panel():
@@ -34,8 +35,8 @@ class StartBridgeCommand(object):
     def GetResources(self):
         return {
             "Pixmap": "bridge",
-            "MenuText": "Bruecke starten",
-            "ToolTip": "Startet den lokalen Dienst, ueber den die Plattform auf das CAD-Modell zugreift",
+            "MenuText": tr("cmd.start"),
+            "ToolTip": tr("cmd.start.tip"),
         }
 
     def IsActive(self):
@@ -45,7 +46,7 @@ class StartBridgeCommand(object):
         try:
             runner.start_bridge()
         except Exception as exc:
-            _report(exc, "Start der Bruecke")
+            _report(exc, tr("fail.start"))
         _refresh_panel()
 
 
@@ -53,8 +54,8 @@ class StopBridgeCommand(object):
     def GetResources(self):
         return {
             "Pixmap": "bridge",
-            "MenuText": "Bruecke stoppen",
-            "ToolTip": "Beendet den lokalen Dienst und raeumt Observer, Thread und Handshake-Datei ab",
+            "MenuText": tr("cmd.stop"),
+            "ToolTip": tr("cmd.stop.tip"),
         }
 
     def IsActive(self):
@@ -64,7 +65,7 @@ class StopBridgeCommand(object):
         try:
             runner.stop_bridge()
         except Exception as exc:
-            _report(exc, "Stoppen der Bruecke")
+            _report(exc, tr("fail.stop"))
         _refresh_panel()
 
 
@@ -72,8 +73,8 @@ class OpenUiCommand(object):
     def GetResources(self):
         return {
             "Pixmap": "bridge",
-            "MenuText": "Oberflaeche oeffnen",
-            "ToolTip": "Oeffnet die Plattform-Oberflaeche im Standardbrowser",
+            "MenuText": tr("cmd.open"),
+            "ToolTip": tr("cmd.open.tip"),
         }
 
     def IsActive(self):
@@ -83,15 +84,15 @@ class OpenUiCommand(object):
         try:
             webbrowser.open(BACKEND_URL)
         except Exception as exc:
-            _report(exc, "Oeffnen des Browsers")
+            _report(exc, tr("fail.browser"))
 
 
 class ShowPanelCommand(object):
     def GetResources(self):
         return {
             "Pixmap": "bridge",
-            "MenuText": "Status-Panel zeigen",
-            "ToolTip": "Blendet das Status-Panel der Bruecke wieder ein",
+            "MenuText": tr("cmd.panel"),
+            "ToolTip": tr("cmd.panel.tip"),
         }
 
     def IsActive(self):
@@ -103,7 +104,7 @@ class ShowPanelCommand(object):
 
             dock_panel.show_panel()
         except Exception as exc:
-            _report(exc, "Anzeigen des Panels")
+            _report(exc, tr("fail.panel"))
 
 
 _COMMANDS = (
@@ -115,7 +116,7 @@ _COMMANDS = (
 
 
 def register_all():
-    """Alle Befehle registrieren und ihre Namen fuer Toolbar/Menue liefern."""
+    """Register all commands and return their names for toolbar/menu."""
     names = []
     for name, cls in _COMMANDS:
         FreeCADGui.addCommand(name, cls())
