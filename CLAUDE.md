@@ -50,6 +50,13 @@ On box2 (Chili3D axes), new prompt: gpt-oss 3/3, Gemini 3/3 *, Gemma 0/3 *
 (empty answer) and 3/3 after the step-1 fix. `*` = run before the last
 wording fix to step 1.
 
+**Gemma on gearbox with the final prompt, 2026-09-30** (`out/ai_eval_2026-09-30.json`):
+two fresh answers, 2/11 (nothing usable proposed) and 11/11 (every entry right,
+both boreRadius left alone, no gate drops). Its answers swing between all and
+nothing, and neither swing is a wrong mapping. **The UPB gateway caches
+identical requests**: two repeats of the 11/11 came back byte-identical in
+0.2 s, so repeating a request there does not give a new sample.
+
 Failure -> fix, each seen in a real answer:
 - gpt-oss-120b (old) proposed `boreRadius` as `bbox_size` X at 0.93, for
   housing and cover -- the only confident wrong answers of the round, and the
