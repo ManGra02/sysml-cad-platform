@@ -1,0 +1,2235 @@
+{
+ "@type": "Commit",
+ "description": "E-bike demo model",
+ "change": [
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "0c419810-fe6b-508b-862b-3802b0d16746"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "0c419810-fe6b-508b-862b-3802b0d16746",
+    "elementId": "0c419810-fe6b-508b-862b-3802b0d16746",
+    "declaredName": "kilogram",
+    "declaredShortName": "kg",
+    "shortName": "kg",
+    "isLibraryElement": true,
+    "qualifiedName": "kilogram",
+    "name": "kilogram"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "76c05bea-acc1-54a6-90e1-9de505d6e3f5"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "76c05bea-acc1-54a6-90e1-9de505d6e3f5",
+    "elementId": "76c05bea-acc1-54a6-90e1-9de505d6e3f5",
+    "declaredName": "millimetre",
+    "declaredShortName": "mm",
+    "shortName": "mm",
+    "isLibraryElement": true,
+    "qualifiedName": "millimetre",
+    "name": "millimetre"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "70e0654f-56a0-5551-952a-36f31c8d11cf"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "70e0654f-56a0-5551-952a-36f31c8d11cf",
+    "elementId": "70e0654f-56a0-5551-952a-36f31c8d11cf",
+    "declaredName": "watt",
+    "declaredShortName": "W",
+    "shortName": "W",
+    "isLibraryElement": true,
+    "qualifiedName": "watt",
+    "name": "watt"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "ac79440d-64b4-5a11-95ec-7b7ceb739883"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "ac79440d-64b4-5a11-95ec-7b7ceb739883",
+    "elementId": "ac79440d-64b4-5a11-95ec-7b7ceb739883",
+    "declaredName": "volt",
+    "declaredShortName": "V",
+    "shortName": "V",
+    "isLibraryElement": true,
+    "qualifiedName": "volt",
+    "name": "volt"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "195ff435-b06f-5515-ab16-07c41d9fbd4e"
+   },
+   "payload": {
+    "@type": "Package",
+    "@id": "195ff435-b06f-5515-ab16-07c41d9fbd4e",
+    "elementId": "195ff435-b06f-5515-ab16-07c41d9fbd4e",
+    "declaredName": "EBikeDemo",
+    "qualifiedName": "EBikeDemo",
+    "name": "EBikeDemo"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+   },
+   "payload": {
+    "@type": "Package",
+    "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2",
+    "elementId": "a783f5dd-6c87-5599-adc3-4d48085c06d2",
+    "declaredName": "Definitions",
+    "owner": {
+     "@id": "195ff435-b06f-5515-ab16-07c41d9fbd4e"
+    },
+    "owningNamespace": {
+     "@id": "195ff435-b06f-5515-ab16-07c41d9fbd4e"
+    },
+    "qualifiedName": "EBikeDemo::Definitions",
+    "name": "Definitions"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "6b228b27-fba2-5487-a0b3-98ce7931c4dd"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "6b228b27-fba2-5487-a0b3-98ce7931c4dd",
+    "elementId": "6b228b27-fba2-5487-a0b3-98ce7931c4dd",
+    "declaredName": "EBike",
+    "owner": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "owningNamespace": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "qualifiedName": "EBikeDemo::Definitions::EBike",
+    "name": "EBike"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "6f8afe00-3e37-57bd-9d8d-1e2d57f45f92"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "6f8afe00-3e37-57bd-9d8d-1e2d57f45f92",
+    "elementId": "6f8afe00-3e37-57bd-9d8d-1e2d57f45f92",
+    "declaredName": "DriveUnit",
+    "owner": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "owningNamespace": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "qualifiedName": "EBikeDemo::Definitions::DriveUnit",
+    "name": "DriveUnit"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "fa42db03-e9d9-5dca-a1ed-5a4d41829f15"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "fa42db03-e9d9-5dca-a1ed-5a4d41829f15",
+    "elementId": "fa42db03-e9d9-5dca-a1ed-5a4d41829f15",
+    "declaredName": "Motor",
+    "owner": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "owningNamespace": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "qualifiedName": "EBikeDemo::Definitions::Motor",
+    "name": "Motor"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "9b87201a-9ab5-5f7d-8768-eab256636505"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "9b87201a-9ab5-5f7d-8768-eab256636505",
+    "elementId": "9b87201a-9ab5-5f7d-8768-eab256636505",
+    "declaredName": "Battery",
+    "owner": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "owningNamespace": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "qualifiedName": "EBikeDemo::Definitions::Battery",
+    "name": "Battery"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "ff0f17d9-ef46-5b0b-9206-683a8c90a54f"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "ff0f17d9-ef46-5b0b-9206-683a8c90a54f",
+    "elementId": "ff0f17d9-ef46-5b0b-9206-683a8c90a54f",
+    "declaredName": "Controller",
+    "owner": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "owningNamespace": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "qualifiedName": "EBikeDemo::Definitions::Controller",
+    "name": "Controller"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d1fe0f20-a0f0-5182-aa0a-a912d182f8bd"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "d1fe0f20-a0f0-5182-aa0a-a912d182f8bd",
+    "elementId": "d1fe0f20-a0f0-5182-aa0a-a912d182f8bd",
+    "declaredName": "CoolingSystem",
+    "owner": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "owningNamespace": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "qualifiedName": "EBikeDemo::Definitions::CoolingSystem",
+    "name": "CoolingSystem"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "7d6ec49c-c384-5174-9c66-36eeb70e10f6"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "7d6ec49c-c384-5174-9c66-36eeb70e10f6",
+    "elementId": "7d6ec49c-c384-5174-9c66-36eeb70e10f6",
+    "declaredName": "SensorMount",
+    "owner": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "owningNamespace": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "qualifiedName": "EBikeDemo::Definitions::SensorMount",
+    "name": "SensorMount"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "252db481-5fb4-566f-b17a-fb6185571601"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "252db481-5fb4-566f-b17a-fb6185571601",
+    "elementId": "252db481-5fb4-566f-b17a-fb6185571601",
+    "declaredName": "Frame",
+    "owner": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "owningNamespace": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "qualifiedName": "EBikeDemo::Definitions::Frame",
+    "name": "Frame"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "e25e5a37-9acf-57b6-8864-1753eeb00d07"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "e25e5a37-9acf-57b6-8864-1753eeb00d07",
+    "elementId": "e25e5a37-9acf-57b6-8864-1753eeb00d07",
+    "declaredName": "MountingBracket",
+    "owner": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "owningNamespace": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "qualifiedName": "EBikeDemo::Definitions::MountingBracket",
+    "name": "MountingBracket"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "38d7af7c-8b07-5eed-b9e7-35986b5d54b4"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "38d7af7c-8b07-5eed-b9e7-35986b5d54b4",
+    "elementId": "38d7af7c-8b07-5eed-b9e7-35986b5d54b4",
+    "declaredName": "CableGuide",
+    "owner": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "owningNamespace": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "qualifiedName": "EBikeDemo::Definitions::CableGuide",
+    "name": "CableGuide"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "8faf4b8d-d8fd-54a5-9124-0211dd75dfc3"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "8faf4b8d-d8fd-54a5-9124-0211dd75dfc3",
+    "elementId": "8faf4b8d-d8fd-54a5-9124-0211dd75dfc3",
+    "declaredName": "Wheelset",
+    "owner": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "owningNamespace": {
+     "@id": "a783f5dd-6c87-5599-adc3-4d48085c06d2"
+    },
+    "qualifiedName": "EBikeDemo::Definitions::Wheelset",
+    "name": "Wheelset"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "f3820325-6162-593e-9a9c-80ab4d69954c"
+   },
+   "payload": {
+    "@type": "Package",
+    "@id": "f3820325-6162-593e-9a9c-80ab4d69954c",
+    "elementId": "f3820325-6162-593e-9a9c-80ab4d69954c",
+    "declaredName": "Usages",
+    "owner": {
+     "@id": "195ff435-b06f-5515-ab16-07c41d9fbd4e"
+    },
+    "owningNamespace": {
+     "@id": "195ff435-b06f-5515-ab16-07c41d9fbd4e"
+    },
+    "qualifiedName": "EBikeDemo::Usages",
+    "name": "Usages"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "44ee482e-8403-5737-b30b-c162dc944adb",
+    "elementId": "44ee482e-8403-5737-b30b-c162dc944adb",
+    "declaredName": "eBike",
+    "definition": [
+     {
+      "@id": "6b228b27-fba2-5487-a0b3-98ce7931c4dd"
+     }
+    ],
+    "type": [
+     {
+      "@id": "6b228b27-fba2-5487-a0b3-98ce7931c4dd"
+     }
+    ],
+    "owner": {
+     "@id": "f3820325-6162-593e-9a9c-80ab4d69954c"
+    },
+    "owningNamespace": {
+     "@id": "f3820325-6162-593e-9a9c-80ab4d69954c"
+    },
+    "owningType": {
+     "@id": "f3820325-6162-593e-9a9c-80ab4d69954c"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike",
+    "name": "eBike"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f",
+    "elementId": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f",
+    "declaredName": "driveUnit",
+    "definition": [
+     {
+      "@id": "6f8afe00-3e37-57bd-9d8d-1e2d57f45f92"
+     }
+    ],
+    "type": [
+     {
+      "@id": "6f8afe00-3e37-57bd-9d8d-1e2d57f45f92"
+     }
+    ],
+    "owner": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningNamespace": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningType": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit",
+    "name": "driveUnit"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "20026c36-f2b9-5fa6-bb47-7fea613cf227"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "20026c36-f2b9-5fa6-bb47-7fea613cf227",
+    "elementId": "20026c36-f2b9-5fa6-bb47-7fea613cf227",
+    "declaredName": "massBudget",
+    "owner": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owningNamespace": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owningType": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::massBudget",
+    "name": "massBudget"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "5fddde4a-0daf-5536-8292-94e0b05ace78"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "5fddde4a-0daf-5536-8292-94e0b05ace78",
+    "elementId": "5fddde4a-0daf-5536-8292-94e0b05ace78",
+    "operator": "[",
+    "owner": {
+     "@id": "20026c36-f2b9-5fa6-bb47-7fea613cf227"
+    },
+    "owningNamespace": {
+     "@id": "20026c36-f2b9-5fa6-bb47-7fea613cf227"
+    },
+    "argument": [
+     {
+      "@id": "ae2ad6cb-72f6-5136-a6df-59b62290176a"
+     },
+     {
+      "@id": "d2072b97-6f0a-5448-afab-fbd7b6da5c73"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "ae2ad6cb-72f6-5136-a6df-59b62290176a"
+   },
+   "payload": {
+    "@type": "LiteralRational",
+    "@id": "ae2ad6cb-72f6-5136-a6df-59b62290176a",
+    "elementId": "ae2ad6cb-72f6-5136-a6df-59b62290176a",
+    "value": 18.0,
+    "owner": {
+     "@id": "5fddde4a-0daf-5536-8292-94e0b05ace78"
+    },
+    "owningNamespace": {
+     "@id": "5fddde4a-0daf-5536-8292-94e0b05ace78"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d2072b97-6f0a-5448-afab-fbd7b6da5c73"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "d2072b97-6f0a-5448-afab-fbd7b6da5c73",
+    "elementId": "d2072b97-6f0a-5448-afab-fbd7b6da5c73",
+    "referent": {
+     "@id": "0c419810-fe6b-508b-862b-3802b0d16746"
+    },
+    "owner": {
+     "@id": "5fddde4a-0daf-5536-8292-94e0b05ace78"
+    },
+    "owningNamespace": {
+     "@id": "5fddde4a-0daf-5536-8292-94e0b05ace78"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4376371f-454a-5cb0-af58-35ef06e6e2b6"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "4376371f-454a-5cb0-af58-35ef06e6e2b6",
+    "elementId": "4376371f-454a-5cb0-af58-35ef06e6e2b6",
+    "featureWithValue": {
+     "@id": "20026c36-f2b9-5fa6-bb47-7fea613cf227"
+    },
+    "value": {
+     "@id": "5fddde4a-0daf-5536-8292-94e0b05ace78"
+    },
+    "memberElement": {
+     "@id": "5fddde4a-0daf-5536-8292-94e0b05ace78"
+    },
+    "owner": {
+     "@id": "20026c36-f2b9-5fa6-bb47-7fea613cf227"
+    },
+    "owningNamespace": {
+     "@id": "20026c36-f2b9-5fa6-bb47-7fea613cf227"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2",
+    "elementId": "16f190d0-ad83-5089-b942-a2f1caa207f2",
+    "declaredName": "motor",
+    "definition": [
+     {
+      "@id": "fa42db03-e9d9-5dca-a1ed-5a4d41829f15"
+     }
+    ],
+    "type": [
+     {
+      "@id": "fa42db03-e9d9-5dca-a1ed-5a4d41829f15"
+     }
+    ],
+    "owner": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owningNamespace": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owningType": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::motor",
+    "name": "motor"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "a5dfd921-f9a0-5acb-a6b0-d94adcb102b8"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "a5dfd921-f9a0-5acb-a6b0-d94adcb102b8",
+    "elementId": "a5dfd921-f9a0-5acb-a6b0-d94adcb102b8",
+    "declaredName": "mass",
+    "owner": {
+     "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+    },
+    "owningNamespace": {
+     "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+    },
+    "owningType": {
+     "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::motor::mass",
+    "name": "mass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "49538e8e-ecff-5265-9335-7528371efabd"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "49538e8e-ecff-5265-9335-7528371efabd",
+    "elementId": "49538e8e-ecff-5265-9335-7528371efabd",
+    "operator": "[",
+    "owner": {
+     "@id": "a5dfd921-f9a0-5acb-a6b0-d94adcb102b8"
+    },
+    "owningNamespace": {
+     "@id": "a5dfd921-f9a0-5acb-a6b0-d94adcb102b8"
+    },
+    "argument": [
+     {
+      "@id": "2e4c4f02-51ed-5931-943a-29c28a88fe03"
+     },
+     {
+      "@id": "57961a81-dc68-531a-a0a3-bca1d6049652"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2e4c4f02-51ed-5931-943a-29c28a88fe03"
+   },
+   "payload": {
+    "@type": "LiteralRational",
+    "@id": "2e4c4f02-51ed-5931-943a-29c28a88fe03",
+    "elementId": "2e4c4f02-51ed-5931-943a-29c28a88fe03",
+    "value": 9.8,
+    "owner": {
+     "@id": "49538e8e-ecff-5265-9335-7528371efabd"
+    },
+    "owningNamespace": {
+     "@id": "49538e8e-ecff-5265-9335-7528371efabd"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "57961a81-dc68-531a-a0a3-bca1d6049652"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "57961a81-dc68-531a-a0a3-bca1d6049652",
+    "elementId": "57961a81-dc68-531a-a0a3-bca1d6049652",
+    "referent": {
+     "@id": "0c419810-fe6b-508b-862b-3802b0d16746"
+    },
+    "owner": {
+     "@id": "49538e8e-ecff-5265-9335-7528371efabd"
+    },
+    "owningNamespace": {
+     "@id": "49538e8e-ecff-5265-9335-7528371efabd"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "066d4068-0879-5baa-91c1-c9ba852aad4c"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "066d4068-0879-5baa-91c1-c9ba852aad4c",
+    "elementId": "066d4068-0879-5baa-91c1-c9ba852aad4c",
+    "featureWithValue": {
+     "@id": "a5dfd921-f9a0-5acb-a6b0-d94adcb102b8"
+    },
+    "value": {
+     "@id": "49538e8e-ecff-5265-9335-7528371efabd"
+    },
+    "memberElement": {
+     "@id": "49538e8e-ecff-5265-9335-7528371efabd"
+    },
+    "owner": {
+     "@id": "a5dfd921-f9a0-5acb-a6b0-d94adcb102b8"
+    },
+    "owningNamespace": {
+     "@id": "a5dfd921-f9a0-5acb-a6b0-d94adcb102b8"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "160a4ddb-fe39-5b6e-84bf-3b0bed3921c1"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "160a4ddb-fe39-5b6e-84bf-3b0bed3921c1",
+    "elementId": "160a4ddb-fe39-5b6e-84bf-3b0bed3921c1",
+    "declaredName": "maxMass",
+    "owner": {
+     "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+    },
+    "owningNamespace": {
+     "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+    },
+    "owningType": {
+     "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::motor::maxMass",
+    "name": "maxMass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2dd333a6-1827-59b2-80b6-b21f4d750c2b"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "2dd333a6-1827-59b2-80b6-b21f4d750c2b",
+    "elementId": "2dd333a6-1827-59b2-80b6-b21f4d750c2b",
+    "operator": "[",
+    "owner": {
+     "@id": "160a4ddb-fe39-5b6e-84bf-3b0bed3921c1"
+    },
+    "owningNamespace": {
+     "@id": "160a4ddb-fe39-5b6e-84bf-3b0bed3921c1"
+    },
+    "argument": [
+     {
+      "@id": "0c034193-b546-5f3c-9ed1-9be85ebee937"
+     },
+     {
+      "@id": "f09a281f-68a9-54e3-80cf-7448798cfd9b"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "0c034193-b546-5f3c-9ed1-9be85ebee937"
+   },
+   "payload": {
+    "@type": "LiteralRational",
+    "@id": "0c034193-b546-5f3c-9ed1-9be85ebee937",
+    "elementId": "0c034193-b546-5f3c-9ed1-9be85ebee937",
+    "value": 10.0,
+    "owner": {
+     "@id": "2dd333a6-1827-59b2-80b6-b21f4d750c2b"
+    },
+    "owningNamespace": {
+     "@id": "2dd333a6-1827-59b2-80b6-b21f4d750c2b"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "f09a281f-68a9-54e3-80cf-7448798cfd9b"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "f09a281f-68a9-54e3-80cf-7448798cfd9b",
+    "elementId": "f09a281f-68a9-54e3-80cf-7448798cfd9b",
+    "referent": {
+     "@id": "0c419810-fe6b-508b-862b-3802b0d16746"
+    },
+    "owner": {
+     "@id": "2dd333a6-1827-59b2-80b6-b21f4d750c2b"
+    },
+    "owningNamespace": {
+     "@id": "2dd333a6-1827-59b2-80b6-b21f4d750c2b"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "95071143-68fd-50b0-86c3-faac1db67d6a"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "95071143-68fd-50b0-86c3-faac1db67d6a",
+    "elementId": "95071143-68fd-50b0-86c3-faac1db67d6a",
+    "featureWithValue": {
+     "@id": "160a4ddb-fe39-5b6e-84bf-3b0bed3921c1"
+    },
+    "value": {
+     "@id": "2dd333a6-1827-59b2-80b6-b21f4d750c2b"
+    },
+    "memberElement": {
+     "@id": "2dd333a6-1827-59b2-80b6-b21f4d750c2b"
+    },
+    "owner": {
+     "@id": "160a4ddb-fe39-5b6e-84bf-3b0bed3921c1"
+    },
+    "owningNamespace": {
+     "@id": "160a4ddb-fe39-5b6e-84bf-3b0bed3921c1"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "fd78afa5-fd39-5ebb-ab1f-8e2db9ff00db"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "fd78afa5-fd39-5ebb-ab1f-8e2db9ff00db",
+    "elementId": "fd78afa5-fd39-5ebb-ab1f-8e2db9ff00db",
+    "declaredName": "ratedPower",
+    "owner": {
+     "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+    },
+    "owningNamespace": {
+     "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+    },
+    "owningType": {
+     "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::motor::ratedPower",
+    "name": "ratedPower"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "000f7f72-4551-5afd-a4df-6696879b1a13"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "000f7f72-4551-5afd-a4df-6696879b1a13",
+    "elementId": "000f7f72-4551-5afd-a4df-6696879b1a13",
+    "operator": "[",
+    "owner": {
+     "@id": "fd78afa5-fd39-5ebb-ab1f-8e2db9ff00db"
+    },
+    "owningNamespace": {
+     "@id": "fd78afa5-fd39-5ebb-ab1f-8e2db9ff00db"
+    },
+    "argument": [
+     {
+      "@id": "c0ba0f64-37ba-5406-862e-45db50daa561"
+     },
+     {
+      "@id": "8caa09e5-714b-5af9-b782-e0dfa0f789a0"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "c0ba0f64-37ba-5406-862e-45db50daa561"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "c0ba0f64-37ba-5406-862e-45db50daa561",
+    "elementId": "c0ba0f64-37ba-5406-862e-45db50daa561",
+    "value": 250,
+    "owner": {
+     "@id": "000f7f72-4551-5afd-a4df-6696879b1a13"
+    },
+    "owningNamespace": {
+     "@id": "000f7f72-4551-5afd-a4df-6696879b1a13"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "8caa09e5-714b-5af9-b782-e0dfa0f789a0"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "8caa09e5-714b-5af9-b782-e0dfa0f789a0",
+    "elementId": "8caa09e5-714b-5af9-b782-e0dfa0f789a0",
+    "referent": {
+     "@id": "70e0654f-56a0-5551-952a-36f31c8d11cf"
+    },
+    "owner": {
+     "@id": "000f7f72-4551-5afd-a4df-6696879b1a13"
+    },
+    "owningNamespace": {
+     "@id": "000f7f72-4551-5afd-a4df-6696879b1a13"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2ee302a9-d758-5786-86a9-391422f6c947"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "2ee302a9-d758-5786-86a9-391422f6c947",
+    "elementId": "2ee302a9-d758-5786-86a9-391422f6c947",
+    "featureWithValue": {
+     "@id": "fd78afa5-fd39-5ebb-ab1f-8e2db9ff00db"
+    },
+    "value": {
+     "@id": "000f7f72-4551-5afd-a4df-6696879b1a13"
+    },
+    "memberElement": {
+     "@id": "000f7f72-4551-5afd-a4df-6696879b1a13"
+    },
+    "owner": {
+     "@id": "fd78afa5-fd39-5ebb-ab1f-8e2db9ff00db"
+    },
+    "owningNamespace": {
+     "@id": "fd78afa5-fd39-5ebb-ab1f-8e2db9ff00db"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "024450b1-a5a8-58e5-a591-57b18fbb1c1a"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "024450b1-a5a8-58e5-a591-57b18fbb1c1a",
+    "elementId": "024450b1-a5a8-58e5-a591-57b18fbb1c1a",
+    "declaredName": "battery",
+    "definition": [
+     {
+      "@id": "9b87201a-9ab5-5f7d-8768-eab256636505"
+     }
+    ],
+    "type": [
+     {
+      "@id": "9b87201a-9ab5-5f7d-8768-eab256636505"
+     }
+    ],
+    "owner": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owningNamespace": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owningType": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::battery",
+    "name": "battery"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2fc04e47-4ac6-52d0-930c-e70142159e22"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "2fc04e47-4ac6-52d0-930c-e70142159e22",
+    "elementId": "2fc04e47-4ac6-52d0-930c-e70142159e22",
+    "declaredName": "mass",
+    "owner": {
+     "@id": "024450b1-a5a8-58e5-a591-57b18fbb1c1a"
+    },
+    "owningNamespace": {
+     "@id": "024450b1-a5a8-58e5-a591-57b18fbb1c1a"
+    },
+    "owningType": {
+     "@id": "024450b1-a5a8-58e5-a591-57b18fbb1c1a"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::battery::mass",
+    "name": "mass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "b3717f6b-4bfc-5b43-ad94-07f1c9cd4c22"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "b3717f6b-4bfc-5b43-ad94-07f1c9cd4c22",
+    "elementId": "b3717f6b-4bfc-5b43-ad94-07f1c9cd4c22",
+    "operator": "[",
+    "owner": {
+     "@id": "2fc04e47-4ac6-52d0-930c-e70142159e22"
+    },
+    "owningNamespace": {
+     "@id": "2fc04e47-4ac6-52d0-930c-e70142159e22"
+    },
+    "argument": [
+     {
+      "@id": "2b0f3c6e-e0c2-52fa-8697-c8c4106fdf9f"
+     },
+     {
+      "@id": "88902aa4-bf75-55ca-9893-138c6a090310"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2b0f3c6e-e0c2-52fa-8697-c8c4106fdf9f"
+   },
+   "payload": {
+    "@type": "LiteralRational",
+    "@id": "2b0f3c6e-e0c2-52fa-8697-c8c4106fdf9f",
+    "elementId": "2b0f3c6e-e0c2-52fa-8697-c8c4106fdf9f",
+    "value": 3.2,
+    "owner": {
+     "@id": "b3717f6b-4bfc-5b43-ad94-07f1c9cd4c22"
+    },
+    "owningNamespace": {
+     "@id": "b3717f6b-4bfc-5b43-ad94-07f1c9cd4c22"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "88902aa4-bf75-55ca-9893-138c6a090310"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "88902aa4-bf75-55ca-9893-138c6a090310",
+    "elementId": "88902aa4-bf75-55ca-9893-138c6a090310",
+    "referent": {
+     "@id": "0c419810-fe6b-508b-862b-3802b0d16746"
+    },
+    "owner": {
+     "@id": "b3717f6b-4bfc-5b43-ad94-07f1c9cd4c22"
+    },
+    "owningNamespace": {
+     "@id": "b3717f6b-4bfc-5b43-ad94-07f1c9cd4c22"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "ac7cb450-6807-55e9-b525-7aff1c361b13"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "ac7cb450-6807-55e9-b525-7aff1c361b13",
+    "elementId": "ac7cb450-6807-55e9-b525-7aff1c361b13",
+    "featureWithValue": {
+     "@id": "2fc04e47-4ac6-52d0-930c-e70142159e22"
+    },
+    "value": {
+     "@id": "b3717f6b-4bfc-5b43-ad94-07f1c9cd4c22"
+    },
+    "memberElement": {
+     "@id": "b3717f6b-4bfc-5b43-ad94-07f1c9cd4c22"
+    },
+    "owner": {
+     "@id": "2fc04e47-4ac6-52d0-930c-e70142159e22"
+    },
+    "owningNamespace": {
+     "@id": "2fc04e47-4ac6-52d0-930c-e70142159e22"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "b691d9e4-0054-5db7-b0c5-cb2100ff5f4b"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "b691d9e4-0054-5db7-b0c5-cb2100ff5f4b",
+    "elementId": "b691d9e4-0054-5db7-b0c5-cb2100ff5f4b",
+    "declaredName": "voltage",
+    "owner": {
+     "@id": "024450b1-a5a8-58e5-a591-57b18fbb1c1a"
+    },
+    "owningNamespace": {
+     "@id": "024450b1-a5a8-58e5-a591-57b18fbb1c1a"
+    },
+    "owningType": {
+     "@id": "024450b1-a5a8-58e5-a591-57b18fbb1c1a"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::battery::voltage",
+    "name": "voltage"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "e282642f-21ba-5f81-ab79-753829db6a5d"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "e282642f-21ba-5f81-ab79-753829db6a5d",
+    "elementId": "e282642f-21ba-5f81-ab79-753829db6a5d",
+    "operator": "[",
+    "owner": {
+     "@id": "b691d9e4-0054-5db7-b0c5-cb2100ff5f4b"
+    },
+    "owningNamespace": {
+     "@id": "b691d9e4-0054-5db7-b0c5-cb2100ff5f4b"
+    },
+    "argument": [
+     {
+      "@id": "ecb7008c-0b54-53c6-9cb7-ac6820fecc2f"
+     },
+     {
+      "@id": "d36c6d5e-f708-54cf-babc-c0db4221ed53"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "ecb7008c-0b54-53c6-9cb7-ac6820fecc2f"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "ecb7008c-0b54-53c6-9cb7-ac6820fecc2f",
+    "elementId": "ecb7008c-0b54-53c6-9cb7-ac6820fecc2f",
+    "value": 36,
+    "owner": {
+     "@id": "e282642f-21ba-5f81-ab79-753829db6a5d"
+    },
+    "owningNamespace": {
+     "@id": "e282642f-21ba-5f81-ab79-753829db6a5d"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d36c6d5e-f708-54cf-babc-c0db4221ed53"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "d36c6d5e-f708-54cf-babc-c0db4221ed53",
+    "elementId": "d36c6d5e-f708-54cf-babc-c0db4221ed53",
+    "referent": {
+     "@id": "ac79440d-64b4-5a11-95ec-7b7ceb739883"
+    },
+    "owner": {
+     "@id": "e282642f-21ba-5f81-ab79-753829db6a5d"
+    },
+    "owningNamespace": {
+     "@id": "e282642f-21ba-5f81-ab79-753829db6a5d"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "99b19c2b-4ae7-57de-81c5-ddb25542a0bf"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "99b19c2b-4ae7-57de-81c5-ddb25542a0bf",
+    "elementId": "99b19c2b-4ae7-57de-81c5-ddb25542a0bf",
+    "featureWithValue": {
+     "@id": "b691d9e4-0054-5db7-b0c5-cb2100ff5f4b"
+    },
+    "value": {
+     "@id": "e282642f-21ba-5f81-ab79-753829db6a5d"
+    },
+    "memberElement": {
+     "@id": "e282642f-21ba-5f81-ab79-753829db6a5d"
+    },
+    "owner": {
+     "@id": "b691d9e4-0054-5db7-b0c5-cb2100ff5f4b"
+    },
+    "owningNamespace": {
+     "@id": "b691d9e4-0054-5db7-b0c5-cb2100ff5f4b"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4eb6e523-a838-5409-a400-0a7308e3b47d"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "4eb6e523-a838-5409-a400-0a7308e3b47d",
+    "elementId": "4eb6e523-a838-5409-a400-0a7308e3b47d",
+    "declaredName": "envelopeLength",
+    "owner": {
+     "@id": "024450b1-a5a8-58e5-a591-57b18fbb1c1a"
+    },
+    "owningNamespace": {
+     "@id": "024450b1-a5a8-58e5-a591-57b18fbb1c1a"
+    },
+    "owningType": {
+     "@id": "024450b1-a5a8-58e5-a591-57b18fbb1c1a"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::battery::envelopeLength",
+    "name": "envelopeLength"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "cc1b27dd-616b-50a3-b913-f3c0d10082e5"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "cc1b27dd-616b-50a3-b913-f3c0d10082e5",
+    "elementId": "cc1b27dd-616b-50a3-b913-f3c0d10082e5",
+    "operator": "[",
+    "owner": {
+     "@id": "4eb6e523-a838-5409-a400-0a7308e3b47d"
+    },
+    "owningNamespace": {
+     "@id": "4eb6e523-a838-5409-a400-0a7308e3b47d"
+    },
+    "argument": [
+     {
+      "@id": "0f76855d-f380-5c47-ae8b-c0babb8bb63f"
+     },
+     {
+      "@id": "3431cfbc-5ed7-5c32-8963-2221fd49d5f8"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "0f76855d-f380-5c47-ae8b-c0babb8bb63f"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "0f76855d-f380-5c47-ae8b-c0babb8bb63f",
+    "elementId": "0f76855d-f380-5c47-ae8b-c0babb8bb63f",
+    "value": 360,
+    "owner": {
+     "@id": "cc1b27dd-616b-50a3-b913-f3c0d10082e5"
+    },
+    "owningNamespace": {
+     "@id": "cc1b27dd-616b-50a3-b913-f3c0d10082e5"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "3431cfbc-5ed7-5c32-8963-2221fd49d5f8"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "3431cfbc-5ed7-5c32-8963-2221fd49d5f8",
+    "elementId": "3431cfbc-5ed7-5c32-8963-2221fd49d5f8",
+    "referent": {
+     "@id": "76c05bea-acc1-54a6-90e1-9de505d6e3f5"
+    },
+    "owner": {
+     "@id": "cc1b27dd-616b-50a3-b913-f3c0d10082e5"
+    },
+    "owningNamespace": {
+     "@id": "cc1b27dd-616b-50a3-b913-f3c0d10082e5"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "bf3398bc-c459-55c4-9ab8-6c5024c46625"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "bf3398bc-c459-55c4-9ab8-6c5024c46625",
+    "elementId": "bf3398bc-c459-55c4-9ab8-6c5024c46625",
+    "featureWithValue": {
+     "@id": "4eb6e523-a838-5409-a400-0a7308e3b47d"
+    },
+    "value": {
+     "@id": "cc1b27dd-616b-50a3-b913-f3c0d10082e5"
+    },
+    "memberElement": {
+     "@id": "cc1b27dd-616b-50a3-b913-f3c0d10082e5"
+    },
+    "owner": {
+     "@id": "4eb6e523-a838-5409-a400-0a7308e3b47d"
+    },
+    "owningNamespace": {
+     "@id": "4eb6e523-a838-5409-a400-0a7308e3b47d"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "38a0a24f-d582-571b-9f99-f9e622919ba3"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "38a0a24f-d582-571b-9f99-f9e622919ba3",
+    "elementId": "38a0a24f-d582-571b-9f99-f9e622919ba3",
+    "declaredName": "controller",
+    "definition": [
+     {
+      "@id": "ff0f17d9-ef46-5b0b-9206-683a8c90a54f"
+     }
+    ],
+    "type": [
+     {
+      "@id": "ff0f17d9-ef46-5b0b-9206-683a8c90a54f"
+     }
+    ],
+    "owner": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owningNamespace": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owningType": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::controller",
+    "name": "controller"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "378f7c0b-61f8-58ee-8d97-45e4db5e21cf"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "378f7c0b-61f8-58ee-8d97-45e4db5e21cf",
+    "elementId": "378f7c0b-61f8-58ee-8d97-45e4db5e21cf",
+    "declaredName": "mass",
+    "owner": {
+     "@id": "38a0a24f-d582-571b-9f99-f9e622919ba3"
+    },
+    "owningNamespace": {
+     "@id": "38a0a24f-d582-571b-9f99-f9e622919ba3"
+    },
+    "owningType": {
+     "@id": "38a0a24f-d582-571b-9f99-f9e622919ba3"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::controller::mass",
+    "name": "mass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4daa1b24-a2b8-555c-a2a0-35a3d8355a1e"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "4daa1b24-a2b8-555c-a2a0-35a3d8355a1e",
+    "elementId": "4daa1b24-a2b8-555c-a2a0-35a3d8355a1e",
+    "operator": "[",
+    "owner": {
+     "@id": "378f7c0b-61f8-58ee-8d97-45e4db5e21cf"
+    },
+    "owningNamespace": {
+     "@id": "378f7c0b-61f8-58ee-8d97-45e4db5e21cf"
+    },
+    "argument": [
+     {
+      "@id": "b9bc8849-44fb-5096-8182-d43d52e44ce5"
+     },
+     {
+      "@id": "2bd4a32f-6883-5df1-842e-42979c28399a"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "b9bc8849-44fb-5096-8182-d43d52e44ce5"
+   },
+   "payload": {
+    "@type": "LiteralRational",
+    "@id": "b9bc8849-44fb-5096-8182-d43d52e44ce5",
+    "elementId": "b9bc8849-44fb-5096-8182-d43d52e44ce5",
+    "value": 1.2,
+    "owner": {
+     "@id": "4daa1b24-a2b8-555c-a2a0-35a3d8355a1e"
+    },
+    "owningNamespace": {
+     "@id": "4daa1b24-a2b8-555c-a2a0-35a3d8355a1e"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2bd4a32f-6883-5df1-842e-42979c28399a"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "2bd4a32f-6883-5df1-842e-42979c28399a",
+    "elementId": "2bd4a32f-6883-5df1-842e-42979c28399a",
+    "referent": {
+     "@id": "0c419810-fe6b-508b-862b-3802b0d16746"
+    },
+    "owner": {
+     "@id": "4daa1b24-a2b8-555c-a2a0-35a3d8355a1e"
+    },
+    "owningNamespace": {
+     "@id": "4daa1b24-a2b8-555c-a2a0-35a3d8355a1e"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "a31a86c1-2cfa-5a49-81a1-bf1eb4e71575"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "a31a86c1-2cfa-5a49-81a1-bf1eb4e71575",
+    "elementId": "a31a86c1-2cfa-5a49-81a1-bf1eb4e71575",
+    "featureWithValue": {
+     "@id": "378f7c0b-61f8-58ee-8d97-45e4db5e21cf"
+    },
+    "value": {
+     "@id": "4daa1b24-a2b8-555c-a2a0-35a3d8355a1e"
+    },
+    "memberElement": {
+     "@id": "4daa1b24-a2b8-555c-a2a0-35a3d8355a1e"
+    },
+    "owner": {
+     "@id": "378f7c0b-61f8-58ee-8d97-45e4db5e21cf"
+    },
+    "owningNamespace": {
+     "@id": "378f7c0b-61f8-58ee-8d97-45e4db5e21cf"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4c86eeb3-d973-542d-89ab-691a93560ac4"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "4c86eeb3-d973-542d-89ab-691a93560ac4",
+    "elementId": "4c86eeb3-d973-542d-89ab-691a93560ac4",
+    "declaredName": "coolingSystem",
+    "definition": [
+     {
+      "@id": "d1fe0f20-a0f0-5182-aa0a-a912d182f8bd"
+     }
+    ],
+    "type": [
+     {
+      "@id": "d1fe0f20-a0f0-5182-aa0a-a912d182f8bd"
+     }
+    ],
+    "owner": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owningNamespace": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owningType": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::coolingSystem",
+    "name": "coolingSystem"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "9f667d96-4340-55ea-af0b-42295291e292"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "9f667d96-4340-55ea-af0b-42295291e292",
+    "elementId": "9f667d96-4340-55ea-af0b-42295291e292",
+    "declaredName": "heatDissipation",
+    "owner": {
+     "@id": "4c86eeb3-d973-542d-89ab-691a93560ac4"
+    },
+    "owningNamespace": {
+     "@id": "4c86eeb3-d973-542d-89ab-691a93560ac4"
+    },
+    "owningType": {
+     "@id": "4c86eeb3-d973-542d-89ab-691a93560ac4"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::coolingSystem::heatDissipation",
+    "name": "heatDissipation"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "991043ca-8e25-51ff-bd0f-d2cee240bf3d"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "991043ca-8e25-51ff-bd0f-d2cee240bf3d",
+    "elementId": "991043ca-8e25-51ff-bd0f-d2cee240bf3d",
+    "operator": "[",
+    "owner": {
+     "@id": "9f667d96-4340-55ea-af0b-42295291e292"
+    },
+    "owningNamespace": {
+     "@id": "9f667d96-4340-55ea-af0b-42295291e292"
+    },
+    "argument": [
+     {
+      "@id": "64792601-511b-5eb5-ba5c-185d7d9c9484"
+     },
+     {
+      "@id": "c98e7b5a-dfb5-52a9-a58a-837fafb4050c"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "64792601-511b-5eb5-ba5c-185d7d9c9484"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "64792601-511b-5eb5-ba5c-185d7d9c9484",
+    "elementId": "64792601-511b-5eb5-ba5c-185d7d9c9484",
+    "value": 250,
+    "owner": {
+     "@id": "991043ca-8e25-51ff-bd0f-d2cee240bf3d"
+    },
+    "owningNamespace": {
+     "@id": "991043ca-8e25-51ff-bd0f-d2cee240bf3d"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "c98e7b5a-dfb5-52a9-a58a-837fafb4050c"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "c98e7b5a-dfb5-52a9-a58a-837fafb4050c",
+    "elementId": "c98e7b5a-dfb5-52a9-a58a-837fafb4050c",
+    "referent": {
+     "@id": "70e0654f-56a0-5551-952a-36f31c8d11cf"
+    },
+    "owner": {
+     "@id": "991043ca-8e25-51ff-bd0f-d2cee240bf3d"
+    },
+    "owningNamespace": {
+     "@id": "991043ca-8e25-51ff-bd0f-d2cee240bf3d"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "1f4922b1-4a7b-540e-bac1-dbcd23db5f9f"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "1f4922b1-4a7b-540e-bac1-dbcd23db5f9f",
+    "elementId": "1f4922b1-4a7b-540e-bac1-dbcd23db5f9f",
+    "featureWithValue": {
+     "@id": "9f667d96-4340-55ea-af0b-42295291e292"
+    },
+    "value": {
+     "@id": "991043ca-8e25-51ff-bd0f-d2cee240bf3d"
+    },
+    "memberElement": {
+     "@id": "991043ca-8e25-51ff-bd0f-d2cee240bf3d"
+    },
+    "owner": {
+     "@id": "9f667d96-4340-55ea-af0b-42295291e292"
+    },
+    "owningNamespace": {
+     "@id": "9f667d96-4340-55ea-af0b-42295291e292"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "0ed64531-edf4-54fc-b9e5-fc0d52799251"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "0ed64531-edf4-54fc-b9e5-fc0d52799251",
+    "elementId": "0ed64531-edf4-54fc-b9e5-fc0d52799251",
+    "declaredName": "sensorMount",
+    "definition": [
+     {
+      "@id": "7d6ec49c-c384-5174-9c66-36eeb70e10f6"
+     }
+    ],
+    "type": [
+     {
+      "@id": "7d6ec49c-c384-5174-9c66-36eeb70e10f6"
+     }
+    ],
+    "owner": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owningNamespace": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owningType": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::driveUnit::sensorMount",
+    "name": "sensorMount"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5",
+    "elementId": "af66e858-3af5-5feb-b60c-cfe4b705d9f5",
+    "declaredName": "frame",
+    "definition": [
+     {
+      "@id": "252db481-5fb4-566f-b17a-fb6185571601"
+     }
+    ],
+    "type": [
+     {
+      "@id": "252db481-5fb4-566f-b17a-fb6185571601"
+     }
+    ],
+    "owner": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningNamespace": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningType": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::frame",
+    "name": "frame"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "5c3fe0f0-8d48-5bc3-8e99-563d2cf5592a"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "5c3fe0f0-8d48-5bc3-8e99-563d2cf5592a",
+    "elementId": "5c3fe0f0-8d48-5bc3-8e99-563d2cf5592a",
+    "declaredName": "holeSpacing",
+    "owner": {
+     "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+    },
+    "owningNamespace": {
+     "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+    },
+    "owningType": {
+     "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::frame::holeSpacing",
+    "name": "holeSpacing"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "48533c47-8dd4-579f-be1f-c4ad91dd84c3"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "48533c47-8dd4-579f-be1f-c4ad91dd84c3",
+    "elementId": "48533c47-8dd4-579f-be1f-c4ad91dd84c3",
+    "operator": "[",
+    "owner": {
+     "@id": "5c3fe0f0-8d48-5bc3-8e99-563d2cf5592a"
+    },
+    "owningNamespace": {
+     "@id": "5c3fe0f0-8d48-5bc3-8e99-563d2cf5592a"
+    },
+    "argument": [
+     {
+      "@id": "b084a12a-fcbe-5e5a-bae8-bdf02690e18f"
+     },
+     {
+      "@id": "d5282397-2bd0-55e0-aba3-0be09494947b"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "b084a12a-fcbe-5e5a-bae8-bdf02690e18f"
+   },
+   "payload": {
+    "@type": "LiteralRational",
+    "@id": "b084a12a-fcbe-5e5a-bae8-bdf02690e18f",
+    "elementId": "b084a12a-fcbe-5e5a-bae8-bdf02690e18f",
+    "value": 80.0,
+    "owner": {
+     "@id": "48533c47-8dd4-579f-be1f-c4ad91dd84c3"
+    },
+    "owningNamespace": {
+     "@id": "48533c47-8dd4-579f-be1f-c4ad91dd84c3"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d5282397-2bd0-55e0-aba3-0be09494947b"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "d5282397-2bd0-55e0-aba3-0be09494947b",
+    "elementId": "d5282397-2bd0-55e0-aba3-0be09494947b",
+    "referent": {
+     "@id": "76c05bea-acc1-54a6-90e1-9de505d6e3f5"
+    },
+    "owner": {
+     "@id": "48533c47-8dd4-579f-be1f-c4ad91dd84c3"
+    },
+    "owningNamespace": {
+     "@id": "48533c47-8dd4-579f-be1f-c4ad91dd84c3"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d79d582a-e696-5c29-9191-ec33f32a2da6"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "d79d582a-e696-5c29-9191-ec33f32a2da6",
+    "elementId": "d79d582a-e696-5c29-9191-ec33f32a2da6",
+    "featureWithValue": {
+     "@id": "5c3fe0f0-8d48-5bc3-8e99-563d2cf5592a"
+    },
+    "value": {
+     "@id": "48533c47-8dd4-579f-be1f-c4ad91dd84c3"
+    },
+    "memberElement": {
+     "@id": "48533c47-8dd4-579f-be1f-c4ad91dd84c3"
+    },
+    "owner": {
+     "@id": "5c3fe0f0-8d48-5bc3-8e99-563d2cf5592a"
+    },
+    "owningNamespace": {
+     "@id": "5c3fe0f0-8d48-5bc3-8e99-563d2cf5592a"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "1ea2cce0-76a7-50df-afbf-0d8c08d68cf6"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "1ea2cce0-76a7-50df-afbf-0d8c08d68cf6",
+    "elementId": "1ea2cce0-76a7-50df-afbf-0d8c08d68cf6",
+    "declaredName": "mountingBracket",
+    "definition": [
+     {
+      "@id": "e25e5a37-9acf-57b6-8864-1753eeb00d07"
+     }
+    ],
+    "type": [
+     {
+      "@id": "e25e5a37-9acf-57b6-8864-1753eeb00d07"
+     }
+    ],
+    "owner": {
+     "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+    },
+    "owningNamespace": {
+     "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+    },
+    "owningType": {
+     "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::frame::mountingBracket",
+    "name": "mountingBracket"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "c149b78d-7140-59ee-953c-1fa049eca73e"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "c149b78d-7140-59ee-953c-1fa049eca73e",
+    "elementId": "c149b78d-7140-59ee-953c-1fa049eca73e",
+    "declaredName": "cableGuide",
+    "definition": [
+     {
+      "@id": "38d7af7c-8b07-5eed-b9e7-35986b5d54b4"
+     }
+    ],
+    "type": [
+     {
+      "@id": "38d7af7c-8b07-5eed-b9e7-35986b5d54b4"
+     }
+    ],
+    "owner": {
+     "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+    },
+    "owningNamespace": {
+     "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+    },
+    "owningType": {
+     "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::frame::cableGuide",
+    "name": "cableGuide"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "3afacd5e-88e5-52df-bc25-31fac7df9f15"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "3afacd5e-88e5-52df-bc25-31fac7df9f15",
+    "elementId": "3afacd5e-88e5-52df-bc25-31fac7df9f15",
+    "declaredName": "wheelset",
+    "definition": [
+     {
+      "@id": "8faf4b8d-d8fd-54a5-9124-0211dd75dfc3"
+     }
+    ],
+    "type": [
+     {
+      "@id": "8faf4b8d-d8fd-54a5-9124-0211dd75dfc3"
+     }
+    ],
+    "owner": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningNamespace": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningType": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::wheelset",
+    "name": "wheelset"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2de4950f-668c-5b26-af46-4db0e7ed7f42"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "2de4950f-668c-5b26-af46-4db0e7ed7f42",
+    "elementId": "2de4950f-668c-5b26-af46-4db0e7ed7f42",
+    "declaredName": "diameter",
+    "owner": {
+     "@id": "3afacd5e-88e5-52df-bc25-31fac7df9f15"
+    },
+    "owningNamespace": {
+     "@id": "3afacd5e-88e5-52df-bc25-31fac7df9f15"
+    },
+    "owningType": {
+     "@id": "3afacd5e-88e5-52df-bc25-31fac7df9f15"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::wheelset::diameter",
+    "name": "diameter"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4d709ed0-a099-54ed-927e-b060a893e739"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "4d709ed0-a099-54ed-927e-b060a893e739",
+    "elementId": "4d709ed0-a099-54ed-927e-b060a893e739",
+    "operator": "[",
+    "owner": {
+     "@id": "2de4950f-668c-5b26-af46-4db0e7ed7f42"
+    },
+    "owningNamespace": {
+     "@id": "2de4950f-668c-5b26-af46-4db0e7ed7f42"
+    },
+    "argument": [
+     {
+      "@id": "280e34c7-320b-50dd-8b48-6d7f00440c51"
+     },
+     {
+      "@id": "66d46f13-4437-58c6-aa8c-dcb9eee2f14a"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "280e34c7-320b-50dd-8b48-6d7f00440c51"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "280e34c7-320b-50dd-8b48-6d7f00440c51",
+    "elementId": "280e34c7-320b-50dd-8b48-6d7f00440c51",
+    "value": 700,
+    "owner": {
+     "@id": "4d709ed0-a099-54ed-927e-b060a893e739"
+    },
+    "owningNamespace": {
+     "@id": "4d709ed0-a099-54ed-927e-b060a893e739"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "66d46f13-4437-58c6-aa8c-dcb9eee2f14a"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "66d46f13-4437-58c6-aa8c-dcb9eee2f14a",
+    "elementId": "66d46f13-4437-58c6-aa8c-dcb9eee2f14a",
+    "referent": {
+     "@id": "76c05bea-acc1-54a6-90e1-9de505d6e3f5"
+    },
+    "owner": {
+     "@id": "4d709ed0-a099-54ed-927e-b060a893e739"
+    },
+    "owningNamespace": {
+     "@id": "4d709ed0-a099-54ed-927e-b060a893e739"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "62488827-d7f4-556e-ba47-5c8a7ea50c52"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "62488827-d7f4-556e-ba47-5c8a7ea50c52",
+    "elementId": "62488827-d7f4-556e-ba47-5c8a7ea50c52",
+    "featureWithValue": {
+     "@id": "2de4950f-668c-5b26-af46-4db0e7ed7f42"
+    },
+    "value": {
+     "@id": "4d709ed0-a099-54ed-927e-b060a893e739"
+    },
+    "memberElement": {
+     "@id": "4d709ed0-a099-54ed-927e-b060a893e739"
+    },
+    "owner": {
+     "@id": "2de4950f-668c-5b26-af46-4db0e7ed7f42"
+    },
+    "owningNamespace": {
+     "@id": "2de4950f-668c-5b26-af46-4db0e7ed7f42"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d0f7aa00-f262-52e5-bcc0-75d9870c8954"
+   },
+   "payload": {
+    "@type": "InterfaceUsage",
+    "@id": "d0f7aa00-f262-52e5-bcc0-75d9870c8954",
+    "elementId": "d0f7aa00-f262-52e5-bcc0-75d9870c8954",
+    "declaredName": "motorMount",
+    "relatedFeature": [
+     {
+      "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+     },
+     {
+      "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+     }
+    ],
+    "sourceFeature": {
+     "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+    },
+    "targetFeature": [
+     {
+      "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+     }
+    ],
+    "owner": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningNamespace": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningType": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "qualifiedName": "EBikeDemo::Usages::eBike::motorMount",
+    "name": "motorMount"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "ee0964cd-44c3-53f4-abec-2c89c30f1872"
+   },
+   "payload": {
+    "@type": "Package",
+    "@id": "ee0964cd-44c3-53f4-abec-2c89c30f1872",
+    "elementId": "ee0964cd-44c3-53f4-abec-2c89c30f1872",
+    "declaredName": "Requirements",
+    "owner": {
+     "@id": "195ff435-b06f-5515-ab16-07c41d9fbd4e"
+    },
+    "owningNamespace": {
+     "@id": "195ff435-b06f-5515-ab16-07c41d9fbd4e"
+    },
+    "qualifiedName": "EBikeDemo::Requirements",
+    "name": "Requirements"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "16beec3b-f987-566d-bdab-0a3f695f666f"
+   },
+   "payload": {
+    "@type": "RequirementUsage",
+    "@id": "16beec3b-f987-566d-bdab-0a3f695f666f",
+    "elementId": "16beec3b-f987-566d-bdab-0a3f695f666f",
+    "declaredName": "MaxMotorMass",
+    "declaredShortName": "REQ-MOT-004",
+    "reqId": "REQ-MOT-004",
+    "owner": {
+     "@id": "ee0964cd-44c3-53f4-abec-2c89c30f1872"
+    },
+    "owningNamespace": {
+     "@id": "ee0964cd-44c3-53f4-abec-2c89c30f1872"
+    },
+    "owningType": {
+     "@id": "ee0964cd-44c3-53f4-abec-2c89c30f1872"
+    },
+    "qualifiedName": "EBikeDemo::Requirements::MaxMotorMass",
+    "name": "MaxMotorMass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "98668c0f-5ff7-577d-a7fc-7a145594c50f"
+   },
+   "payload": {
+    "@type": "Documentation",
+    "@id": "98668c0f-5ff7-577d-a7fc-7a145594c50f",
+    "elementId": "98668c0f-5ff7-577d-a7fc-7a145594c50f",
+    "body": "The motor mass shall not exceed 10 kg.",
+    "annotatedElement": [
+     {
+      "@id": "16beec3b-f987-566d-bdab-0a3f695f666f"
+     }
+    ],
+    "owner": {
+     "@id": "16beec3b-f987-566d-bdab-0a3f695f666f"
+    },
+    "owningNamespace": {
+     "@id": "16beec3b-f987-566d-bdab-0a3f695f666f"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "6ce8bb49-c596-5344-af37-af85f11ab1f2"
+   },
+   "payload": {
+    "@type": "RequirementUsage",
+    "@id": "6ce8bb49-c596-5344-af37-af85f11ab1f2",
+    "elementId": "6ce8bb49-c596-5344-af37-af85f11ab1f2",
+    "declaredName": "DriveUnitMassBudget",
+    "declaredShortName": "REQ-DU-001",
+    "reqId": "REQ-DU-001",
+    "owner": {
+     "@id": "ee0964cd-44c3-53f4-abec-2c89c30f1872"
+    },
+    "owningNamespace": {
+     "@id": "ee0964cd-44c3-53f4-abec-2c89c30f1872"
+    },
+    "owningType": {
+     "@id": "ee0964cd-44c3-53f4-abec-2c89c30f1872"
+    },
+    "qualifiedName": "EBikeDemo::Requirements::DriveUnitMassBudget",
+    "name": "DriveUnitMassBudget"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "c78ee5c7-6cf7-5a2e-873c-b658e8132199"
+   },
+   "payload": {
+    "@type": "Documentation",
+    "@id": "c78ee5c7-6cf7-5a2e-873c-b658e8132199",
+    "elementId": "c78ee5c7-6cf7-5a2e-873c-b658e8132199",
+    "body": "The drive unit mass shall not exceed 18 kg.",
+    "annotatedElement": [
+     {
+      "@id": "6ce8bb49-c596-5344-af37-af85f11ab1f2"
+     }
+    ],
+    "owner": {
+     "@id": "6ce8bb49-c596-5344-af37-af85f11ab1f2"
+    },
+    "owningNamespace": {
+     "@id": "6ce8bb49-c596-5344-af37-af85f11ab1f2"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "7c4ae3b6-e3ce-54ab-8429-fd1bdf51714e"
+   },
+   "payload": {
+    "@type": "RequirementUsage",
+    "@id": "7c4ae3b6-e3ce-54ab-8429-fd1bdf51714e",
+    "elementId": "7c4ae3b6-e3ce-54ab-8429-fd1bdf51714e",
+    "declaredName": "MountHoleSpacing",
+    "declaredShortName": "REQ-FR-002",
+    "reqId": "REQ-FR-002",
+    "owner": {
+     "@id": "ee0964cd-44c3-53f4-abec-2c89c30f1872"
+    },
+    "owningNamespace": {
+     "@id": "ee0964cd-44c3-53f4-abec-2c89c30f1872"
+    },
+    "owningType": {
+     "@id": "ee0964cd-44c3-53f4-abec-2c89c30f1872"
+    },
+    "qualifiedName": "EBikeDemo::Requirements::MountHoleSpacing",
+    "name": "MountHoleSpacing"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "bf54c5bc-c276-5f3b-bef4-c045b99a1f93"
+   },
+   "payload": {
+    "@type": "Documentation",
+    "@id": "bf54c5bc-c276-5f3b-bef4-c045b99a1f93",
+    "elementId": "bf54c5bc-c276-5f3b-bef4-c045b99a1f93",
+    "body": "Motor mounting holes shall be spaced 80 mm \u00b1 0.5 mm.",
+    "annotatedElement": [
+     {
+      "@id": "7c4ae3b6-e3ce-54ab-8429-fd1bdf51714e"
+     }
+    ],
+    "owner": {
+     "@id": "7c4ae3b6-e3ce-54ab-8429-fd1bdf51714e"
+    },
+    "owningNamespace": {
+     "@id": "7c4ae3b6-e3ce-54ab-8429-fd1bdf51714e"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "db4b6041-368d-52b3-b9db-e66785de3e39"
+   },
+   "payload": {
+    "@type": "SatisfyRequirementUsage",
+    "@id": "db4b6041-368d-52b3-b9db-e66785de3e39",
+    "elementId": "db4b6041-368d-52b3-b9db-e66785de3e39",
+    "satisfiedRequirement": {
+     "@id": "16beec3b-f987-566d-bdab-0a3f695f666f"
+    },
+    "satisfyingFeature": {
+     "@id": "16f190d0-ad83-5089-b942-a2f1caa207f2"
+    },
+    "owner": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningNamespace": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningType": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "dc29fbc7-c3c6-5fd9-8da1-0c13372e121b"
+   },
+   "payload": {
+    "@type": "SatisfyRequirementUsage",
+    "@id": "dc29fbc7-c3c6-5fd9-8da1-0c13372e121b",
+    "elementId": "dc29fbc7-c3c6-5fd9-8da1-0c13372e121b",
+    "satisfiedRequirement": {
+     "@id": "6ce8bb49-c596-5344-af37-af85f11ab1f2"
+    },
+    "satisfyingFeature": {
+     "@id": "e79214c1-1723-5710-bebe-2fb8cd2b8d6f"
+    },
+    "owner": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningNamespace": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningType": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "8266b12d-bab1-5490-9af5-4d506301e681"
+   },
+   "payload": {
+    "@type": "SatisfyRequirementUsage",
+    "@id": "8266b12d-bab1-5490-9af5-4d506301e681",
+    "elementId": "8266b12d-bab1-5490-9af5-4d506301e681",
+    "satisfiedRequirement": {
+     "@id": "7c4ae3b6-e3ce-54ab-8429-fd1bdf51714e"
+    },
+    "satisfyingFeature": {
+     "@id": "af66e858-3af5-5feb-b60c-cfe4b705d9f5"
+    },
+    "owner": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningNamespace": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    },
+    "owningType": {
+     "@id": "44ee482e-8403-5737-b30b-c162dc944adb"
+    }
+   }
+  }
+ ]
+}

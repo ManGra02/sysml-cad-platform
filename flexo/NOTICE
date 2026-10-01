@@ -1,0 +1,10 @@
+The files in this folder are derived from Open-MBEE/flexo-mms-sysmlv2
+(https://github.com/Open-MBEE/flexo-mms-sysmlv2), directory docker-compose/,
+licensed under the Apache License 2.0:
+
+  docker-compose.yml       changed: Fuseki 4.6 -> 4.7, memory limits, loopback-only ports
+  env/*.env                copied; flexo-mms-quad-store.env changed (8 GB -> 1 GB heap)
+  mount/cluster.trig       copied unchanged (seed data for layer1: users, groups, policies)
+
+data/examples/sysml/PartsTreeRedefinition.json is copied unchanged from
+src/test/resources/ of the same repository.

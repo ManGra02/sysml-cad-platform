@@ -6,6 +6,7 @@ A project (BDS, MCR, ...) is simply a Python package under
   * its own HTTP routes under ``/api/projects/<id>/*``     (register_routes)
   * every change from FreeCAD, as long as it is active     (on_cad_event)
   * CAD access that never sees the bridge token            (ctx.cad)
+  * the SysML v2 model, in the common engineering model    (ctx.sysml)
   * a channel to the browser, WebSocket types ``<id>.*``   (ctx.publish)
 
 The bridge knows nothing about this: domain logic belongs here, never in bridge/.
@@ -315,11 +316,16 @@ class CadClient:
 
 
 class ProjectContext:
-    """What a module is handed by the platform."""
+    """What a module is handed by the platform.
 
-    def __init__(self, module_id, cad, publish):
+    ``sysml`` is the platform's SysmlService (app/sysml/service.py), shared by all
+    modules: ``snap = await self.ctx.sysml.snapshot("EBike Demo")``.
+    """
+
+    def __init__(self, module_id, cad, publish, sysml=None):
         self.module_id = module_id
         self.cad = cad
+        self.sysml = sysml
         self._publish = publish
         self.log = logging.getLogger("platform.projects." + module_id)
 
