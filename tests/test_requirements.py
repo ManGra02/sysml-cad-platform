@@ -57,6 +57,7 @@ EXPECTED = {
     "gearbox": {"MaxAssemblyMass", "MaxCoverThickness", "MaxHousingLength", "MinBoreRadius"},
     "box1": {"MaxLength", "MaxWidth", "MaxHeight"},
     "box2": {"MaxLength", "MaxWidth", "MaxHeight"},
+    "cube_freecad": {"MaxLength", "MaxWidth", "MaxHeight"},
 }
 
 

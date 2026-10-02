@@ -51,10 +51,8 @@ from .proposals import Proposal
 SYSTEM = """\
 You map systems-engineering model attributes onto CAD measurements.
 
-You propose; a human confirms. Every candidate is checked by machine before a
-person sees it -- dimension, whether the measurement exists, uniqueness, order
-of magnitude -- and then reviewed. A wrong candidate costs that person more
-than a missing one, but a missing one is not free: someone maps it by hand.
+You propose, a human confirms. Do as much mappings as possible, 
+but if you do not know the right answer, do not map! Do not guess!
 
 Decide each attribute in three steps:
 

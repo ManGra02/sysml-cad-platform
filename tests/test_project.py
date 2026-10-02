@@ -25,7 +25,7 @@ from sysmlcad.project import (
 # --------------------------------------------------------------------------
 
 def test_every_committed_project_loads():
-    assert list_projects() == ["box1", "box2", "gearbox", "motor_housing"]
+    assert list_projects() == ["box1", "box2", "cube_freecad", "gearbox", "motor_housing"]
     for name in list_projects():
         project = load_project(name)
         assert project.name == name
@@ -42,7 +42,7 @@ def test_the_sysml_project_name_is_the_package_name():
 
 
 def test_an_unknown_project_lists_the_known_ones():
-    with pytest.raises(UnknownProject, match="box1, box2, gearbox, motor_housing"):
+    with pytest.raises(UnknownProject, match="box1, box2, cube_freecad, gearbox, motor_housing"):
         load_project("turbine")
 
 

@@ -1,0 +1,24 @@
+# The answer key for scoring proposers on this model. See
+# projects/gearbox/gold_mapping.yaml for what an entry means.
+#
+# One object, three extents -- the accepted answers follow the project's axis
+# convention, FreeCAD's default (length X, width Y, height Z). The model is
+# box2's, so the same three questions with a different correct axis for each:
+# a proposer that learned box2's answers rather than the convention fails here.
+version: 1
+
+gold:
+  - sysml_part: box2
+    attribute: length
+    accept:
+      - {adapter: step, cad_object: "projects/cube_freecad/cube_freecad.step", method: bbox_size, args: {axis: X}}
+
+  - sysml_part: box2
+    attribute: width
+    accept:
+      - {adapter: step, cad_object: "projects/cube_freecad/cube_freecad.step", method: bbox_size, args: {axis: Y}}
+
+  - sysml_part: box2
+    attribute: height
+    accept:
+      - {adapter: step, cad_object: "projects/cube_freecad/cube_freecad.step", method: bbox_size, args: {axis: Z}}

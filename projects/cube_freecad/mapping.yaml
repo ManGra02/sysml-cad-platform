@@ -1,0 +1,10 @@
+# Mapping, schema v2 -- see projects/motor_housing/mapping.yaml for the
+# reasoning behind the shape. One mapping per project.
+#
+# Empty on purpose: entries arrive through `make propose` and a human's
+# `make confirm`, never by hand-copying box2's (whose axes are Chili3D's).
+version: 2
+
+parts: []
+
+attributes: []
