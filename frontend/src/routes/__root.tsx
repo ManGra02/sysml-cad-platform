@@ -70,6 +70,13 @@ function RootLayout() {
           >
             {t("nav.cadExplorer")}
           </Link>
+          <Link
+            to="/sysml"
+            className={NAV_LINK}
+            activeProps={{ className: "bg-accent text-foreground" }}
+          >
+            {t("nav.sysmlModel")}
+          </Link>
         </nav>
         <div className="ml-auto flex items-center gap-1">
           <ConnectionStatus />

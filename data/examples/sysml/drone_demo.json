@@ -1,0 +1,4326 @@
+{
+ "@type": "Commit",
+ "description": "Drone demo model",
+ "change": [
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "947750c1-d018-53bc-aaca-27fdeef77188"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "947750c1-d018-53bc-aaca-27fdeef77188",
+    "elementId": "947750c1-d018-53bc-aaca-27fdeef77188",
+    "declaredName": "kilogram",
+    "declaredShortName": "kg",
+    "shortName": "kg",
+    "isLibraryElement": true,
+    "qualifiedName": "kilogram",
+    "name": "kilogram"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "c8339614-88a3-58f7-bac6-8e4826d99a8f"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "c8339614-88a3-58f7-bac6-8e4826d99a8f",
+    "elementId": "c8339614-88a3-58f7-bac6-8e4826d99a8f",
+    "declaredName": "gram",
+    "declaredShortName": "g",
+    "shortName": "g",
+    "isLibraryElement": true,
+    "qualifiedName": "gram",
+    "name": "gram"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "12946613-c0bf-539d-92ec-32618ceac98b"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "12946613-c0bf-539d-92ec-32618ceac98b",
+    "elementId": "12946613-c0bf-539d-92ec-32618ceac98b",
+    "declaredName": "millimetre",
+    "declaredShortName": "mm",
+    "shortName": "mm",
+    "isLibraryElement": true,
+    "qualifiedName": "millimetre",
+    "name": "millimetre"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "6f5baf32-0777-5756-b158-9285af6b2832"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "6f5baf32-0777-5756-b158-9285af6b2832",
+    "elementId": "6f5baf32-0777-5756-b158-9285af6b2832",
+    "declaredName": "watt",
+    "declaredShortName": "W",
+    "shortName": "W",
+    "isLibraryElement": true,
+    "qualifiedName": "watt",
+    "name": "watt"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "6088d2af-829a-54bb-b6c8-485ffdd643bc"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "6088d2af-829a-54bb-b6c8-485ffdd643bc",
+    "elementId": "6088d2af-829a-54bb-b6c8-485ffdd643bc",
+    "declaredName": "volt",
+    "declaredShortName": "V",
+    "shortName": "V",
+    "isLibraryElement": true,
+    "qualifiedName": "volt",
+    "name": "volt"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "1dcb5ea0-4017-56bf-9070-af168560bea6"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "1dcb5ea0-4017-56bf-9070-af168560bea6",
+    "elementId": "1dcb5ea0-4017-56bf-9070-af168560bea6",
+    "declaredName": "minute",
+    "declaredShortName": "min",
+    "shortName": "min",
+    "isLibraryElement": true,
+    "qualifiedName": "minute",
+    "name": "minute"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "44b90724-2dab-5ed2-b1a7-ab852906f915"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "44b90724-2dab-5ed2-b1a7-ab852906f915",
+    "elementId": "44b90724-2dab-5ed2-b1a7-ab852906f915",
+    "declaredName": "newton",
+    "declaredShortName": "N",
+    "shortName": "N",
+    "isLibraryElement": true,
+    "qualifiedName": "newton",
+    "name": "newton"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "8f71e50e-bc77-5fd7-996b-079c26040120"
+   },
+   "payload": {
+    "@type": "Package",
+    "@id": "8f71e50e-bc77-5fd7-996b-079c26040120",
+    "elementId": "8f71e50e-bc77-5fd7-996b-079c26040120",
+    "declaredName": "DroneDemo",
+    "qualifiedName": "DroneDemo",
+    "name": "DroneDemo"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+   },
+   "payload": {
+    "@type": "Package",
+    "@id": "57b16a51-e994-5251-9771-161ef36230a2",
+    "elementId": "57b16a51-e994-5251-9771-161ef36230a2",
+    "declaredName": "Definitions",
+    "owner": {
+     "@id": "8f71e50e-bc77-5fd7-996b-079c26040120"
+    },
+    "owningNamespace": {
+     "@id": "8f71e50e-bc77-5fd7-996b-079c26040120"
+    },
+    "qualifiedName": "DroneDemo::Definitions",
+    "name": "Definitions"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "90c3a249-b34d-5182-9de9-202915805050"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "90c3a249-b34d-5182-9de9-202915805050",
+    "elementId": "90c3a249-b34d-5182-9de9-202915805050",
+    "declaredName": "Quadcopter",
+    "owner": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "owningNamespace": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "qualifiedName": "DroneDemo::Definitions::Quadcopter",
+    "name": "Quadcopter"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "e5abe4fe-2bb5-5239-9ee6-646c50230cb7"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "e5abe4fe-2bb5-5239-9ee6-646c50230cb7",
+    "elementId": "e5abe4fe-2bb5-5239-9ee6-646c50230cb7",
+    "declaredName": "Frame",
+    "owner": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "owningNamespace": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "qualifiedName": "DroneDemo::Definitions::Frame",
+    "name": "Frame"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "c3e8bc9d-3442-50c4-94e7-ba953f63f581"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "c3e8bc9d-3442-50c4-94e7-ba953f63f581",
+    "elementId": "c3e8bc9d-3442-50c4-94e7-ba953f63f581",
+    "declaredName": "Arm",
+    "owner": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "owningNamespace": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "qualifiedName": "DroneDemo::Definitions::Arm",
+    "name": "Arm"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "75de1cd2-568f-5549-98cb-c2e830d092d3"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "75de1cd2-568f-5549-98cb-c2e830d092d3",
+    "elementId": "75de1cd2-568f-5549-98cb-c2e830d092d3",
+    "declaredName": "Propulsion",
+    "owner": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "owningNamespace": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "qualifiedName": "DroneDemo::Definitions::Propulsion",
+    "name": "Propulsion"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4ff102e7-c57e-54e1-8454-afc9516fad66"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "4ff102e7-c57e-54e1-8454-afc9516fad66",
+    "elementId": "4ff102e7-c57e-54e1-8454-afc9516fad66",
+    "declaredName": "Motor",
+    "owner": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "owningNamespace": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "qualifiedName": "DroneDemo::Definitions::Motor",
+    "name": "Motor"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "f5aedf71-5fcc-569d-bdbb-1e48a5694d47"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "f5aedf71-5fcc-569d-bdbb-1e48a5694d47",
+    "elementId": "f5aedf71-5fcc-569d-bdbb-1e48a5694d47",
+    "declaredName": "Propeller",
+    "owner": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "owningNamespace": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "qualifiedName": "DroneDemo::Definitions::Propeller",
+    "name": "Propeller"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "e73edc85-cfd2-5074-8165-3aec7230f241"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "e73edc85-cfd2-5074-8165-3aec7230f241",
+    "elementId": "e73edc85-cfd2-5074-8165-3aec7230f241",
+    "declaredName": "Battery",
+    "owner": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "owningNamespace": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "qualifiedName": "DroneDemo::Definitions::Battery",
+    "name": "Battery"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "c7ba7568-ed89-5a7a-b8a8-411b44b282b2"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "c7ba7568-ed89-5a7a-b8a8-411b44b282b2",
+    "elementId": "c7ba7568-ed89-5a7a-b8a8-411b44b282b2",
+    "declaredName": "FlightController",
+    "owner": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "owningNamespace": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "qualifiedName": "DroneDemo::Definitions::FlightController",
+    "name": "FlightController"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "6dd51343-90ce-50f3-b2d2-d590e13a3677"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "6dd51343-90ce-50f3-b2d2-d590e13a3677",
+    "elementId": "6dd51343-90ce-50f3-b2d2-d590e13a3677",
+    "declaredName": "Camera",
+    "owner": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "owningNamespace": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "qualifiedName": "DroneDemo::Definitions::Camera",
+    "name": "Camera"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "dc166baa-eeb8-574e-ab39-3c5483ff046e"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "dc166baa-eeb8-574e-ab39-3c5483ff046e",
+    "elementId": "dc166baa-eeb8-574e-ab39-3c5483ff046e",
+    "declaredName": "Gimbal",
+    "owner": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "owningNamespace": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "qualifiedName": "DroneDemo::Definitions::Gimbal",
+    "name": "Gimbal"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "40992a54-9c92-5357-8957-45765825e0b8"
+   },
+   "payload": {
+    "@type": "PartDefinition",
+    "@id": "40992a54-9c92-5357-8957-45765825e0b8",
+    "elementId": "40992a54-9c92-5357-8957-45765825e0b8",
+    "declaredName": "LandingGear",
+    "owner": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "owningNamespace": {
+     "@id": "57b16a51-e994-5251-9771-161ef36230a2"
+    },
+    "qualifiedName": "DroneDemo::Definitions::LandingGear",
+    "name": "LandingGear"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "261a9f38-1234-579f-bc44-2465cfa25bb8"
+   },
+   "payload": {
+    "@type": "Package",
+    "@id": "261a9f38-1234-579f-bc44-2465cfa25bb8",
+    "elementId": "261a9f38-1234-579f-bc44-2465cfa25bb8",
+    "declaredName": "Usages",
+    "owner": {
+     "@id": "8f71e50e-bc77-5fd7-996b-079c26040120"
+    },
+    "owningNamespace": {
+     "@id": "8f71e50e-bc77-5fd7-996b-079c26040120"
+    },
+    "qualifiedName": "DroneDemo::Usages",
+    "name": "Usages"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "d2ad7383-5818-532e-af9d-dfae884471e8",
+    "elementId": "d2ad7383-5818-532e-af9d-dfae884471e8",
+    "declaredName": "quadcopter",
+    "definition": [
+     {
+      "@id": "90c3a249-b34d-5182-9de9-202915805050"
+     }
+    ],
+    "type": [
+     {
+      "@id": "90c3a249-b34d-5182-9de9-202915805050"
+     }
+    ],
+    "owner": {
+     "@id": "261a9f38-1234-579f-bc44-2465cfa25bb8"
+    },
+    "owningNamespace": {
+     "@id": "261a9f38-1234-579f-bc44-2465cfa25bb8"
+    },
+    "owningType": {
+     "@id": "261a9f38-1234-579f-bc44-2465cfa25bb8"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter",
+    "name": "quadcopter"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "81625ddb-d986-5a0a-8367-b498754f6879"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "81625ddb-d986-5a0a-8367-b498754f6879",
+    "elementId": "81625ddb-d986-5a0a-8367-b498754f6879",
+    "declaredName": "takeoffMass",
+    "owner": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningNamespace": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningType": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::takeoffMass",
+    "name": "takeoffMass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "6711dba4-3bec-526d-9273-380fce92d46e"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "6711dba4-3bec-526d-9273-380fce92d46e",
+    "elementId": "6711dba4-3bec-526d-9273-380fce92d46e",
+    "operator": "[",
+    "owner": {
+     "@id": "81625ddb-d986-5a0a-8367-b498754f6879"
+    },
+    "owningNamespace": {
+     "@id": "81625ddb-d986-5a0a-8367-b498754f6879"
+    },
+    "argument": [
+     {
+      "@id": "cd8d8185-ddd2-52fe-a52d-ddb37eb32fa6"
+     },
+     {
+      "@id": "5629fc76-6d1f-5792-b17d-3959e20f8c7e"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "cd8d8185-ddd2-52fe-a52d-ddb37eb32fa6"
+   },
+   "payload": {
+    "@type": "LiteralRational",
+    "@id": "cd8d8185-ddd2-52fe-a52d-ddb37eb32fa6",
+    "elementId": "cd8d8185-ddd2-52fe-a52d-ddb37eb32fa6",
+    "value": 1.35,
+    "owner": {
+     "@id": "6711dba4-3bec-526d-9273-380fce92d46e"
+    },
+    "owningNamespace": {
+     "@id": "6711dba4-3bec-526d-9273-380fce92d46e"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "5629fc76-6d1f-5792-b17d-3959e20f8c7e"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "5629fc76-6d1f-5792-b17d-3959e20f8c7e",
+    "elementId": "5629fc76-6d1f-5792-b17d-3959e20f8c7e",
+    "referent": {
+     "@id": "947750c1-d018-53bc-aaca-27fdeef77188"
+    },
+    "owner": {
+     "@id": "6711dba4-3bec-526d-9273-380fce92d46e"
+    },
+    "owningNamespace": {
+     "@id": "6711dba4-3bec-526d-9273-380fce92d46e"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "58c70b0f-f303-5bcc-986f-54a715e35796"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "58c70b0f-f303-5bcc-986f-54a715e35796",
+    "elementId": "58c70b0f-f303-5bcc-986f-54a715e35796",
+    "featureWithValue": {
+     "@id": "81625ddb-d986-5a0a-8367-b498754f6879"
+    },
+    "value": {
+     "@id": "6711dba4-3bec-526d-9273-380fce92d46e"
+    },
+    "memberElement": {
+     "@id": "6711dba4-3bec-526d-9273-380fce92d46e"
+    },
+    "owner": {
+     "@id": "81625ddb-d986-5a0a-8367-b498754f6879"
+    },
+    "owningNamespace": {
+     "@id": "81625ddb-d986-5a0a-8367-b498754f6879"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "17f4fd1d-0686-54fc-8cdb-7a429cbb04c8"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "17f4fd1d-0686-54fc-8cdb-7a429cbb04c8",
+    "elementId": "17f4fd1d-0686-54fc-8cdb-7a429cbb04c8",
+    "declaredName": "maxTakeoffMass",
+    "owner": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningNamespace": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningType": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::maxTakeoffMass",
+    "name": "maxTakeoffMass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "3941db0e-0205-5487-8c17-f0965ec9c333"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "3941db0e-0205-5487-8c17-f0965ec9c333",
+    "elementId": "3941db0e-0205-5487-8c17-f0965ec9c333",
+    "operator": "[",
+    "owner": {
+     "@id": "17f4fd1d-0686-54fc-8cdb-7a429cbb04c8"
+    },
+    "owningNamespace": {
+     "@id": "17f4fd1d-0686-54fc-8cdb-7a429cbb04c8"
+    },
+    "argument": [
+     {
+      "@id": "131bdf6a-bab1-5f2c-89a5-e6e2096238b8"
+     },
+     {
+      "@id": "c9a89958-eb4d-59b1-b1ce-7d82e0597ebe"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "131bdf6a-bab1-5f2c-89a5-e6e2096238b8"
+   },
+   "payload": {
+    "@type": "LiteralRational",
+    "@id": "131bdf6a-bab1-5f2c-89a5-e6e2096238b8",
+    "elementId": "131bdf6a-bab1-5f2c-89a5-e6e2096238b8",
+    "value": 1.5,
+    "owner": {
+     "@id": "3941db0e-0205-5487-8c17-f0965ec9c333"
+    },
+    "owningNamespace": {
+     "@id": "3941db0e-0205-5487-8c17-f0965ec9c333"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "c9a89958-eb4d-59b1-b1ce-7d82e0597ebe"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "c9a89958-eb4d-59b1-b1ce-7d82e0597ebe",
+    "elementId": "c9a89958-eb4d-59b1-b1ce-7d82e0597ebe",
+    "referent": {
+     "@id": "947750c1-d018-53bc-aaca-27fdeef77188"
+    },
+    "owner": {
+     "@id": "3941db0e-0205-5487-8c17-f0965ec9c333"
+    },
+    "owningNamespace": {
+     "@id": "3941db0e-0205-5487-8c17-f0965ec9c333"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "7da4011e-d0d1-524b-bb40-faa974bc47a1"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "7da4011e-d0d1-524b-bb40-faa974bc47a1",
+    "elementId": "7da4011e-d0d1-524b-bb40-faa974bc47a1",
+    "featureWithValue": {
+     "@id": "17f4fd1d-0686-54fc-8cdb-7a429cbb04c8"
+    },
+    "value": {
+     "@id": "3941db0e-0205-5487-8c17-f0965ec9c333"
+    },
+    "memberElement": {
+     "@id": "3941db0e-0205-5487-8c17-f0965ec9c333"
+    },
+    "owner": {
+     "@id": "17f4fd1d-0686-54fc-8cdb-7a429cbb04c8"
+    },
+    "owningNamespace": {
+     "@id": "17f4fd1d-0686-54fc-8cdb-7a429cbb04c8"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d43d3a48-1485-5067-a87a-63408bf5ada9"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "d43d3a48-1485-5067-a87a-63408bf5ada9",
+    "elementId": "d43d3a48-1485-5067-a87a-63408bf5ada9",
+    "declaredName": "flightTime",
+    "owner": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningNamespace": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningType": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::flightTime",
+    "name": "flightTime"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "0f673b70-26f6-5c7c-be8b-88287403e6bf"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "0f673b70-26f6-5c7c-be8b-88287403e6bf",
+    "elementId": "0f673b70-26f6-5c7c-be8b-88287403e6bf",
+    "operator": "[",
+    "owner": {
+     "@id": "d43d3a48-1485-5067-a87a-63408bf5ada9"
+    },
+    "owningNamespace": {
+     "@id": "d43d3a48-1485-5067-a87a-63408bf5ada9"
+    },
+    "argument": [
+     {
+      "@id": "4ea982b5-7efc-5e07-b841-04e6cf9fa687"
+     },
+     {
+      "@id": "200fc0bd-c4ce-5ce4-8262-99fc69a1fe50"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4ea982b5-7efc-5e07-b841-04e6cf9fa687"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "4ea982b5-7efc-5e07-b841-04e6cf9fa687",
+    "elementId": "4ea982b5-7efc-5e07-b841-04e6cf9fa687",
+    "value": 25,
+    "owner": {
+     "@id": "0f673b70-26f6-5c7c-be8b-88287403e6bf"
+    },
+    "owningNamespace": {
+     "@id": "0f673b70-26f6-5c7c-be8b-88287403e6bf"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "200fc0bd-c4ce-5ce4-8262-99fc69a1fe50"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "200fc0bd-c4ce-5ce4-8262-99fc69a1fe50",
+    "elementId": "200fc0bd-c4ce-5ce4-8262-99fc69a1fe50",
+    "referent": {
+     "@id": "1dcb5ea0-4017-56bf-9070-af168560bea6"
+    },
+    "owner": {
+     "@id": "0f673b70-26f6-5c7c-be8b-88287403e6bf"
+    },
+    "owningNamespace": {
+     "@id": "0f673b70-26f6-5c7c-be8b-88287403e6bf"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "61b900cf-25a2-5916-8a6d-d645fadc0fa1"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "61b900cf-25a2-5916-8a6d-d645fadc0fa1",
+    "elementId": "61b900cf-25a2-5916-8a6d-d645fadc0fa1",
+    "featureWithValue": {
+     "@id": "d43d3a48-1485-5067-a87a-63408bf5ada9"
+    },
+    "value": {
+     "@id": "0f673b70-26f6-5c7c-be8b-88287403e6bf"
+    },
+    "memberElement": {
+     "@id": "0f673b70-26f6-5c7c-be8b-88287403e6bf"
+    },
+    "owner": {
+     "@id": "d43d3a48-1485-5067-a87a-63408bf5ada9"
+    },
+    "owningNamespace": {
+     "@id": "d43d3a48-1485-5067-a87a-63408bf5ada9"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa",
+    "elementId": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa",
+    "declaredName": "frame",
+    "definition": [
+     {
+      "@id": "e5abe4fe-2bb5-5239-9ee6-646c50230cb7"
+     }
+    ],
+    "type": [
+     {
+      "@id": "e5abe4fe-2bb5-5239-9ee6-646c50230cb7"
+     }
+    ],
+    "owner": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningNamespace": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningType": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::frame",
+    "name": "frame"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "86d966b7-65f7-5dad-8281-330d88e4a454"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "86d966b7-65f7-5dad-8281-330d88e4a454",
+    "elementId": "86d966b7-65f7-5dad-8281-330d88e4a454",
+    "declaredName": "mass",
+    "owner": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningNamespace": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningType": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::frame::mass",
+    "name": "mass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "b2aed2cc-7b7d-5110-be1f-ed1a1b7538a6"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "b2aed2cc-7b7d-5110-be1f-ed1a1b7538a6",
+    "elementId": "b2aed2cc-7b7d-5110-be1f-ed1a1b7538a6",
+    "operator": "[",
+    "owner": {
+     "@id": "86d966b7-65f7-5dad-8281-330d88e4a454"
+    },
+    "owningNamespace": {
+     "@id": "86d966b7-65f7-5dad-8281-330d88e4a454"
+    },
+    "argument": [
+     {
+      "@id": "bed052cc-ab0c-5477-90fd-0873d25b1c08"
+     },
+     {
+      "@id": "9cea500e-0066-5d9d-a1e1-6d5fed2a6788"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "bed052cc-ab0c-5477-90fd-0873d25b1c08"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "bed052cc-ab0c-5477-90fd-0873d25b1c08",
+    "elementId": "bed052cc-ab0c-5477-90fd-0873d25b1c08",
+    "value": 220,
+    "owner": {
+     "@id": "b2aed2cc-7b7d-5110-be1f-ed1a1b7538a6"
+    },
+    "owningNamespace": {
+     "@id": "b2aed2cc-7b7d-5110-be1f-ed1a1b7538a6"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "9cea500e-0066-5d9d-a1e1-6d5fed2a6788"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "9cea500e-0066-5d9d-a1e1-6d5fed2a6788",
+    "elementId": "9cea500e-0066-5d9d-a1e1-6d5fed2a6788",
+    "referent": {
+     "@id": "c8339614-88a3-58f7-bac6-8e4826d99a8f"
+    },
+    "owner": {
+     "@id": "b2aed2cc-7b7d-5110-be1f-ed1a1b7538a6"
+    },
+    "owningNamespace": {
+     "@id": "b2aed2cc-7b7d-5110-be1f-ed1a1b7538a6"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "76289f00-0c14-571b-8a6e-603dafdca8e9"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "76289f00-0c14-571b-8a6e-603dafdca8e9",
+    "elementId": "76289f00-0c14-571b-8a6e-603dafdca8e9",
+    "featureWithValue": {
+     "@id": "86d966b7-65f7-5dad-8281-330d88e4a454"
+    },
+    "value": {
+     "@id": "b2aed2cc-7b7d-5110-be1f-ed1a1b7538a6"
+    },
+    "memberElement": {
+     "@id": "b2aed2cc-7b7d-5110-be1f-ed1a1b7538a6"
+    },
+    "owner": {
+     "@id": "86d966b7-65f7-5dad-8281-330d88e4a454"
+    },
+    "owningNamespace": {
+     "@id": "86d966b7-65f7-5dad-8281-330d88e4a454"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "0b9281b6-bb02-55f4-a5c1-1a9a467a3d98"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "0b9281b6-bb02-55f4-a5c1-1a9a467a3d98",
+    "elementId": "0b9281b6-bb02-55f4-a5c1-1a9a467a3d98",
+    "declaredName": "diagonal",
+    "owner": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningNamespace": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningType": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::frame::diagonal",
+    "name": "diagonal"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "9ff81c59-fa59-56da-b76b-50f4f783bb64"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "9ff81c59-fa59-56da-b76b-50f4f783bb64",
+    "elementId": "9ff81c59-fa59-56da-b76b-50f4f783bb64",
+    "operator": "[",
+    "owner": {
+     "@id": "0b9281b6-bb02-55f4-a5c1-1a9a467a3d98"
+    },
+    "owningNamespace": {
+     "@id": "0b9281b6-bb02-55f4-a5c1-1a9a467a3d98"
+    },
+    "argument": [
+     {
+      "@id": "9bdaa66a-30f3-5765-a97d-ed712b0d4132"
+     },
+     {
+      "@id": "92467392-c78f-5e1d-b4d8-57a724c23006"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "9bdaa66a-30f3-5765-a97d-ed712b0d4132"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "9bdaa66a-30f3-5765-a97d-ed712b0d4132",
+    "elementId": "9bdaa66a-30f3-5765-a97d-ed712b0d4132",
+    "value": 450,
+    "owner": {
+     "@id": "9ff81c59-fa59-56da-b76b-50f4f783bb64"
+    },
+    "owningNamespace": {
+     "@id": "9ff81c59-fa59-56da-b76b-50f4f783bb64"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "92467392-c78f-5e1d-b4d8-57a724c23006"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "92467392-c78f-5e1d-b4d8-57a724c23006",
+    "elementId": "92467392-c78f-5e1d-b4d8-57a724c23006",
+    "referent": {
+     "@id": "12946613-c0bf-539d-92ec-32618ceac98b"
+    },
+    "owner": {
+     "@id": "9ff81c59-fa59-56da-b76b-50f4f783bb64"
+    },
+    "owningNamespace": {
+     "@id": "9ff81c59-fa59-56da-b76b-50f4f783bb64"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "58860d80-ffb5-5714-b460-4b5a7e8b9522"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "58860d80-ffb5-5714-b460-4b5a7e8b9522",
+    "elementId": "58860d80-ffb5-5714-b460-4b5a7e8b9522",
+    "featureWithValue": {
+     "@id": "0b9281b6-bb02-55f4-a5c1-1a9a467a3d98"
+    },
+    "value": {
+     "@id": "9ff81c59-fa59-56da-b76b-50f4f783bb64"
+    },
+    "memberElement": {
+     "@id": "9ff81c59-fa59-56da-b76b-50f4f783bb64"
+    },
+    "owner": {
+     "@id": "0b9281b6-bb02-55f4-a5c1-1a9a467a3d98"
+    },
+    "owningNamespace": {
+     "@id": "0b9281b6-bb02-55f4-a5c1-1a9a467a3d98"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4d61ea6a-6d8b-5c26-9c5f-89497a3b96e1"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "4d61ea6a-6d8b-5c26-9c5f-89497a3b96e1",
+    "elementId": "4d61ea6a-6d8b-5c26-9c5f-89497a3b96e1",
+    "declaredName": "arm1",
+    "definition": [
+     {
+      "@id": "c3e8bc9d-3442-50c4-94e7-ba953f63f581"
+     }
+    ],
+    "type": [
+     {
+      "@id": "c3e8bc9d-3442-50c4-94e7-ba953f63f581"
+     }
+    ],
+    "owner": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningNamespace": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningType": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::frame::arm1",
+    "name": "arm1"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "be11173d-1a1d-560f-8a31-320245c6e109"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "be11173d-1a1d-560f-8a31-320245c6e109",
+    "elementId": "be11173d-1a1d-560f-8a31-320245c6e109",
+    "declaredName": "length",
+    "owner": {
+     "@id": "4d61ea6a-6d8b-5c26-9c5f-89497a3b96e1"
+    },
+    "owningNamespace": {
+     "@id": "4d61ea6a-6d8b-5c26-9c5f-89497a3b96e1"
+    },
+    "owningType": {
+     "@id": "4d61ea6a-6d8b-5c26-9c5f-89497a3b96e1"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::frame::arm1::length",
+    "name": "length"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "1f4505ab-a9e1-506e-a816-5e8230d663e2"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "1f4505ab-a9e1-506e-a816-5e8230d663e2",
+    "elementId": "1f4505ab-a9e1-506e-a816-5e8230d663e2",
+    "operator": "[",
+    "owner": {
+     "@id": "be11173d-1a1d-560f-8a31-320245c6e109"
+    },
+    "owningNamespace": {
+     "@id": "be11173d-1a1d-560f-8a31-320245c6e109"
+    },
+    "argument": [
+     {
+      "@id": "29a2d2d6-4f00-545a-be51-ba4f3d6ef235"
+     },
+     {
+      "@id": "d474443a-e703-5536-b971-33ef2ed93ce3"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "29a2d2d6-4f00-545a-be51-ba4f3d6ef235"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "29a2d2d6-4f00-545a-be51-ba4f3d6ef235",
+    "elementId": "29a2d2d6-4f00-545a-be51-ba4f3d6ef235",
+    "value": 160,
+    "owner": {
+     "@id": "1f4505ab-a9e1-506e-a816-5e8230d663e2"
+    },
+    "owningNamespace": {
+     "@id": "1f4505ab-a9e1-506e-a816-5e8230d663e2"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d474443a-e703-5536-b971-33ef2ed93ce3"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "d474443a-e703-5536-b971-33ef2ed93ce3",
+    "elementId": "d474443a-e703-5536-b971-33ef2ed93ce3",
+    "referent": {
+     "@id": "12946613-c0bf-539d-92ec-32618ceac98b"
+    },
+    "owner": {
+     "@id": "1f4505ab-a9e1-506e-a816-5e8230d663e2"
+    },
+    "owningNamespace": {
+     "@id": "1f4505ab-a9e1-506e-a816-5e8230d663e2"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2431be85-c824-5134-9304-38a5dcdf0d8e"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "2431be85-c824-5134-9304-38a5dcdf0d8e",
+    "elementId": "2431be85-c824-5134-9304-38a5dcdf0d8e",
+    "featureWithValue": {
+     "@id": "be11173d-1a1d-560f-8a31-320245c6e109"
+    },
+    "value": {
+     "@id": "1f4505ab-a9e1-506e-a816-5e8230d663e2"
+    },
+    "memberElement": {
+     "@id": "1f4505ab-a9e1-506e-a816-5e8230d663e2"
+    },
+    "owner": {
+     "@id": "be11173d-1a1d-560f-8a31-320245c6e109"
+    },
+    "owningNamespace": {
+     "@id": "be11173d-1a1d-560f-8a31-320245c6e109"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "f8573a7b-0d3c-5a19-81e2-55db63d36d1e"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "f8573a7b-0d3c-5a19-81e2-55db63d36d1e",
+    "elementId": "f8573a7b-0d3c-5a19-81e2-55db63d36d1e",
+    "declaredName": "arm2",
+    "definition": [
+     {
+      "@id": "c3e8bc9d-3442-50c4-94e7-ba953f63f581"
+     }
+    ],
+    "type": [
+     {
+      "@id": "c3e8bc9d-3442-50c4-94e7-ba953f63f581"
+     }
+    ],
+    "owner": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningNamespace": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningType": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::frame::arm2",
+    "name": "arm2"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d297b145-d2f7-5f78-8a69-2e47d03f3702"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "d297b145-d2f7-5f78-8a69-2e47d03f3702",
+    "elementId": "d297b145-d2f7-5f78-8a69-2e47d03f3702",
+    "declaredName": "length",
+    "owner": {
+     "@id": "f8573a7b-0d3c-5a19-81e2-55db63d36d1e"
+    },
+    "owningNamespace": {
+     "@id": "f8573a7b-0d3c-5a19-81e2-55db63d36d1e"
+    },
+    "owningType": {
+     "@id": "f8573a7b-0d3c-5a19-81e2-55db63d36d1e"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::frame::arm2::length",
+    "name": "length"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2853f29a-6122-51c2-8e26-f57df3698414"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "2853f29a-6122-51c2-8e26-f57df3698414",
+    "elementId": "2853f29a-6122-51c2-8e26-f57df3698414",
+    "operator": "[",
+    "owner": {
+     "@id": "d297b145-d2f7-5f78-8a69-2e47d03f3702"
+    },
+    "owningNamespace": {
+     "@id": "d297b145-d2f7-5f78-8a69-2e47d03f3702"
+    },
+    "argument": [
+     {
+      "@id": "262694e0-02b3-59cd-b38d-3e5ab3cde3ce"
+     },
+     {
+      "@id": "260df8cc-8507-5477-8732-93d1a6e64185"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "262694e0-02b3-59cd-b38d-3e5ab3cde3ce"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "262694e0-02b3-59cd-b38d-3e5ab3cde3ce",
+    "elementId": "262694e0-02b3-59cd-b38d-3e5ab3cde3ce",
+    "value": 160,
+    "owner": {
+     "@id": "2853f29a-6122-51c2-8e26-f57df3698414"
+    },
+    "owningNamespace": {
+     "@id": "2853f29a-6122-51c2-8e26-f57df3698414"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "260df8cc-8507-5477-8732-93d1a6e64185"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "260df8cc-8507-5477-8732-93d1a6e64185",
+    "elementId": "260df8cc-8507-5477-8732-93d1a6e64185",
+    "referent": {
+     "@id": "12946613-c0bf-539d-92ec-32618ceac98b"
+    },
+    "owner": {
+     "@id": "2853f29a-6122-51c2-8e26-f57df3698414"
+    },
+    "owningNamespace": {
+     "@id": "2853f29a-6122-51c2-8e26-f57df3698414"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "7be213d1-d59b-5178-87a8-60a8576af44b"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "7be213d1-d59b-5178-87a8-60a8576af44b",
+    "elementId": "7be213d1-d59b-5178-87a8-60a8576af44b",
+    "featureWithValue": {
+     "@id": "d297b145-d2f7-5f78-8a69-2e47d03f3702"
+    },
+    "value": {
+     "@id": "2853f29a-6122-51c2-8e26-f57df3698414"
+    },
+    "memberElement": {
+     "@id": "2853f29a-6122-51c2-8e26-f57df3698414"
+    },
+    "owner": {
+     "@id": "d297b145-d2f7-5f78-8a69-2e47d03f3702"
+    },
+    "owningNamespace": {
+     "@id": "d297b145-d2f7-5f78-8a69-2e47d03f3702"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "a6550955-cffd-56f5-848d-221a154d5b48"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "a6550955-cffd-56f5-848d-221a154d5b48",
+    "elementId": "a6550955-cffd-56f5-848d-221a154d5b48",
+    "declaredName": "arm3",
+    "definition": [
+     {
+      "@id": "c3e8bc9d-3442-50c4-94e7-ba953f63f581"
+     }
+    ],
+    "type": [
+     {
+      "@id": "c3e8bc9d-3442-50c4-94e7-ba953f63f581"
+     }
+    ],
+    "owner": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningNamespace": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningType": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::frame::arm3",
+    "name": "arm3"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "bc967470-78be-5e83-8c30-0cc90207fe9f"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "bc967470-78be-5e83-8c30-0cc90207fe9f",
+    "elementId": "bc967470-78be-5e83-8c30-0cc90207fe9f",
+    "declaredName": "length",
+    "owner": {
+     "@id": "a6550955-cffd-56f5-848d-221a154d5b48"
+    },
+    "owningNamespace": {
+     "@id": "a6550955-cffd-56f5-848d-221a154d5b48"
+    },
+    "owningType": {
+     "@id": "a6550955-cffd-56f5-848d-221a154d5b48"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::frame::arm3::length",
+    "name": "length"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "349cdccc-3b26-5e9e-bd23-a8ecd2bc3868"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "349cdccc-3b26-5e9e-bd23-a8ecd2bc3868",
+    "elementId": "349cdccc-3b26-5e9e-bd23-a8ecd2bc3868",
+    "operator": "[",
+    "owner": {
+     "@id": "bc967470-78be-5e83-8c30-0cc90207fe9f"
+    },
+    "owningNamespace": {
+     "@id": "bc967470-78be-5e83-8c30-0cc90207fe9f"
+    },
+    "argument": [
+     {
+      "@id": "e56c6827-4ed4-52b3-890c-412d5b8e9977"
+     },
+     {
+      "@id": "364529d8-57df-584f-b767-b4ebbb5a0436"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "e56c6827-4ed4-52b3-890c-412d5b8e9977"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "e56c6827-4ed4-52b3-890c-412d5b8e9977",
+    "elementId": "e56c6827-4ed4-52b3-890c-412d5b8e9977",
+    "value": 160,
+    "owner": {
+     "@id": "349cdccc-3b26-5e9e-bd23-a8ecd2bc3868"
+    },
+    "owningNamespace": {
+     "@id": "349cdccc-3b26-5e9e-bd23-a8ecd2bc3868"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "364529d8-57df-584f-b767-b4ebbb5a0436"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "364529d8-57df-584f-b767-b4ebbb5a0436",
+    "elementId": "364529d8-57df-584f-b767-b4ebbb5a0436",
+    "referent": {
+     "@id": "12946613-c0bf-539d-92ec-32618ceac98b"
+    },
+    "owner": {
+     "@id": "349cdccc-3b26-5e9e-bd23-a8ecd2bc3868"
+    },
+    "owningNamespace": {
+     "@id": "349cdccc-3b26-5e9e-bd23-a8ecd2bc3868"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "ed49d457-16db-52c7-9465-dcf609b75918"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "ed49d457-16db-52c7-9465-dcf609b75918",
+    "elementId": "ed49d457-16db-52c7-9465-dcf609b75918",
+    "featureWithValue": {
+     "@id": "bc967470-78be-5e83-8c30-0cc90207fe9f"
+    },
+    "value": {
+     "@id": "349cdccc-3b26-5e9e-bd23-a8ecd2bc3868"
+    },
+    "memberElement": {
+     "@id": "349cdccc-3b26-5e9e-bd23-a8ecd2bc3868"
+    },
+    "owner": {
+     "@id": "bc967470-78be-5e83-8c30-0cc90207fe9f"
+    },
+    "owningNamespace": {
+     "@id": "bc967470-78be-5e83-8c30-0cc90207fe9f"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "9f48e1bb-b7b1-5b15-b910-fc90430f78e9"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "9f48e1bb-b7b1-5b15-b910-fc90430f78e9",
+    "elementId": "9f48e1bb-b7b1-5b15-b910-fc90430f78e9",
+    "declaredName": "arm4",
+    "definition": [
+     {
+      "@id": "c3e8bc9d-3442-50c4-94e7-ba953f63f581"
+     }
+    ],
+    "type": [
+     {
+      "@id": "c3e8bc9d-3442-50c4-94e7-ba953f63f581"
+     }
+    ],
+    "owner": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningNamespace": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningType": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::frame::arm4",
+    "name": "arm4"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "5a76c023-b2f3-5bad-b636-9ef71e26a499"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "5a76c023-b2f3-5bad-b636-9ef71e26a499",
+    "elementId": "5a76c023-b2f3-5bad-b636-9ef71e26a499",
+    "declaredName": "length",
+    "owner": {
+     "@id": "9f48e1bb-b7b1-5b15-b910-fc90430f78e9"
+    },
+    "owningNamespace": {
+     "@id": "9f48e1bb-b7b1-5b15-b910-fc90430f78e9"
+    },
+    "owningType": {
+     "@id": "9f48e1bb-b7b1-5b15-b910-fc90430f78e9"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::frame::arm4::length",
+    "name": "length"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "ed5ebdf9-5a7c-594e-a19f-583de9b9c2bc"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "ed5ebdf9-5a7c-594e-a19f-583de9b9c2bc",
+    "elementId": "ed5ebdf9-5a7c-594e-a19f-583de9b9c2bc",
+    "operator": "[",
+    "owner": {
+     "@id": "5a76c023-b2f3-5bad-b636-9ef71e26a499"
+    },
+    "owningNamespace": {
+     "@id": "5a76c023-b2f3-5bad-b636-9ef71e26a499"
+    },
+    "argument": [
+     {
+      "@id": "cc938dd0-362f-5dbd-9b2f-1de547b35d20"
+     },
+     {
+      "@id": "8dee6270-0828-59e8-90a0-6393eca3be97"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "cc938dd0-362f-5dbd-9b2f-1de547b35d20"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "cc938dd0-362f-5dbd-9b2f-1de547b35d20",
+    "elementId": "cc938dd0-362f-5dbd-9b2f-1de547b35d20",
+    "value": 160,
+    "owner": {
+     "@id": "ed5ebdf9-5a7c-594e-a19f-583de9b9c2bc"
+    },
+    "owningNamespace": {
+     "@id": "ed5ebdf9-5a7c-594e-a19f-583de9b9c2bc"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "8dee6270-0828-59e8-90a0-6393eca3be97"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "8dee6270-0828-59e8-90a0-6393eca3be97",
+    "elementId": "8dee6270-0828-59e8-90a0-6393eca3be97",
+    "referent": {
+     "@id": "12946613-c0bf-539d-92ec-32618ceac98b"
+    },
+    "owner": {
+     "@id": "ed5ebdf9-5a7c-594e-a19f-583de9b9c2bc"
+    },
+    "owningNamespace": {
+     "@id": "ed5ebdf9-5a7c-594e-a19f-583de9b9c2bc"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "b4e5038f-980f-52bc-a129-3aaed962c64a"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "b4e5038f-980f-52bc-a129-3aaed962c64a",
+    "elementId": "b4e5038f-980f-52bc-a129-3aaed962c64a",
+    "featureWithValue": {
+     "@id": "5a76c023-b2f3-5bad-b636-9ef71e26a499"
+    },
+    "value": {
+     "@id": "ed5ebdf9-5a7c-594e-a19f-583de9b9c2bc"
+    },
+    "memberElement": {
+     "@id": "ed5ebdf9-5a7c-594e-a19f-583de9b9c2bc"
+    },
+    "owner": {
+     "@id": "5a76c023-b2f3-5bad-b636-9ef71e26a499"
+    },
+    "owningNamespace": {
+     "@id": "5a76c023-b2f3-5bad-b636-9ef71e26a499"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "a8bce960-61ef-53a6-beb4-6c73c1db6c81"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "a8bce960-61ef-53a6-beb4-6c73c1db6c81",
+    "elementId": "a8bce960-61ef-53a6-beb4-6c73c1db6c81",
+    "declaredName": "landingGear",
+    "definition": [
+     {
+      "@id": "40992a54-9c92-5357-8957-45765825e0b8"
+     }
+    ],
+    "type": [
+     {
+      "@id": "40992a54-9c92-5357-8957-45765825e0b8"
+     }
+    ],
+    "owner": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningNamespace": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "owningType": {
+     "@id": "7b48f117-5ab6-5374-9cb5-ae64d194bdfa"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::frame::landingGear",
+    "name": "landingGear"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259",
+    "elementId": "58e70c94-de04-5ce3-b204-5f63f97f3259",
+    "declaredName": "propulsion",
+    "definition": [
+     {
+      "@id": "75de1cd2-568f-5549-98cb-c2e830d092d3"
+     }
+    ],
+    "type": [
+     {
+      "@id": "75de1cd2-568f-5549-98cb-c2e830d092d3"
+     }
+    ],
+    "owner": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningNamespace": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningType": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion",
+    "name": "propulsion"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "c8faa370-dcd6-5dce-b964-e9582172faa5"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "c8faa370-dcd6-5dce-b964-e9582172faa5",
+    "elementId": "c8faa370-dcd6-5dce-b964-e9582172faa5",
+    "declaredName": "totalThrust",
+    "owner": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningNamespace": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningType": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::totalThrust",
+    "name": "totalThrust"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "ff049fb9-4749-5ee3-8068-1025bed49a1b"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "ff049fb9-4749-5ee3-8068-1025bed49a1b",
+    "elementId": "ff049fb9-4749-5ee3-8068-1025bed49a1b",
+    "operator": "[",
+    "owner": {
+     "@id": "c8faa370-dcd6-5dce-b964-e9582172faa5"
+    },
+    "owningNamespace": {
+     "@id": "c8faa370-dcd6-5dce-b964-e9582172faa5"
+    },
+    "argument": [
+     {
+      "@id": "b5d296ed-d89e-5b5e-bcff-a390e42c0989"
+     },
+     {
+      "@id": "527fa3d6-f849-5cb9-87f2-8f0070122b83"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "b5d296ed-d89e-5b5e-bcff-a390e42c0989"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "b5d296ed-d89e-5b5e-bcff-a390e42c0989",
+    "elementId": "b5d296ed-d89e-5b5e-bcff-a390e42c0989",
+    "value": 32,
+    "owner": {
+     "@id": "ff049fb9-4749-5ee3-8068-1025bed49a1b"
+    },
+    "owningNamespace": {
+     "@id": "ff049fb9-4749-5ee3-8068-1025bed49a1b"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "527fa3d6-f849-5cb9-87f2-8f0070122b83"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "527fa3d6-f849-5cb9-87f2-8f0070122b83",
+    "elementId": "527fa3d6-f849-5cb9-87f2-8f0070122b83",
+    "referent": {
+     "@id": "44b90724-2dab-5ed2-b1a7-ab852906f915"
+    },
+    "owner": {
+     "@id": "ff049fb9-4749-5ee3-8068-1025bed49a1b"
+    },
+    "owningNamespace": {
+     "@id": "ff049fb9-4749-5ee3-8068-1025bed49a1b"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d783e2c7-a083-526c-8557-cf12b8bc2ab0"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "d783e2c7-a083-526c-8557-cf12b8bc2ab0",
+    "elementId": "d783e2c7-a083-526c-8557-cf12b8bc2ab0",
+    "featureWithValue": {
+     "@id": "c8faa370-dcd6-5dce-b964-e9582172faa5"
+    },
+    "value": {
+     "@id": "ff049fb9-4749-5ee3-8068-1025bed49a1b"
+    },
+    "memberElement": {
+     "@id": "ff049fb9-4749-5ee3-8068-1025bed49a1b"
+    },
+    "owner": {
+     "@id": "c8faa370-dcd6-5dce-b964-e9582172faa5"
+    },
+    "owningNamespace": {
+     "@id": "c8faa370-dcd6-5dce-b964-e9582172faa5"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "e56d67ed-677c-5c1f-879a-80c446b4bd30"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "e56d67ed-677c-5c1f-879a-80c446b4bd30",
+    "elementId": "e56d67ed-677c-5c1f-879a-80c446b4bd30",
+    "declaredName": "motor1",
+    "definition": [
+     {
+      "@id": "4ff102e7-c57e-54e1-8454-afc9516fad66"
+     }
+    ],
+    "type": [
+     {
+      "@id": "4ff102e7-c57e-54e1-8454-afc9516fad66"
+     }
+    ],
+    "owner": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningNamespace": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningType": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::motor1",
+    "name": "motor1"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "f0a8f84f-db1b-55ec-b932-73e12bfda3a9"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "f0a8f84f-db1b-55ec-b932-73e12bfda3a9",
+    "elementId": "f0a8f84f-db1b-55ec-b932-73e12bfda3a9",
+    "declaredName": "mass",
+    "owner": {
+     "@id": "e56d67ed-677c-5c1f-879a-80c446b4bd30"
+    },
+    "owningNamespace": {
+     "@id": "e56d67ed-677c-5c1f-879a-80c446b4bd30"
+    },
+    "owningType": {
+     "@id": "e56d67ed-677c-5c1f-879a-80c446b4bd30"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::motor1::mass",
+    "name": "mass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "fe35219a-4cf8-55ce-87fb-168cb905a9ca"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "fe35219a-4cf8-55ce-87fb-168cb905a9ca",
+    "elementId": "fe35219a-4cf8-55ce-87fb-168cb905a9ca",
+    "operator": "[",
+    "owner": {
+     "@id": "f0a8f84f-db1b-55ec-b932-73e12bfda3a9"
+    },
+    "owningNamespace": {
+     "@id": "f0a8f84f-db1b-55ec-b932-73e12bfda3a9"
+    },
+    "argument": [
+     {
+      "@id": "7c1fdda5-55b5-5bd5-b4d2-51a34032a6b5"
+     },
+     {
+      "@id": "6d39db0c-31e4-54c4-bc3b-efb744400fea"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "7c1fdda5-55b5-5bd5-b4d2-51a34032a6b5"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "7c1fdda5-55b5-5bd5-b4d2-51a34032a6b5",
+    "elementId": "7c1fdda5-55b5-5bd5-b4d2-51a34032a6b5",
+    "value": 52,
+    "owner": {
+     "@id": "fe35219a-4cf8-55ce-87fb-168cb905a9ca"
+    },
+    "owningNamespace": {
+     "@id": "fe35219a-4cf8-55ce-87fb-168cb905a9ca"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "6d39db0c-31e4-54c4-bc3b-efb744400fea"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "6d39db0c-31e4-54c4-bc3b-efb744400fea",
+    "elementId": "6d39db0c-31e4-54c4-bc3b-efb744400fea",
+    "referent": {
+     "@id": "c8339614-88a3-58f7-bac6-8e4826d99a8f"
+    },
+    "owner": {
+     "@id": "fe35219a-4cf8-55ce-87fb-168cb905a9ca"
+    },
+    "owningNamespace": {
+     "@id": "fe35219a-4cf8-55ce-87fb-168cb905a9ca"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "83ca7b57-214c-5563-b3f2-54eace28c87e"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "83ca7b57-214c-5563-b3f2-54eace28c87e",
+    "elementId": "83ca7b57-214c-5563-b3f2-54eace28c87e",
+    "featureWithValue": {
+     "@id": "f0a8f84f-db1b-55ec-b932-73e12bfda3a9"
+    },
+    "value": {
+     "@id": "fe35219a-4cf8-55ce-87fb-168cb905a9ca"
+    },
+    "memberElement": {
+     "@id": "fe35219a-4cf8-55ce-87fb-168cb905a9ca"
+    },
+    "owner": {
+     "@id": "f0a8f84f-db1b-55ec-b932-73e12bfda3a9"
+    },
+    "owningNamespace": {
+     "@id": "f0a8f84f-db1b-55ec-b932-73e12bfda3a9"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "a9265e63-ea9b-56e3-8f66-ebc208b30985"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "a9265e63-ea9b-56e3-8f66-ebc208b30985",
+    "elementId": "a9265e63-ea9b-56e3-8f66-ebc208b30985",
+    "declaredName": "maxPower",
+    "owner": {
+     "@id": "e56d67ed-677c-5c1f-879a-80c446b4bd30"
+    },
+    "owningNamespace": {
+     "@id": "e56d67ed-677c-5c1f-879a-80c446b4bd30"
+    },
+    "owningType": {
+     "@id": "e56d67ed-677c-5c1f-879a-80c446b4bd30"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::motor1::maxPower",
+    "name": "maxPower"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "9294a41b-a974-5fed-bd5c-993a40509396"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "9294a41b-a974-5fed-bd5c-993a40509396",
+    "elementId": "9294a41b-a974-5fed-bd5c-993a40509396",
+    "operator": "[",
+    "owner": {
+     "@id": "a9265e63-ea9b-56e3-8f66-ebc208b30985"
+    },
+    "owningNamespace": {
+     "@id": "a9265e63-ea9b-56e3-8f66-ebc208b30985"
+    },
+    "argument": [
+     {
+      "@id": "df5ebbf3-a4c4-5d1b-9542-c4c50e40408d"
+     },
+     {
+      "@id": "dd37e6df-ba84-54b1-b287-f8aaa10dbebe"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "df5ebbf3-a4c4-5d1b-9542-c4c50e40408d"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "df5ebbf3-a4c4-5d1b-9542-c4c50e40408d",
+    "elementId": "df5ebbf3-a4c4-5d1b-9542-c4c50e40408d",
+    "value": 180,
+    "owner": {
+     "@id": "9294a41b-a974-5fed-bd5c-993a40509396"
+    },
+    "owningNamespace": {
+     "@id": "9294a41b-a974-5fed-bd5c-993a40509396"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "dd37e6df-ba84-54b1-b287-f8aaa10dbebe"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "dd37e6df-ba84-54b1-b287-f8aaa10dbebe",
+    "elementId": "dd37e6df-ba84-54b1-b287-f8aaa10dbebe",
+    "referent": {
+     "@id": "6f5baf32-0777-5756-b158-9285af6b2832"
+    },
+    "owner": {
+     "@id": "9294a41b-a974-5fed-bd5c-993a40509396"
+    },
+    "owningNamespace": {
+     "@id": "9294a41b-a974-5fed-bd5c-993a40509396"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "1684d90a-2002-5729-9a3a-ab2d26bbcbe4"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "1684d90a-2002-5729-9a3a-ab2d26bbcbe4",
+    "elementId": "1684d90a-2002-5729-9a3a-ab2d26bbcbe4",
+    "featureWithValue": {
+     "@id": "a9265e63-ea9b-56e3-8f66-ebc208b30985"
+    },
+    "value": {
+     "@id": "9294a41b-a974-5fed-bd5c-993a40509396"
+    },
+    "memberElement": {
+     "@id": "9294a41b-a974-5fed-bd5c-993a40509396"
+    },
+    "owner": {
+     "@id": "a9265e63-ea9b-56e3-8f66-ebc208b30985"
+    },
+    "owningNamespace": {
+     "@id": "a9265e63-ea9b-56e3-8f66-ebc208b30985"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2d94fd7c-188a-514b-9532-ce99a20e6b24"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "2d94fd7c-188a-514b-9532-ce99a20e6b24",
+    "elementId": "2d94fd7c-188a-514b-9532-ce99a20e6b24",
+    "declaredName": "propeller1",
+    "definition": [
+     {
+      "@id": "f5aedf71-5fcc-569d-bdbb-1e48a5694d47"
+     }
+    ],
+    "type": [
+     {
+      "@id": "f5aedf71-5fcc-569d-bdbb-1e48a5694d47"
+     }
+    ],
+    "owner": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningNamespace": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningType": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::propeller1",
+    "name": "propeller1"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "06606f5e-1133-5913-af66-a78a9d52af90"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "06606f5e-1133-5913-af66-a78a9d52af90",
+    "elementId": "06606f5e-1133-5913-af66-a78a9d52af90",
+    "declaredName": "diameter",
+    "owner": {
+     "@id": "2d94fd7c-188a-514b-9532-ce99a20e6b24"
+    },
+    "owningNamespace": {
+     "@id": "2d94fd7c-188a-514b-9532-ce99a20e6b24"
+    },
+    "owningType": {
+     "@id": "2d94fd7c-188a-514b-9532-ce99a20e6b24"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::propeller1::diameter",
+    "name": "diameter"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4958f866-257a-5cf6-b376-ffbe4f302313"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "4958f866-257a-5cf6-b376-ffbe4f302313",
+    "elementId": "4958f866-257a-5cf6-b376-ffbe4f302313",
+    "operator": "[",
+    "owner": {
+     "@id": "06606f5e-1133-5913-af66-a78a9d52af90"
+    },
+    "owningNamespace": {
+     "@id": "06606f5e-1133-5913-af66-a78a9d52af90"
+    },
+    "argument": [
+     {
+      "@id": "f067f440-aff4-5510-b0d2-b47d997fe8b0"
+     },
+     {
+      "@id": "36d0e217-c7b1-5e0e-a671-e1cf5d02f9a2"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "f067f440-aff4-5510-b0d2-b47d997fe8b0"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "f067f440-aff4-5510-b0d2-b47d997fe8b0",
+    "elementId": "f067f440-aff4-5510-b0d2-b47d997fe8b0",
+    "value": 254,
+    "owner": {
+     "@id": "4958f866-257a-5cf6-b376-ffbe4f302313"
+    },
+    "owningNamespace": {
+     "@id": "4958f866-257a-5cf6-b376-ffbe4f302313"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "36d0e217-c7b1-5e0e-a671-e1cf5d02f9a2"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "36d0e217-c7b1-5e0e-a671-e1cf5d02f9a2",
+    "elementId": "36d0e217-c7b1-5e0e-a671-e1cf5d02f9a2",
+    "referent": {
+     "@id": "12946613-c0bf-539d-92ec-32618ceac98b"
+    },
+    "owner": {
+     "@id": "4958f866-257a-5cf6-b376-ffbe4f302313"
+    },
+    "owningNamespace": {
+     "@id": "4958f866-257a-5cf6-b376-ffbe4f302313"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "1cd2633b-c2d7-5521-a215-1272ff833b74"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "1cd2633b-c2d7-5521-a215-1272ff833b74",
+    "elementId": "1cd2633b-c2d7-5521-a215-1272ff833b74",
+    "featureWithValue": {
+     "@id": "06606f5e-1133-5913-af66-a78a9d52af90"
+    },
+    "value": {
+     "@id": "4958f866-257a-5cf6-b376-ffbe4f302313"
+    },
+    "memberElement": {
+     "@id": "4958f866-257a-5cf6-b376-ffbe4f302313"
+    },
+    "owner": {
+     "@id": "06606f5e-1133-5913-af66-a78a9d52af90"
+    },
+    "owningNamespace": {
+     "@id": "06606f5e-1133-5913-af66-a78a9d52af90"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "daa65252-3b09-5919-9df8-13c0f7eeff3b"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "daa65252-3b09-5919-9df8-13c0f7eeff3b",
+    "elementId": "daa65252-3b09-5919-9df8-13c0f7eeff3b",
+    "declaredName": "motor2",
+    "definition": [
+     {
+      "@id": "4ff102e7-c57e-54e1-8454-afc9516fad66"
+     }
+    ],
+    "type": [
+     {
+      "@id": "4ff102e7-c57e-54e1-8454-afc9516fad66"
+     }
+    ],
+    "owner": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningNamespace": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningType": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::motor2",
+    "name": "motor2"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "be4eb131-264f-573e-837e-64262307954d"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "be4eb131-264f-573e-837e-64262307954d",
+    "elementId": "be4eb131-264f-573e-837e-64262307954d",
+    "declaredName": "mass",
+    "owner": {
+     "@id": "daa65252-3b09-5919-9df8-13c0f7eeff3b"
+    },
+    "owningNamespace": {
+     "@id": "daa65252-3b09-5919-9df8-13c0f7eeff3b"
+    },
+    "owningType": {
+     "@id": "daa65252-3b09-5919-9df8-13c0f7eeff3b"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::motor2::mass",
+    "name": "mass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "30c6991b-d14a-5c19-8e48-b03f1c8d300b"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "30c6991b-d14a-5c19-8e48-b03f1c8d300b",
+    "elementId": "30c6991b-d14a-5c19-8e48-b03f1c8d300b",
+    "operator": "[",
+    "owner": {
+     "@id": "be4eb131-264f-573e-837e-64262307954d"
+    },
+    "owningNamespace": {
+     "@id": "be4eb131-264f-573e-837e-64262307954d"
+    },
+    "argument": [
+     {
+      "@id": "a9960ec3-f8fd-5210-8f29-176b070511db"
+     },
+     {
+      "@id": "26656c3f-e441-50b3-9438-e27a79ef46a1"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "a9960ec3-f8fd-5210-8f29-176b070511db"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "a9960ec3-f8fd-5210-8f29-176b070511db",
+    "elementId": "a9960ec3-f8fd-5210-8f29-176b070511db",
+    "value": 52,
+    "owner": {
+     "@id": "30c6991b-d14a-5c19-8e48-b03f1c8d300b"
+    },
+    "owningNamespace": {
+     "@id": "30c6991b-d14a-5c19-8e48-b03f1c8d300b"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "26656c3f-e441-50b3-9438-e27a79ef46a1"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "26656c3f-e441-50b3-9438-e27a79ef46a1",
+    "elementId": "26656c3f-e441-50b3-9438-e27a79ef46a1",
+    "referent": {
+     "@id": "c8339614-88a3-58f7-bac6-8e4826d99a8f"
+    },
+    "owner": {
+     "@id": "30c6991b-d14a-5c19-8e48-b03f1c8d300b"
+    },
+    "owningNamespace": {
+     "@id": "30c6991b-d14a-5c19-8e48-b03f1c8d300b"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "3f5f49c4-3f20-5581-80dd-28e73197c459"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "3f5f49c4-3f20-5581-80dd-28e73197c459",
+    "elementId": "3f5f49c4-3f20-5581-80dd-28e73197c459",
+    "featureWithValue": {
+     "@id": "be4eb131-264f-573e-837e-64262307954d"
+    },
+    "value": {
+     "@id": "30c6991b-d14a-5c19-8e48-b03f1c8d300b"
+    },
+    "memberElement": {
+     "@id": "30c6991b-d14a-5c19-8e48-b03f1c8d300b"
+    },
+    "owner": {
+     "@id": "be4eb131-264f-573e-837e-64262307954d"
+    },
+    "owningNamespace": {
+     "@id": "be4eb131-264f-573e-837e-64262307954d"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "3be79f5d-2f71-53a9-ab95-7e52d5811ca6"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "3be79f5d-2f71-53a9-ab95-7e52d5811ca6",
+    "elementId": "3be79f5d-2f71-53a9-ab95-7e52d5811ca6",
+    "declaredName": "maxPower",
+    "owner": {
+     "@id": "daa65252-3b09-5919-9df8-13c0f7eeff3b"
+    },
+    "owningNamespace": {
+     "@id": "daa65252-3b09-5919-9df8-13c0f7eeff3b"
+    },
+    "owningType": {
+     "@id": "daa65252-3b09-5919-9df8-13c0f7eeff3b"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::motor2::maxPower",
+    "name": "maxPower"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "032dc6ad-3098-5ea4-81bc-fbffb56c5e53"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "032dc6ad-3098-5ea4-81bc-fbffb56c5e53",
+    "elementId": "032dc6ad-3098-5ea4-81bc-fbffb56c5e53",
+    "operator": "[",
+    "owner": {
+     "@id": "3be79f5d-2f71-53a9-ab95-7e52d5811ca6"
+    },
+    "owningNamespace": {
+     "@id": "3be79f5d-2f71-53a9-ab95-7e52d5811ca6"
+    },
+    "argument": [
+     {
+      "@id": "590baef5-4f42-511f-9a68-4dfec7537e08"
+     },
+     {
+      "@id": "0291a384-6ef6-577f-9433-0463b6977bbe"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "590baef5-4f42-511f-9a68-4dfec7537e08"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "590baef5-4f42-511f-9a68-4dfec7537e08",
+    "elementId": "590baef5-4f42-511f-9a68-4dfec7537e08",
+    "value": 180,
+    "owner": {
+     "@id": "032dc6ad-3098-5ea4-81bc-fbffb56c5e53"
+    },
+    "owningNamespace": {
+     "@id": "032dc6ad-3098-5ea4-81bc-fbffb56c5e53"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "0291a384-6ef6-577f-9433-0463b6977bbe"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "0291a384-6ef6-577f-9433-0463b6977bbe",
+    "elementId": "0291a384-6ef6-577f-9433-0463b6977bbe",
+    "referent": {
+     "@id": "6f5baf32-0777-5756-b158-9285af6b2832"
+    },
+    "owner": {
+     "@id": "032dc6ad-3098-5ea4-81bc-fbffb56c5e53"
+    },
+    "owningNamespace": {
+     "@id": "032dc6ad-3098-5ea4-81bc-fbffb56c5e53"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "390e3dc8-a965-5529-bb2d-c70cf524eed2"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "390e3dc8-a965-5529-bb2d-c70cf524eed2",
+    "elementId": "390e3dc8-a965-5529-bb2d-c70cf524eed2",
+    "featureWithValue": {
+     "@id": "3be79f5d-2f71-53a9-ab95-7e52d5811ca6"
+    },
+    "value": {
+     "@id": "032dc6ad-3098-5ea4-81bc-fbffb56c5e53"
+    },
+    "memberElement": {
+     "@id": "032dc6ad-3098-5ea4-81bc-fbffb56c5e53"
+    },
+    "owner": {
+     "@id": "3be79f5d-2f71-53a9-ab95-7e52d5811ca6"
+    },
+    "owningNamespace": {
+     "@id": "3be79f5d-2f71-53a9-ab95-7e52d5811ca6"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "dd54dc1c-5661-5c78-b7e7-b37af5b100dd"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "dd54dc1c-5661-5c78-b7e7-b37af5b100dd",
+    "elementId": "dd54dc1c-5661-5c78-b7e7-b37af5b100dd",
+    "declaredName": "propeller2",
+    "definition": [
+     {
+      "@id": "f5aedf71-5fcc-569d-bdbb-1e48a5694d47"
+     }
+    ],
+    "type": [
+     {
+      "@id": "f5aedf71-5fcc-569d-bdbb-1e48a5694d47"
+     }
+    ],
+    "owner": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningNamespace": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningType": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::propeller2",
+    "name": "propeller2"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4fd953a2-e0d3-5be4-973c-6a6157bdaa89"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "4fd953a2-e0d3-5be4-973c-6a6157bdaa89",
+    "elementId": "4fd953a2-e0d3-5be4-973c-6a6157bdaa89",
+    "declaredName": "diameter",
+    "owner": {
+     "@id": "dd54dc1c-5661-5c78-b7e7-b37af5b100dd"
+    },
+    "owningNamespace": {
+     "@id": "dd54dc1c-5661-5c78-b7e7-b37af5b100dd"
+    },
+    "owningType": {
+     "@id": "dd54dc1c-5661-5c78-b7e7-b37af5b100dd"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::propeller2::diameter",
+    "name": "diameter"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "9f1bb901-2866-5d3f-98f9-e17c39a2ff2d"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "9f1bb901-2866-5d3f-98f9-e17c39a2ff2d",
+    "elementId": "9f1bb901-2866-5d3f-98f9-e17c39a2ff2d",
+    "operator": "[",
+    "owner": {
+     "@id": "4fd953a2-e0d3-5be4-973c-6a6157bdaa89"
+    },
+    "owningNamespace": {
+     "@id": "4fd953a2-e0d3-5be4-973c-6a6157bdaa89"
+    },
+    "argument": [
+     {
+      "@id": "8d1ffb42-0aa5-544a-b810-e5fa708afe75"
+     },
+     {
+      "@id": "62134e7f-ff84-5c34-b79c-432567290719"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "8d1ffb42-0aa5-544a-b810-e5fa708afe75"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "8d1ffb42-0aa5-544a-b810-e5fa708afe75",
+    "elementId": "8d1ffb42-0aa5-544a-b810-e5fa708afe75",
+    "value": 254,
+    "owner": {
+     "@id": "9f1bb901-2866-5d3f-98f9-e17c39a2ff2d"
+    },
+    "owningNamespace": {
+     "@id": "9f1bb901-2866-5d3f-98f9-e17c39a2ff2d"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "62134e7f-ff84-5c34-b79c-432567290719"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "62134e7f-ff84-5c34-b79c-432567290719",
+    "elementId": "62134e7f-ff84-5c34-b79c-432567290719",
+    "referent": {
+     "@id": "12946613-c0bf-539d-92ec-32618ceac98b"
+    },
+    "owner": {
+     "@id": "9f1bb901-2866-5d3f-98f9-e17c39a2ff2d"
+    },
+    "owningNamespace": {
+     "@id": "9f1bb901-2866-5d3f-98f9-e17c39a2ff2d"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "1afd5672-b60d-5b66-ada7-e9e705219179"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "1afd5672-b60d-5b66-ada7-e9e705219179",
+    "elementId": "1afd5672-b60d-5b66-ada7-e9e705219179",
+    "featureWithValue": {
+     "@id": "4fd953a2-e0d3-5be4-973c-6a6157bdaa89"
+    },
+    "value": {
+     "@id": "9f1bb901-2866-5d3f-98f9-e17c39a2ff2d"
+    },
+    "memberElement": {
+     "@id": "9f1bb901-2866-5d3f-98f9-e17c39a2ff2d"
+    },
+    "owner": {
+     "@id": "4fd953a2-e0d3-5be4-973c-6a6157bdaa89"
+    },
+    "owningNamespace": {
+     "@id": "4fd953a2-e0d3-5be4-973c-6a6157bdaa89"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "c411a257-6aaf-5c22-8d62-587a0a09e7ab"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "c411a257-6aaf-5c22-8d62-587a0a09e7ab",
+    "elementId": "c411a257-6aaf-5c22-8d62-587a0a09e7ab",
+    "declaredName": "motor3",
+    "definition": [
+     {
+      "@id": "4ff102e7-c57e-54e1-8454-afc9516fad66"
+     }
+    ],
+    "type": [
+     {
+      "@id": "4ff102e7-c57e-54e1-8454-afc9516fad66"
+     }
+    ],
+    "owner": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningNamespace": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningType": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::motor3",
+    "name": "motor3"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "fabbc12b-d89e-500c-9b58-a1c80ee15729"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "fabbc12b-d89e-500c-9b58-a1c80ee15729",
+    "elementId": "fabbc12b-d89e-500c-9b58-a1c80ee15729",
+    "declaredName": "mass",
+    "owner": {
+     "@id": "c411a257-6aaf-5c22-8d62-587a0a09e7ab"
+    },
+    "owningNamespace": {
+     "@id": "c411a257-6aaf-5c22-8d62-587a0a09e7ab"
+    },
+    "owningType": {
+     "@id": "c411a257-6aaf-5c22-8d62-587a0a09e7ab"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::motor3::mass",
+    "name": "mass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "f86e60eb-d270-59dd-907f-ec59c20c7141"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "f86e60eb-d270-59dd-907f-ec59c20c7141",
+    "elementId": "f86e60eb-d270-59dd-907f-ec59c20c7141",
+    "operator": "[",
+    "owner": {
+     "@id": "fabbc12b-d89e-500c-9b58-a1c80ee15729"
+    },
+    "owningNamespace": {
+     "@id": "fabbc12b-d89e-500c-9b58-a1c80ee15729"
+    },
+    "argument": [
+     {
+      "@id": "5564f709-15c5-5780-990f-e1d98197ef93"
+     },
+     {
+      "@id": "f3fc6fcd-c084-56eb-b16c-e02a67917cc7"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "5564f709-15c5-5780-990f-e1d98197ef93"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "5564f709-15c5-5780-990f-e1d98197ef93",
+    "elementId": "5564f709-15c5-5780-990f-e1d98197ef93",
+    "value": 52,
+    "owner": {
+     "@id": "f86e60eb-d270-59dd-907f-ec59c20c7141"
+    },
+    "owningNamespace": {
+     "@id": "f86e60eb-d270-59dd-907f-ec59c20c7141"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "f3fc6fcd-c084-56eb-b16c-e02a67917cc7"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "f3fc6fcd-c084-56eb-b16c-e02a67917cc7",
+    "elementId": "f3fc6fcd-c084-56eb-b16c-e02a67917cc7",
+    "referent": {
+     "@id": "c8339614-88a3-58f7-bac6-8e4826d99a8f"
+    },
+    "owner": {
+     "@id": "f86e60eb-d270-59dd-907f-ec59c20c7141"
+    },
+    "owningNamespace": {
+     "@id": "f86e60eb-d270-59dd-907f-ec59c20c7141"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "924b57f0-16e2-5a3f-9e43-5f205729f689"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "924b57f0-16e2-5a3f-9e43-5f205729f689",
+    "elementId": "924b57f0-16e2-5a3f-9e43-5f205729f689",
+    "featureWithValue": {
+     "@id": "fabbc12b-d89e-500c-9b58-a1c80ee15729"
+    },
+    "value": {
+     "@id": "f86e60eb-d270-59dd-907f-ec59c20c7141"
+    },
+    "memberElement": {
+     "@id": "f86e60eb-d270-59dd-907f-ec59c20c7141"
+    },
+    "owner": {
+     "@id": "fabbc12b-d89e-500c-9b58-a1c80ee15729"
+    },
+    "owningNamespace": {
+     "@id": "fabbc12b-d89e-500c-9b58-a1c80ee15729"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "1f60b743-f35b-58c2-8271-51d7ea2b59f7"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "1f60b743-f35b-58c2-8271-51d7ea2b59f7",
+    "elementId": "1f60b743-f35b-58c2-8271-51d7ea2b59f7",
+    "declaredName": "maxPower",
+    "owner": {
+     "@id": "c411a257-6aaf-5c22-8d62-587a0a09e7ab"
+    },
+    "owningNamespace": {
+     "@id": "c411a257-6aaf-5c22-8d62-587a0a09e7ab"
+    },
+    "owningType": {
+     "@id": "c411a257-6aaf-5c22-8d62-587a0a09e7ab"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::motor3::maxPower",
+    "name": "maxPower"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "fd1ba7e9-1099-5f19-a7c8-30830ed2c213"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "fd1ba7e9-1099-5f19-a7c8-30830ed2c213",
+    "elementId": "fd1ba7e9-1099-5f19-a7c8-30830ed2c213",
+    "operator": "[",
+    "owner": {
+     "@id": "1f60b743-f35b-58c2-8271-51d7ea2b59f7"
+    },
+    "owningNamespace": {
+     "@id": "1f60b743-f35b-58c2-8271-51d7ea2b59f7"
+    },
+    "argument": [
+     {
+      "@id": "484f9ed9-1651-577f-be39-4037e33914f6"
+     },
+     {
+      "@id": "4dff60f2-13da-5366-b0cc-5c70b8baa31a"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "484f9ed9-1651-577f-be39-4037e33914f6"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "484f9ed9-1651-577f-be39-4037e33914f6",
+    "elementId": "484f9ed9-1651-577f-be39-4037e33914f6",
+    "value": 180,
+    "owner": {
+     "@id": "fd1ba7e9-1099-5f19-a7c8-30830ed2c213"
+    },
+    "owningNamespace": {
+     "@id": "fd1ba7e9-1099-5f19-a7c8-30830ed2c213"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4dff60f2-13da-5366-b0cc-5c70b8baa31a"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "4dff60f2-13da-5366-b0cc-5c70b8baa31a",
+    "elementId": "4dff60f2-13da-5366-b0cc-5c70b8baa31a",
+    "referent": {
+     "@id": "6f5baf32-0777-5756-b158-9285af6b2832"
+    },
+    "owner": {
+     "@id": "fd1ba7e9-1099-5f19-a7c8-30830ed2c213"
+    },
+    "owningNamespace": {
+     "@id": "fd1ba7e9-1099-5f19-a7c8-30830ed2c213"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "112b83a7-b000-5740-8c92-df3e85ba5d0a"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "112b83a7-b000-5740-8c92-df3e85ba5d0a",
+    "elementId": "112b83a7-b000-5740-8c92-df3e85ba5d0a",
+    "featureWithValue": {
+     "@id": "1f60b743-f35b-58c2-8271-51d7ea2b59f7"
+    },
+    "value": {
+     "@id": "fd1ba7e9-1099-5f19-a7c8-30830ed2c213"
+    },
+    "memberElement": {
+     "@id": "fd1ba7e9-1099-5f19-a7c8-30830ed2c213"
+    },
+    "owner": {
+     "@id": "1f60b743-f35b-58c2-8271-51d7ea2b59f7"
+    },
+    "owningNamespace": {
+     "@id": "1f60b743-f35b-58c2-8271-51d7ea2b59f7"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "1cd8a735-8605-5d08-9813-a9f016291bea"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "1cd8a735-8605-5d08-9813-a9f016291bea",
+    "elementId": "1cd8a735-8605-5d08-9813-a9f016291bea",
+    "declaredName": "propeller3",
+    "definition": [
+     {
+      "@id": "f5aedf71-5fcc-569d-bdbb-1e48a5694d47"
+     }
+    ],
+    "type": [
+     {
+      "@id": "f5aedf71-5fcc-569d-bdbb-1e48a5694d47"
+     }
+    ],
+    "owner": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningNamespace": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningType": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::propeller3",
+    "name": "propeller3"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "f9605fed-c55d-595e-8777-103e03da608a"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "f9605fed-c55d-595e-8777-103e03da608a",
+    "elementId": "f9605fed-c55d-595e-8777-103e03da608a",
+    "declaredName": "diameter",
+    "owner": {
+     "@id": "1cd8a735-8605-5d08-9813-a9f016291bea"
+    },
+    "owningNamespace": {
+     "@id": "1cd8a735-8605-5d08-9813-a9f016291bea"
+    },
+    "owningType": {
+     "@id": "1cd8a735-8605-5d08-9813-a9f016291bea"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::propeller3::diameter",
+    "name": "diameter"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4e1e2812-1d11-5017-bc20-066dce46b02f"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "4e1e2812-1d11-5017-bc20-066dce46b02f",
+    "elementId": "4e1e2812-1d11-5017-bc20-066dce46b02f",
+    "operator": "[",
+    "owner": {
+     "@id": "f9605fed-c55d-595e-8777-103e03da608a"
+    },
+    "owningNamespace": {
+     "@id": "f9605fed-c55d-595e-8777-103e03da608a"
+    },
+    "argument": [
+     {
+      "@id": "2b7f7631-4c49-5b50-bd99-fdd98fcbbbe7"
+     },
+     {
+      "@id": "626f78aa-a93f-5ae6-9274-dc465b93c44e"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2b7f7631-4c49-5b50-bd99-fdd98fcbbbe7"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "2b7f7631-4c49-5b50-bd99-fdd98fcbbbe7",
+    "elementId": "2b7f7631-4c49-5b50-bd99-fdd98fcbbbe7",
+    "value": 254,
+    "owner": {
+     "@id": "4e1e2812-1d11-5017-bc20-066dce46b02f"
+    },
+    "owningNamespace": {
+     "@id": "4e1e2812-1d11-5017-bc20-066dce46b02f"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "626f78aa-a93f-5ae6-9274-dc465b93c44e"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "626f78aa-a93f-5ae6-9274-dc465b93c44e",
+    "elementId": "626f78aa-a93f-5ae6-9274-dc465b93c44e",
+    "referent": {
+     "@id": "12946613-c0bf-539d-92ec-32618ceac98b"
+    },
+    "owner": {
+     "@id": "4e1e2812-1d11-5017-bc20-066dce46b02f"
+    },
+    "owningNamespace": {
+     "@id": "4e1e2812-1d11-5017-bc20-066dce46b02f"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "34fd9cd3-aadc-5ae6-a924-396d93bb6638"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "34fd9cd3-aadc-5ae6-a924-396d93bb6638",
+    "elementId": "34fd9cd3-aadc-5ae6-a924-396d93bb6638",
+    "featureWithValue": {
+     "@id": "f9605fed-c55d-595e-8777-103e03da608a"
+    },
+    "value": {
+     "@id": "4e1e2812-1d11-5017-bc20-066dce46b02f"
+    },
+    "memberElement": {
+     "@id": "4e1e2812-1d11-5017-bc20-066dce46b02f"
+    },
+    "owner": {
+     "@id": "f9605fed-c55d-595e-8777-103e03da608a"
+    },
+    "owningNamespace": {
+     "@id": "f9605fed-c55d-595e-8777-103e03da608a"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "5ea3db0d-1443-586d-96dd-3ea4d113658e"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "5ea3db0d-1443-586d-96dd-3ea4d113658e",
+    "elementId": "5ea3db0d-1443-586d-96dd-3ea4d113658e",
+    "declaredName": "motor4",
+    "definition": [
+     {
+      "@id": "4ff102e7-c57e-54e1-8454-afc9516fad66"
+     }
+    ],
+    "type": [
+     {
+      "@id": "4ff102e7-c57e-54e1-8454-afc9516fad66"
+     }
+    ],
+    "owner": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningNamespace": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningType": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::motor4",
+    "name": "motor4"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "5e656476-bb2d-5e00-a25d-f8dbe30f34bd"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "5e656476-bb2d-5e00-a25d-f8dbe30f34bd",
+    "elementId": "5e656476-bb2d-5e00-a25d-f8dbe30f34bd",
+    "declaredName": "mass",
+    "owner": {
+     "@id": "5ea3db0d-1443-586d-96dd-3ea4d113658e"
+    },
+    "owningNamespace": {
+     "@id": "5ea3db0d-1443-586d-96dd-3ea4d113658e"
+    },
+    "owningType": {
+     "@id": "5ea3db0d-1443-586d-96dd-3ea4d113658e"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::motor4::mass",
+    "name": "mass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "7bea71eb-3aa2-5759-817e-d930e03a4880"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "7bea71eb-3aa2-5759-817e-d930e03a4880",
+    "elementId": "7bea71eb-3aa2-5759-817e-d930e03a4880",
+    "operator": "[",
+    "owner": {
+     "@id": "5e656476-bb2d-5e00-a25d-f8dbe30f34bd"
+    },
+    "owningNamespace": {
+     "@id": "5e656476-bb2d-5e00-a25d-f8dbe30f34bd"
+    },
+    "argument": [
+     {
+      "@id": "3725fc64-c644-5371-a8be-a6aebe898ea4"
+     },
+     {
+      "@id": "514445c8-f357-58d9-a32c-4bdbc7ce8e22"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "3725fc64-c644-5371-a8be-a6aebe898ea4"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "3725fc64-c644-5371-a8be-a6aebe898ea4",
+    "elementId": "3725fc64-c644-5371-a8be-a6aebe898ea4",
+    "value": 52,
+    "owner": {
+     "@id": "7bea71eb-3aa2-5759-817e-d930e03a4880"
+    },
+    "owningNamespace": {
+     "@id": "7bea71eb-3aa2-5759-817e-d930e03a4880"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "514445c8-f357-58d9-a32c-4bdbc7ce8e22"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "514445c8-f357-58d9-a32c-4bdbc7ce8e22",
+    "elementId": "514445c8-f357-58d9-a32c-4bdbc7ce8e22",
+    "referent": {
+     "@id": "c8339614-88a3-58f7-bac6-8e4826d99a8f"
+    },
+    "owner": {
+     "@id": "7bea71eb-3aa2-5759-817e-d930e03a4880"
+    },
+    "owningNamespace": {
+     "@id": "7bea71eb-3aa2-5759-817e-d930e03a4880"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "18de24b4-58d2-5adc-85ca-c5beaf2caaee"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "18de24b4-58d2-5adc-85ca-c5beaf2caaee",
+    "elementId": "18de24b4-58d2-5adc-85ca-c5beaf2caaee",
+    "featureWithValue": {
+     "@id": "5e656476-bb2d-5e00-a25d-f8dbe30f34bd"
+    },
+    "value": {
+     "@id": "7bea71eb-3aa2-5759-817e-d930e03a4880"
+    },
+    "memberElement": {
+     "@id": "7bea71eb-3aa2-5759-817e-d930e03a4880"
+    },
+    "owner": {
+     "@id": "5e656476-bb2d-5e00-a25d-f8dbe30f34bd"
+    },
+    "owningNamespace": {
+     "@id": "5e656476-bb2d-5e00-a25d-f8dbe30f34bd"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2c348fcd-e96d-5ff6-bde3-d94888c7163c"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "2c348fcd-e96d-5ff6-bde3-d94888c7163c",
+    "elementId": "2c348fcd-e96d-5ff6-bde3-d94888c7163c",
+    "declaredName": "maxPower",
+    "owner": {
+     "@id": "5ea3db0d-1443-586d-96dd-3ea4d113658e"
+    },
+    "owningNamespace": {
+     "@id": "5ea3db0d-1443-586d-96dd-3ea4d113658e"
+    },
+    "owningType": {
+     "@id": "5ea3db0d-1443-586d-96dd-3ea4d113658e"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::motor4::maxPower",
+    "name": "maxPower"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "631ae790-caa3-5497-9be3-0aeb4063a158"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "631ae790-caa3-5497-9be3-0aeb4063a158",
+    "elementId": "631ae790-caa3-5497-9be3-0aeb4063a158",
+    "operator": "[",
+    "owner": {
+     "@id": "2c348fcd-e96d-5ff6-bde3-d94888c7163c"
+    },
+    "owningNamespace": {
+     "@id": "2c348fcd-e96d-5ff6-bde3-d94888c7163c"
+    },
+    "argument": [
+     {
+      "@id": "f8ce7a24-bbdc-5252-ad43-a71e01c21a0f"
+     },
+     {
+      "@id": "3abf9a68-702d-51ac-87aa-f2e5ede8de14"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "f8ce7a24-bbdc-5252-ad43-a71e01c21a0f"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "f8ce7a24-bbdc-5252-ad43-a71e01c21a0f",
+    "elementId": "f8ce7a24-bbdc-5252-ad43-a71e01c21a0f",
+    "value": 180,
+    "owner": {
+     "@id": "631ae790-caa3-5497-9be3-0aeb4063a158"
+    },
+    "owningNamespace": {
+     "@id": "631ae790-caa3-5497-9be3-0aeb4063a158"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "3abf9a68-702d-51ac-87aa-f2e5ede8de14"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "3abf9a68-702d-51ac-87aa-f2e5ede8de14",
+    "elementId": "3abf9a68-702d-51ac-87aa-f2e5ede8de14",
+    "referent": {
+     "@id": "6f5baf32-0777-5756-b158-9285af6b2832"
+    },
+    "owner": {
+     "@id": "631ae790-caa3-5497-9be3-0aeb4063a158"
+    },
+    "owningNamespace": {
+     "@id": "631ae790-caa3-5497-9be3-0aeb4063a158"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "4822e380-5b7e-507b-becb-c4eb4ec96c8d"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "4822e380-5b7e-507b-becb-c4eb4ec96c8d",
+    "elementId": "4822e380-5b7e-507b-becb-c4eb4ec96c8d",
+    "featureWithValue": {
+     "@id": "2c348fcd-e96d-5ff6-bde3-d94888c7163c"
+    },
+    "value": {
+     "@id": "631ae790-caa3-5497-9be3-0aeb4063a158"
+    },
+    "memberElement": {
+     "@id": "631ae790-caa3-5497-9be3-0aeb4063a158"
+    },
+    "owner": {
+     "@id": "2c348fcd-e96d-5ff6-bde3-d94888c7163c"
+    },
+    "owningNamespace": {
+     "@id": "2c348fcd-e96d-5ff6-bde3-d94888c7163c"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "6920a432-9841-5033-bf72-746246059ef7"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "6920a432-9841-5033-bf72-746246059ef7",
+    "elementId": "6920a432-9841-5033-bf72-746246059ef7",
+    "declaredName": "propeller4",
+    "definition": [
+     {
+      "@id": "f5aedf71-5fcc-569d-bdbb-1e48a5694d47"
+     }
+    ],
+    "type": [
+     {
+      "@id": "f5aedf71-5fcc-569d-bdbb-1e48a5694d47"
+     }
+    ],
+    "owner": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningNamespace": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owningType": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::propeller4",
+    "name": "propeller4"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d5d4d427-d2e4-52e0-8ee8-2b1337aab625"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "d5d4d427-d2e4-52e0-8ee8-2b1337aab625",
+    "elementId": "d5d4d427-d2e4-52e0-8ee8-2b1337aab625",
+    "declaredName": "diameter",
+    "owner": {
+     "@id": "6920a432-9841-5033-bf72-746246059ef7"
+    },
+    "owningNamespace": {
+     "@id": "6920a432-9841-5033-bf72-746246059ef7"
+    },
+    "owningType": {
+     "@id": "6920a432-9841-5033-bf72-746246059ef7"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::propulsion::propeller4::diameter",
+    "name": "diameter"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "380aca68-ed64-57b1-93b7-4b2fa53332b4"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "380aca68-ed64-57b1-93b7-4b2fa53332b4",
+    "elementId": "380aca68-ed64-57b1-93b7-4b2fa53332b4",
+    "operator": "[",
+    "owner": {
+     "@id": "d5d4d427-d2e4-52e0-8ee8-2b1337aab625"
+    },
+    "owningNamespace": {
+     "@id": "d5d4d427-d2e4-52e0-8ee8-2b1337aab625"
+    },
+    "argument": [
+     {
+      "@id": "5ab66cbf-57d0-58bf-9b09-5fdaf35ef1ed"
+     },
+     {
+      "@id": "2d095f44-77da-5db8-aaac-6a87fe069477"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "5ab66cbf-57d0-58bf-9b09-5fdaf35ef1ed"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "5ab66cbf-57d0-58bf-9b09-5fdaf35ef1ed",
+    "elementId": "5ab66cbf-57d0-58bf-9b09-5fdaf35ef1ed",
+    "value": 254,
+    "owner": {
+     "@id": "380aca68-ed64-57b1-93b7-4b2fa53332b4"
+    },
+    "owningNamespace": {
+     "@id": "380aca68-ed64-57b1-93b7-4b2fa53332b4"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2d095f44-77da-5db8-aaac-6a87fe069477"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "2d095f44-77da-5db8-aaac-6a87fe069477",
+    "elementId": "2d095f44-77da-5db8-aaac-6a87fe069477",
+    "referent": {
+     "@id": "12946613-c0bf-539d-92ec-32618ceac98b"
+    },
+    "owner": {
+     "@id": "380aca68-ed64-57b1-93b7-4b2fa53332b4"
+    },
+    "owningNamespace": {
+     "@id": "380aca68-ed64-57b1-93b7-4b2fa53332b4"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "ec369b49-50ba-5ecd-8a7e-48e80fda5b79"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "ec369b49-50ba-5ecd-8a7e-48e80fda5b79",
+    "elementId": "ec369b49-50ba-5ecd-8a7e-48e80fda5b79",
+    "featureWithValue": {
+     "@id": "d5d4d427-d2e4-52e0-8ee8-2b1337aab625"
+    },
+    "value": {
+     "@id": "380aca68-ed64-57b1-93b7-4b2fa53332b4"
+    },
+    "memberElement": {
+     "@id": "380aca68-ed64-57b1-93b7-4b2fa53332b4"
+    },
+    "owner": {
+     "@id": "d5d4d427-d2e4-52e0-8ee8-2b1337aab625"
+    },
+    "owningNamespace": {
+     "@id": "d5d4d427-d2e4-52e0-8ee8-2b1337aab625"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "0a0f047a-75e2-5705-a6ce-5d1b8140950d"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "0a0f047a-75e2-5705-a6ce-5d1b8140950d",
+    "elementId": "0a0f047a-75e2-5705-a6ce-5d1b8140950d",
+    "declaredName": "battery",
+    "definition": [
+     {
+      "@id": "e73edc85-cfd2-5074-8165-3aec7230f241"
+     }
+    ],
+    "type": [
+     {
+      "@id": "e73edc85-cfd2-5074-8165-3aec7230f241"
+     }
+    ],
+    "owner": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningNamespace": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningType": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::battery",
+    "name": "battery"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "567934d4-fd01-5933-9a90-f81cb3c0c061"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "567934d4-fd01-5933-9a90-f81cb3c0c061",
+    "elementId": "567934d4-fd01-5933-9a90-f81cb3c0c061",
+    "declaredName": "mass",
+    "owner": {
+     "@id": "0a0f047a-75e2-5705-a6ce-5d1b8140950d"
+    },
+    "owningNamespace": {
+     "@id": "0a0f047a-75e2-5705-a6ce-5d1b8140950d"
+    },
+    "owningType": {
+     "@id": "0a0f047a-75e2-5705-a6ce-5d1b8140950d"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::battery::mass",
+    "name": "mass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "ec1b63b5-9f9d-5d18-91ad-faa357ee90f7"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "ec1b63b5-9f9d-5d18-91ad-faa357ee90f7",
+    "elementId": "ec1b63b5-9f9d-5d18-91ad-faa357ee90f7",
+    "operator": "[",
+    "owner": {
+     "@id": "567934d4-fd01-5933-9a90-f81cb3c0c061"
+    },
+    "owningNamespace": {
+     "@id": "567934d4-fd01-5933-9a90-f81cb3c0c061"
+    },
+    "argument": [
+     {
+      "@id": "62d4b963-3ad3-586e-86b3-9145caf856c5"
+     },
+     {
+      "@id": "60c98506-c079-5f3c-a39e-f5151e4cd1c1"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "62d4b963-3ad3-586e-86b3-9145caf856c5"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "62d4b963-3ad3-586e-86b3-9145caf856c5",
+    "elementId": "62d4b963-3ad3-586e-86b3-9145caf856c5",
+    "value": 320,
+    "owner": {
+     "@id": "ec1b63b5-9f9d-5d18-91ad-faa357ee90f7"
+    },
+    "owningNamespace": {
+     "@id": "ec1b63b5-9f9d-5d18-91ad-faa357ee90f7"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "60c98506-c079-5f3c-a39e-f5151e4cd1c1"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "60c98506-c079-5f3c-a39e-f5151e4cd1c1",
+    "elementId": "60c98506-c079-5f3c-a39e-f5151e4cd1c1",
+    "referent": {
+     "@id": "c8339614-88a3-58f7-bac6-8e4826d99a8f"
+    },
+    "owner": {
+     "@id": "ec1b63b5-9f9d-5d18-91ad-faa357ee90f7"
+    },
+    "owningNamespace": {
+     "@id": "ec1b63b5-9f9d-5d18-91ad-faa357ee90f7"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2344f2cc-1819-5a72-9b3e-c5bf74aff22d"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "2344f2cc-1819-5a72-9b3e-c5bf74aff22d",
+    "elementId": "2344f2cc-1819-5a72-9b3e-c5bf74aff22d",
+    "featureWithValue": {
+     "@id": "567934d4-fd01-5933-9a90-f81cb3c0c061"
+    },
+    "value": {
+     "@id": "ec1b63b5-9f9d-5d18-91ad-faa357ee90f7"
+    },
+    "memberElement": {
+     "@id": "ec1b63b5-9f9d-5d18-91ad-faa357ee90f7"
+    },
+    "owner": {
+     "@id": "567934d4-fd01-5933-9a90-f81cb3c0c061"
+    },
+    "owningNamespace": {
+     "@id": "567934d4-fd01-5933-9a90-f81cb3c0c061"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "1b62810b-cd1f-5839-a119-50e86e7bf2bd"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "1b62810b-cd1f-5839-a119-50e86e7bf2bd",
+    "elementId": "1b62810b-cd1f-5839-a119-50e86e7bf2bd",
+    "declaredName": "voltage",
+    "owner": {
+     "@id": "0a0f047a-75e2-5705-a6ce-5d1b8140950d"
+    },
+    "owningNamespace": {
+     "@id": "0a0f047a-75e2-5705-a6ce-5d1b8140950d"
+    },
+    "owningType": {
+     "@id": "0a0f047a-75e2-5705-a6ce-5d1b8140950d"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::battery::voltage",
+    "name": "voltage"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "6e135846-5b39-5ce2-841f-181613bd251a"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "6e135846-5b39-5ce2-841f-181613bd251a",
+    "elementId": "6e135846-5b39-5ce2-841f-181613bd251a",
+    "operator": "[",
+    "owner": {
+     "@id": "1b62810b-cd1f-5839-a119-50e86e7bf2bd"
+    },
+    "owningNamespace": {
+     "@id": "1b62810b-cd1f-5839-a119-50e86e7bf2bd"
+    },
+    "argument": [
+     {
+      "@id": "48f106c1-b52f-58ae-a510-c0504e2e385b"
+     },
+     {
+      "@id": "e3cd27e3-cf8a-5c03-ac26-c8fb97218d32"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "48f106c1-b52f-58ae-a510-c0504e2e385b"
+   },
+   "payload": {
+    "@type": "LiteralRational",
+    "@id": "48f106c1-b52f-58ae-a510-c0504e2e385b",
+    "elementId": "48f106c1-b52f-58ae-a510-c0504e2e385b",
+    "value": 14.8,
+    "owner": {
+     "@id": "6e135846-5b39-5ce2-841f-181613bd251a"
+    },
+    "owningNamespace": {
+     "@id": "6e135846-5b39-5ce2-841f-181613bd251a"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "e3cd27e3-cf8a-5c03-ac26-c8fb97218d32"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "e3cd27e3-cf8a-5c03-ac26-c8fb97218d32",
+    "elementId": "e3cd27e3-cf8a-5c03-ac26-c8fb97218d32",
+    "referent": {
+     "@id": "6088d2af-829a-54bb-b6c8-485ffdd643bc"
+    },
+    "owner": {
+     "@id": "6e135846-5b39-5ce2-841f-181613bd251a"
+    },
+    "owningNamespace": {
+     "@id": "6e135846-5b39-5ce2-841f-181613bd251a"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "33637112-e445-5558-bf68-c84906de5592"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "33637112-e445-5558-bf68-c84906de5592",
+    "elementId": "33637112-e445-5558-bf68-c84906de5592",
+    "featureWithValue": {
+     "@id": "1b62810b-cd1f-5839-a119-50e86e7bf2bd"
+    },
+    "value": {
+     "@id": "6e135846-5b39-5ce2-841f-181613bd251a"
+    },
+    "memberElement": {
+     "@id": "6e135846-5b39-5ce2-841f-181613bd251a"
+    },
+    "owner": {
+     "@id": "1b62810b-cd1f-5839-a119-50e86e7bf2bd"
+    },
+    "owningNamespace": {
+     "@id": "1b62810b-cd1f-5839-a119-50e86e7bf2bd"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "e167141f-3db8-5a2a-a36a-a19e624f9ed7"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "e167141f-3db8-5a2a-a36a-a19e624f9ed7",
+    "elementId": "e167141f-3db8-5a2a-a36a-a19e624f9ed7",
+    "declaredName": "flightController",
+    "definition": [
+     {
+      "@id": "c7ba7568-ed89-5a7a-b8a8-411b44b282b2"
+     }
+    ],
+    "type": [
+     {
+      "@id": "c7ba7568-ed89-5a7a-b8a8-411b44b282b2"
+     }
+    ],
+    "owner": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningNamespace": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningType": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::flightController",
+    "name": "flightController"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "7f41cdb2-5db9-5c04-9a4d-313e8700ac9e"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "7f41cdb2-5db9-5c04-9a4d-313e8700ac9e",
+    "elementId": "7f41cdb2-5db9-5c04-9a4d-313e8700ac9e",
+    "declaredName": "mass",
+    "owner": {
+     "@id": "e167141f-3db8-5a2a-a36a-a19e624f9ed7"
+    },
+    "owningNamespace": {
+     "@id": "e167141f-3db8-5a2a-a36a-a19e624f9ed7"
+    },
+    "owningType": {
+     "@id": "e167141f-3db8-5a2a-a36a-a19e624f9ed7"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::flightController::mass",
+    "name": "mass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d6fca56d-4c30-57c0-98ae-0846ceb39800"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "d6fca56d-4c30-57c0-98ae-0846ceb39800",
+    "elementId": "d6fca56d-4c30-57c0-98ae-0846ceb39800",
+    "operator": "[",
+    "owner": {
+     "@id": "7f41cdb2-5db9-5c04-9a4d-313e8700ac9e"
+    },
+    "owningNamespace": {
+     "@id": "7f41cdb2-5db9-5c04-9a4d-313e8700ac9e"
+    },
+    "argument": [
+     {
+      "@id": "5dcbd430-8210-526f-8729-e67598c8fb56"
+     },
+     {
+      "@id": "5363e5d1-db3e-5a80-beeb-ccf968816a2f"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "5dcbd430-8210-526f-8729-e67598c8fb56"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "5dcbd430-8210-526f-8729-e67598c8fb56",
+    "elementId": "5dcbd430-8210-526f-8729-e67598c8fb56",
+    "value": 35,
+    "owner": {
+     "@id": "d6fca56d-4c30-57c0-98ae-0846ceb39800"
+    },
+    "owningNamespace": {
+     "@id": "d6fca56d-4c30-57c0-98ae-0846ceb39800"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "5363e5d1-db3e-5a80-beeb-ccf968816a2f"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "5363e5d1-db3e-5a80-beeb-ccf968816a2f",
+    "elementId": "5363e5d1-db3e-5a80-beeb-ccf968816a2f",
+    "referent": {
+     "@id": "c8339614-88a3-58f7-bac6-8e4826d99a8f"
+    },
+    "owner": {
+     "@id": "d6fca56d-4c30-57c0-98ae-0846ceb39800"
+    },
+    "owningNamespace": {
+     "@id": "d6fca56d-4c30-57c0-98ae-0846ceb39800"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "c389a99c-dcd5-5669-8f9b-c1429b464cc7"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "c389a99c-dcd5-5669-8f9b-c1429b464cc7",
+    "elementId": "c389a99c-dcd5-5669-8f9b-c1429b464cc7",
+    "featureWithValue": {
+     "@id": "7f41cdb2-5db9-5c04-9a4d-313e8700ac9e"
+    },
+    "value": {
+     "@id": "d6fca56d-4c30-57c0-98ae-0846ceb39800"
+    },
+    "memberElement": {
+     "@id": "d6fca56d-4c30-57c0-98ae-0846ceb39800"
+    },
+    "owner": {
+     "@id": "7f41cdb2-5db9-5c04-9a4d-313e8700ac9e"
+    },
+    "owningNamespace": {
+     "@id": "7f41cdb2-5db9-5c04-9a4d-313e8700ac9e"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "b0d417a0-397a-5b1d-ac84-e2ad97c9be1f"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "b0d417a0-397a-5b1d-ac84-e2ad97c9be1f",
+    "elementId": "b0d417a0-397a-5b1d-ac84-e2ad97c9be1f",
+    "declaredName": "cameraGimbal",
+    "definition": [
+     {
+      "@id": "dc166baa-eeb8-574e-ab39-3c5483ff046e"
+     }
+    ],
+    "type": [
+     {
+      "@id": "dc166baa-eeb8-574e-ab39-3c5483ff046e"
+     }
+    ],
+    "owner": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningNamespace": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningType": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::cameraGimbal",
+    "name": "cameraGimbal"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "05b60336-a1d1-57e0-93b5-57aaaf872387"
+   },
+   "payload": {
+    "@type": "PartUsage",
+    "@id": "05b60336-a1d1-57e0-93b5-57aaaf872387",
+    "elementId": "05b60336-a1d1-57e0-93b5-57aaaf872387",
+    "declaredName": "camera",
+    "definition": [
+     {
+      "@id": "6dd51343-90ce-50f3-b2d2-d590e13a3677"
+     }
+    ],
+    "type": [
+     {
+      "@id": "6dd51343-90ce-50f3-b2d2-d590e13a3677"
+     }
+    ],
+    "owner": {
+     "@id": "b0d417a0-397a-5b1d-ac84-e2ad97c9be1f"
+    },
+    "owningNamespace": {
+     "@id": "b0d417a0-397a-5b1d-ac84-e2ad97c9be1f"
+    },
+    "owningType": {
+     "@id": "b0d417a0-397a-5b1d-ac84-e2ad97c9be1f"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::cameraGimbal::camera",
+    "name": "camera"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "8bc6a354-64f6-54d8-910d-3cf86db6e653"
+   },
+   "payload": {
+    "@type": "AttributeUsage",
+    "@id": "8bc6a354-64f6-54d8-910d-3cf86db6e653",
+    "elementId": "8bc6a354-64f6-54d8-910d-3cf86db6e653",
+    "declaredName": "mass",
+    "owner": {
+     "@id": "05b60336-a1d1-57e0-93b5-57aaaf872387"
+    },
+    "owningNamespace": {
+     "@id": "05b60336-a1d1-57e0-93b5-57aaaf872387"
+    },
+    "owningType": {
+     "@id": "05b60336-a1d1-57e0-93b5-57aaaf872387"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::cameraGimbal::camera::mass",
+    "name": "mass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d8aaa4ca-dfc5-5118-8e53-5b9056c3bf3d"
+   },
+   "payload": {
+    "@type": "OperatorExpression",
+    "@id": "d8aaa4ca-dfc5-5118-8e53-5b9056c3bf3d",
+    "elementId": "d8aaa4ca-dfc5-5118-8e53-5b9056c3bf3d",
+    "operator": "[",
+    "owner": {
+     "@id": "8bc6a354-64f6-54d8-910d-3cf86db6e653"
+    },
+    "owningNamespace": {
+     "@id": "8bc6a354-64f6-54d8-910d-3cf86db6e653"
+    },
+    "argument": [
+     {
+      "@id": "04005dd9-94cc-5ef5-b16c-e4e103aa83fe"
+     },
+     {
+      "@id": "7b7a12af-4e44-55f0-a9e8-5faa3a9da265"
+     }
+    ]
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "04005dd9-94cc-5ef5-b16c-e4e103aa83fe"
+   },
+   "payload": {
+    "@type": "LiteralInteger",
+    "@id": "04005dd9-94cc-5ef5-b16c-e4e103aa83fe",
+    "elementId": "04005dd9-94cc-5ef5-b16c-e4e103aa83fe",
+    "value": 120,
+    "owner": {
+     "@id": "d8aaa4ca-dfc5-5118-8e53-5b9056c3bf3d"
+    },
+    "owningNamespace": {
+     "@id": "d8aaa4ca-dfc5-5118-8e53-5b9056c3bf3d"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "7b7a12af-4e44-55f0-a9e8-5faa3a9da265"
+   },
+   "payload": {
+    "@type": "FeatureReferenceExpression",
+    "@id": "7b7a12af-4e44-55f0-a9e8-5faa3a9da265",
+    "elementId": "7b7a12af-4e44-55f0-a9e8-5faa3a9da265",
+    "referent": {
+     "@id": "c8339614-88a3-58f7-bac6-8e4826d99a8f"
+    },
+    "owner": {
+     "@id": "d8aaa4ca-dfc5-5118-8e53-5b9056c3bf3d"
+    },
+    "owningNamespace": {
+     "@id": "d8aaa4ca-dfc5-5118-8e53-5b9056c3bf3d"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "9f1e4226-faae-5f3c-95d0-f1e1589a4856"
+   },
+   "payload": {
+    "@type": "FeatureValue",
+    "@id": "9f1e4226-faae-5f3c-95d0-f1e1589a4856",
+    "elementId": "9f1e4226-faae-5f3c-95d0-f1e1589a4856",
+    "featureWithValue": {
+     "@id": "8bc6a354-64f6-54d8-910d-3cf86db6e653"
+    },
+    "value": {
+     "@id": "d8aaa4ca-dfc5-5118-8e53-5b9056c3bf3d"
+    },
+    "memberElement": {
+     "@id": "d8aaa4ca-dfc5-5118-8e53-5b9056c3bf3d"
+    },
+    "owner": {
+     "@id": "8bc6a354-64f6-54d8-910d-3cf86db6e653"
+    },
+    "owningNamespace": {
+     "@id": "8bc6a354-64f6-54d8-910d-3cf86db6e653"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2449c733-e903-5199-8ec2-d186bfa602f1"
+   },
+   "payload": {
+    "@type": "InterfaceUsage",
+    "@id": "2449c733-e903-5199-8ec2-d186bfa602f1",
+    "elementId": "2449c733-e903-5199-8ec2-d186bfa602f1",
+    "declaredName": "batteryConnector",
+    "relatedFeature": [
+     {
+      "@id": "0a0f047a-75e2-5705-a6ce-5d1b8140950d"
+     },
+     {
+      "@id": "e167141f-3db8-5a2a-a36a-a19e624f9ed7"
+     }
+    ],
+    "sourceFeature": {
+     "@id": "0a0f047a-75e2-5705-a6ce-5d1b8140950d"
+    },
+    "targetFeature": [
+     {
+      "@id": "e167141f-3db8-5a2a-a36a-a19e624f9ed7"
+     }
+    ],
+    "owner": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningNamespace": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningType": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "qualifiedName": "DroneDemo::Usages::quadcopter::batteryConnector",
+    "name": "batteryConnector"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+   },
+   "payload": {
+    "@type": "Package",
+    "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d",
+    "elementId": "cd83ba21-c0d1-5a65-b6ba-86f39330046d",
+    "declaredName": "Requirements",
+    "owner": {
+     "@id": "8f71e50e-bc77-5fd7-996b-079c26040120"
+    },
+    "owningNamespace": {
+     "@id": "8f71e50e-bc77-5fd7-996b-079c26040120"
+    },
+    "qualifiedName": "DroneDemo::Requirements",
+    "name": "Requirements"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "afa25240-abcd-557a-8d0b-6833b69ecb43"
+   },
+   "payload": {
+    "@type": "RequirementUsage",
+    "@id": "afa25240-abcd-557a-8d0b-6833b69ecb43",
+    "elementId": "afa25240-abcd-557a-8d0b-6833b69ecb43",
+    "declaredName": "MaxTakeoffMass",
+    "declaredShortName": "REQ-DR-001",
+    "reqId": "REQ-DR-001",
+    "owner": {
+     "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+    },
+    "owningNamespace": {
+     "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+    },
+    "owningType": {
+     "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+    },
+    "qualifiedName": "DroneDemo::Requirements::MaxTakeoffMass",
+    "name": "MaxTakeoffMass"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "b407213f-8c0e-50c4-b7e1-7692fcb04f35"
+   },
+   "payload": {
+    "@type": "Documentation",
+    "@id": "b407213f-8c0e-50c4-b7e1-7692fcb04f35",
+    "elementId": "b407213f-8c0e-50c4-b7e1-7692fcb04f35",
+    "body": "The take-off mass shall not exceed 1.5 kg.",
+    "annotatedElement": [
+     {
+      "@id": "afa25240-abcd-557a-8d0b-6833b69ecb43"
+     }
+    ],
+    "owner": {
+     "@id": "afa25240-abcd-557a-8d0b-6833b69ecb43"
+    },
+    "owningNamespace": {
+     "@id": "afa25240-abcd-557a-8d0b-6833b69ecb43"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "fb718263-aed4-5d64-a9f8-db2c0eb80bb8"
+   },
+   "payload": {
+    "@type": "RequirementUsage",
+    "@id": "fb718263-aed4-5d64-a9f8-db2c0eb80bb8",
+    "elementId": "fb718263-aed4-5d64-a9f8-db2c0eb80bb8",
+    "declaredName": "MinFlightTime",
+    "declaredShortName": "REQ-DR-002",
+    "reqId": "REQ-DR-002",
+    "owner": {
+     "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+    },
+    "owningNamespace": {
+     "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+    },
+    "owningType": {
+     "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+    },
+    "qualifiedName": "DroneDemo::Requirements::MinFlightTime",
+    "name": "MinFlightTime"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "d83ee4de-aee6-50b2-9a2b-da1c8ffda176"
+   },
+   "payload": {
+    "@type": "Documentation",
+    "@id": "d83ee4de-aee6-50b2-9a2b-da1c8ffda176",
+    "elementId": "d83ee4de-aee6-50b2-9a2b-da1c8ffda176",
+    "body": "The drone shall fly at least 20 minutes on one battery.",
+    "annotatedElement": [
+     {
+      "@id": "fb718263-aed4-5d64-a9f8-db2c0eb80bb8"
+     }
+    ],
+    "owner": {
+     "@id": "fb718263-aed4-5d64-a9f8-db2c0eb80bb8"
+    },
+    "owningNamespace": {
+     "@id": "fb718263-aed4-5d64-a9f8-db2c0eb80bb8"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "2dd360fb-899d-52d1-a2c7-eaf90fdd9be3"
+   },
+   "payload": {
+    "@type": "RequirementUsage",
+    "@id": "2dd360fb-899d-52d1-a2c7-eaf90fdd9be3",
+    "elementId": "2dd360fb-899d-52d1-a2c7-eaf90fdd9be3",
+    "declaredName": "ThrustToWeight",
+    "declaredShortName": "REQ-DR-003",
+    "reqId": "REQ-DR-003",
+    "owner": {
+     "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+    },
+    "owningNamespace": {
+     "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+    },
+    "owningType": {
+     "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+    },
+    "qualifiedName": "DroneDemo::Requirements::ThrustToWeight",
+    "name": "ThrustToWeight"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "11869b87-56a3-55b3-a1e1-12c1ab037a90"
+   },
+   "payload": {
+    "@type": "Documentation",
+    "@id": "11869b87-56a3-55b3-a1e1-12c1ab037a90",
+    "elementId": "11869b87-56a3-55b3-a1e1-12c1ab037a90",
+    "body": "Total thrust shall be at least twice the take-off weight.",
+    "annotatedElement": [
+     {
+      "@id": "2dd360fb-899d-52d1-a2c7-eaf90fdd9be3"
+     }
+    ],
+    "owner": {
+     "@id": "2dd360fb-899d-52d1-a2c7-eaf90fdd9be3"
+    },
+    "owningNamespace": {
+     "@id": "2dd360fb-899d-52d1-a2c7-eaf90fdd9be3"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "1cbe40d8-22c2-5503-b529-5d7cbea59040"
+   },
+   "payload": {
+    "@type": "RequirementUsage",
+    "@id": "1cbe40d8-22c2-5503-b529-5d7cbea59040",
+    "elementId": "1cbe40d8-22c2-5503-b529-5d7cbea59040",
+    "declaredName": "PropellerClearance",
+    "declaredShortName": "REQ-DR-004",
+    "reqId": "REQ-DR-004",
+    "owner": {
+     "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+    },
+    "owningNamespace": {
+     "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+    },
+    "owningType": {
+     "@id": "cd83ba21-c0d1-5a65-b6ba-86f39330046d"
+    },
+    "qualifiedName": "DroneDemo::Requirements::PropellerClearance",
+    "name": "PropellerClearance"
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "66b91e3a-30d7-542d-bb5c-921ad75dc30a"
+   },
+   "payload": {
+    "@type": "Documentation",
+    "@id": "66b91e3a-30d7-542d-bb5c-921ad75dc30a",
+    "elementId": "66b91e3a-30d7-542d-bb5c-921ad75dc30a",
+    "body": "Propellers shall not overlap: arm length must leave clearance for 254 mm props.",
+    "annotatedElement": [
+     {
+      "@id": "1cbe40d8-22c2-5503-b529-5d7cbea59040"
+     }
+    ],
+    "owner": {
+     "@id": "1cbe40d8-22c2-5503-b529-5d7cbea59040"
+    },
+    "owningNamespace": {
+     "@id": "1cbe40d8-22c2-5503-b529-5d7cbea59040"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "f2d51e5d-2dab-596f-b920-1ea459022e7f"
+   },
+   "payload": {
+    "@type": "SatisfyRequirementUsage",
+    "@id": "f2d51e5d-2dab-596f-b920-1ea459022e7f",
+    "elementId": "f2d51e5d-2dab-596f-b920-1ea459022e7f",
+    "satisfiedRequirement": {
+     "@id": "afa25240-abcd-557a-8d0b-6833b69ecb43"
+    },
+    "satisfyingFeature": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owner": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningNamespace": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningType": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "95ce53eb-a83d-53b8-bded-491d59e90f9a"
+   },
+   "payload": {
+    "@type": "SatisfyRequirementUsage",
+    "@id": "95ce53eb-a83d-53b8-bded-491d59e90f9a",
+    "elementId": "95ce53eb-a83d-53b8-bded-491d59e90f9a",
+    "satisfiedRequirement": {
+     "@id": "fb718263-aed4-5d64-a9f8-db2c0eb80bb8"
+    },
+    "satisfyingFeature": {
+     "@id": "0a0f047a-75e2-5705-a6ce-5d1b8140950d"
+    },
+    "owner": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningNamespace": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningType": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    }
+   }
+  },
+  {
+   "@type": "DataVersion",
+   "identity": {
+    "@id": "b728ac3f-5889-555d-9fe9-528db3b433d8"
+   },
+   "payload": {
+    "@type": "SatisfyRequirementUsage",
+    "@id": "b728ac3f-5889-555d-9fe9-528db3b433d8",
+    "elementId": "b728ac3f-5889-555d-9fe9-528db3b433d8",
+    "satisfiedRequirement": {
+     "@id": "2dd360fb-899d-52d1-a2c7-eaf90fdd9be3"
+    },
+    "satisfyingFeature": {
+     "@id": "58e70c94-de04-5ce3-b204-5f63f97f3259"
+    },
+    "owner": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningNamespace": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    },
+    "owningType": {
+     "@id": "d2ad7383-5818-532e-af9d-dfae884471e8"
+    }
+   }
+  }
+ ]
+}
