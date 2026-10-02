@@ -63,7 +63,9 @@ async def _execute(kernel_id: str, cells: list[str]) -> tuple[bool, str]:
         printed.append(text)
         print(text, end="" if text.endswith("\n") else "\n")
 
-    async with websockets.connect(url, max_size=None) as ws:
+    # Jupyter completes the handshake only once the kernel is up, and a cold
+    # SysML kernel (a JVM) took 16 s -- past websockets' default of 10 s.
+    async with websockets.connect(url, max_size=None, open_timeout=120) as ws:
         for code in cells:
             request = _request(code, session)
             await ws.send(json.dumps(request))

@@ -1,0 +1,82 @@
+# Mapping proposals -- MACHINE-WRITTEN. Do not hand-edit; edit mapping.yaml.
+#
+# Nothing in this file takes part in a verification run. A proposal reaches
+# mapping.yaml only through `python -m sysmlcad.confirm <id>`, which re-runs the
+# gates first and records who confirmed it and when (SRS FREQ-5).
+#
+# Rejections are kept rather than deleted: a pair somebody has already turned
+# down is worth remembering the next time a proposer suggests it.
+version: 1
+proposals:
+- id: p-01
+  sysml_part: box2
+  attribute: length
+  adapter: step
+  cad_object: projects/cube_freecad/cube_freecad.step
+  method: bbox_size
+  args:
+    axis: X
+  requirement: ''
+  direction: cad_owns
+  confidence: 0.7
+  rationale: The part name 'box2' matches the object 'Cube' by type; measurement is a bounding
+    box extent.
+  proposed_by: ai:gwdg.gemma-4-31b-it
+  proposed_at: '2026-10-02T10:10:29+00:00'
+  provenance:
+    provider: openai-compatible
+    model: gwdg.gemma-4-31b-it
+    prompt_digest: afba611da31a4753
+    response_id: chatcmpl-a21056e0e92f7290
+  status: proposed
+  decided_by: ''
+  decided_at: ''
+  reason: ''
+- id: p-02
+  sysml_part: box2
+  attribute: width
+  adapter: step
+  cad_object: projects/cube_freecad/cube_freecad.step
+  method: bbox_size
+  args:
+    axis: Y
+  requirement: ''
+  direction: cad_owns
+  confidence: 0.7
+  rationale: The part name 'box2' matches the object 'Cube' by type; measurement is a bounding
+    box extent.
+  proposed_by: ai:gwdg.gemma-4-31b-it
+  proposed_at: '2026-10-02T10:10:29+00:00'
+  provenance:
+    provider: openai-compatible
+    model: gwdg.gemma-4-31b-it
+    prompt_digest: afba611da31a4753
+    response_id: chatcmpl-a21056e0e92f7290
+  status: proposed
+  decided_by: ''
+  decided_at: ''
+  reason: ''
+- id: p-03
+  sysml_part: box2
+  attribute: height
+  adapter: step
+  cad_object: projects/cube_freecad/cube_freecad.step
+  method: bbox_size
+  args:
+    axis: Z
+  requirement: ''
+  direction: cad_owns
+  confidence: 0.7
+  rationale: The part name 'box2' matches the object 'Cube' by type; measurement is a bounding
+    box extent.
+  proposed_by: ai:gwdg.gemma-4-31b-it
+  proposed_at: '2026-10-02T10:10:29+00:00'
+  provenance:
+    provider: openai-compatible
+    model: gwdg.gemma-4-31b-it
+    prompt_digest: afba611da31a4753
+    response_id: chatcmpl-a21056e0e92f7290
+  status: proposed
+  decided_by: ''
+  decided_at: ''
+  reason: ''
