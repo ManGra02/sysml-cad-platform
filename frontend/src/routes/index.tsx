@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
-import { ArrowRight, Box, Loader2 } from "lucide-react"
+import { ArrowRight, Box, Loader2, Network } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
@@ -92,6 +92,12 @@ function Launcher() {
           className="mt-8 inline-flex items-center gap-2 rounded-md text-sm text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           <Box className="size-4" /> {t("launcher.openExplorerOnly")}
+        </Link>
+        <Link
+          to="/sysml"
+          className="mt-8 ml-6 inline-flex items-center gap-2 rounded-md text-sm text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          <Network className="size-4" /> {t("launcher.openSysml")}
         </Link>
       </div>
     </div>

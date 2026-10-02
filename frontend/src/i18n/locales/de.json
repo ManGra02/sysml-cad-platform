@@ -17,7 +17,8 @@
   "nav": {
     "cadExplorer": "CAD-Explorer",
     "chooseProject": "Projekt wählen",
-    "activeProject": "Aktives Projekt: {{title}}"
+    "activeProject": "Aktives Projekt: {{title}}",
+    "sysmlModel": "SysML-Modell"
   },
   "theme": {
     "system": "Design: System",
@@ -46,7 +47,8 @@
     "openExplorerOnly": "Nur den CAD-Explorer öffnen",
     "activateAndOpen": "Aktivieren und öffnen",
     "activateAndOpenLabel": "{{title}} aktivieren und öffnen",
-    "uiMissing": "Oberfläche fehlt noch:"
+    "uiMissing": "Oberfläche fehlt noch:",
+    "openSysml": "SysML-Modell öffnen"
   },
   "projects": {
     "activated": "Aktives Projekt: {{title}}",
@@ -249,6 +251,79 @@
       "contract_mismatch": "Verbunden, aber die Vertragsversionen weichen ab."
     }
   },
+  "sysml": {
+    "pageTitle": "SysML-Modell",
+    "title": "SysML-Modell",
+    "hint": "Das Systemmodell, wie es in Flexo MMS (SysML v2) gespeichert ist: Bauteile, ihre Werte und die Anforderungen, die sie erfüllen. Nur lesend – angezeigt wird der neueste Stand des Standard-Branches.",
+    "project": "Projekt",
+    "version": "Version {{id}}",
+    "reload": "Neu laden",
+    "noProjects": "Flexo läuft, enthält aber noch kein SysML-Projekt. Das Demo-Modell lädst du mit:",
+    "warnings_one": "{{count}} Hinweis beim Einlesen des Modells",
+    "warnings_other": "{{count}} Hinweise beim Einlesen des Modells",
+    "status": {
+      "ok": "Mit Flexo MMS verbunden",
+      "projects_one": "{{count}} Projekt",
+      "projects_other": "{{count}} Projekte",
+      "down": "Flexo MMS ist unter {{url}} nicht erreichbar.",
+      "downHint": "Starte Docker Desktop und dann Flexo im Plattform-Ordner:"
+    },
+    "tiles": {
+      "parts": "Bauteile",
+      "partsHint": "Alle Bauteile der Systemstruktur",
+      "leaves": "Blatt-Bauteile",
+      "leavesHint": "Bauteile ohne Unterteile – sie brauchen ein CAD-Modell",
+      "attributes": "Werte",
+      "attributesHint": "Attribute wie Masse, Leistung oder Länge",
+      "requirements": "Anforderungen",
+      "requirementsHint": "Was das System erfüllen muss"
+    },
+    "tabs": {
+      "structure": "Struktur",
+      "attributes": "Alle Werte",
+      "requirements": "Anforderungen",
+      "history": "Verlauf"
+    },
+    "tree": {
+      "title": "Bauteilbaum",
+      "hint": "Klicke auf ein Bauteil, um seine Werte zu sehen.",
+      "empty": "Das Modell enthält keine Bauteile.",
+      "leaf": "Blatt",
+      "expand": "Aufklappen",
+      "collapse": "Zuklappen"
+    },
+    "details": {
+      "attributes": "Werte",
+      "noAttributes": "Dieses Bauteil hat keine Werte.",
+      "satisfies": "Erfüllt",
+      "partOf": "Teil von",
+      "contains": "Enthält",
+      "leafHint": "Blatt-Bauteil – sollte ein eigenes CAD-Modell haben."
+    },
+    "columns": {
+      "element": "Bauteil",
+      "attribute": "Attribut",
+      "value": "Wert (Modell)",
+      "si": "Wert (SI)"
+    },
+    "attributes": {
+      "title": "Alle Werte",
+      "hint": "Alle Werte des Modells. „SI“ ist der Wert in Basiseinheiten, damit er direkt mit CAD verglichen werden kann.",
+      "filter": "Nach Bauteil oder Attribut filtern …",
+      "none": "Kein Wert passt zum Filter."
+    },
+    "requirements": {
+      "none": "Das Modell enthält keine Anforderungen.",
+      "satisfiedBy": "Erfüllt durch",
+      "notSatisfied": "von keinem Bauteil erfüllt"
+    },
+    "history": {
+      "title": "Versionen (Commits)",
+      "hint": "Jede Änderung am Modell ist ein neuer Commit. Ergebnisse beziehen sich immer auf genau einen Commit.",
+      "noDescription": "(keine Beschreibung)",
+      "shown": "angezeigt"
+    }
+  },
   "errors": {
     "generic": "Das hat nicht geklappt.",
     "backend_unreachable": "Das Backend ist nicht erreichbar.",
@@ -315,6 +390,15 @@
       "form_unsupported": "Dieser Wert lässt sich hier nicht bearbeiten.",
       "unknown_property": "Unbekannte Property.",
       "rejected": "FreeCAD hat den Wert abgelehnt: {{error}}"
-    }
+    },
+    "sysml_unreachable": "Flexo MMS (SysML) ist nicht erreichbar.",
+    "sysml_timeout": "Flexo MMS (SysML) hat nicht rechtzeitig geantwortet.",
+    "sysml_not_found": "In Flexo MMS nicht gefunden.",
+    "sysml_project_not_found": "Dieses SysML-Projekt existiert nicht.",
+    "sysml_ambiguous_project": "Mehrere SysML-Projekte heißen so – nutze die Projekt-ID.",
+    "sysml_unauthorized": "Flexo MMS hat die Anmeldung abgelehnt.",
+    "sysml_upstream_error": "Flexo MMS hat einen Fehler gemeldet.",
+    "sysml_element_not_found": "Dieses Element gibt es im Modell nicht.",
+    "sysml_attribute_not_found": "Dieses Attribut gibt es im Modell nicht."
   }
 }

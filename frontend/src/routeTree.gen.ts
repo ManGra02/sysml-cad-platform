@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SysmlRouteImport } from './routes/sysml'
 import { Route as CadIndexRouteImport } from './routes/cad.index'
 import { Route as CadDocRouteImport } from './routes/cad.$doc'
 import { Route as ProjectsBdsRouteImport } from './routes/projects.bds'
@@ -18,6 +19,11 @@ import { Route as ProjectsMcrRouteImport } from './routes/projects.mcr'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SysmlRoute = SysmlRouteImport.update({
+  id: '/sysml',
+  path: '/sysml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CadIndexRoute = CadIndexRouteImport.update({
@@ -43,6 +49,7 @@ const ProjectsMcrRoute = ProjectsMcrRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/sysml': typeof SysmlRoute
   '/cad/$doc': typeof CadDocRoute
   '/projects/bds': typeof ProjectsBdsRoute
   '/projects/mcr': typeof ProjectsMcrRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/sysml': typeof SysmlRoute
   '/cad/$doc': typeof CadDocRoute
   '/projects/bds': typeof ProjectsBdsRoute
   '/projects/mcr': typeof ProjectsMcrRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/sysml': typeof SysmlRoute
   '/cad/$doc': typeof CadDocRoute
   '/projects/bds': typeof ProjectsBdsRoute
   '/projects/mcr': typeof ProjectsMcrRoute
@@ -65,15 +74,23 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/cad/$doc' | '/projects/bds' | '/projects/mcr' | '/cad/'
+  fullPaths:
+    '/' | '/sysml' | '/cad/$doc' | '/projects/bds' | '/projects/mcr' | '/cad/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/cad/$doc' | '/projects/bds' | '/projects/mcr' | '/cad'
+  to: '/' | '/sysml' | '/cad/$doc' | '/projects/bds' | '/projects/mcr' | '/cad'
   id:
-    '__root__' | '/' | '/cad/$doc' | '/projects/bds' | '/projects/mcr' | '/cad/'
+    | '__root__'
+    | '/'
+    | '/sysml'
+    | '/cad/$doc'
+    | '/projects/bds'
+    | '/projects/mcr'
+    | '/cad/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SysmlRoute: typeof SysmlRoute
   CadDocRoute: typeof CadDocRoute
   ProjectsBdsRoute: typeof ProjectsBdsRoute
   ProjectsMcrRoute: typeof ProjectsMcrRoute
@@ -87,6 +104,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sysml': {
+      id: '/sysml'
+      path: '/sysml'
+      fullPath: '/sysml'
+      preLoaderRoute: typeof SysmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cad/': {
@@ -122,6 +146,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SysmlRoute: SysmlRoute,
   CadDocRoute: CadDocRoute,
   ProjectsBdsRoute: ProjectsBdsRoute,
   ProjectsMcrRoute: ProjectsMcrRoute,
