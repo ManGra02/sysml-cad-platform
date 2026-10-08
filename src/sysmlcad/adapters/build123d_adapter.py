@@ -40,6 +40,7 @@ from build123d import Part
 
 from ..units import Q, ureg
 from . import METHODS, CadTarget, Material, Unsupported, check_args, check_density
+from . import measurements as mm
 
 #: Where the CAD scripts live, for `catalog()`. The modules are addressed by
 #: import name; this path only answers "which names exist".
@@ -291,10 +292,19 @@ class Build123dAdapter:
     def _face_count(self, obj: str) -> Q:
         return len(self._part(obj).faces()) * ureg.dimensionless
 
+    def _cylinder_radius(self, obj: str, kind: str | None = None, axis: str | None = None) -> Q:
+        """Shared with the STEP adapter, not copied -- see `measurements.py`.
+
+        Measured on the built geometry, not read from `BORE_RADIUS_MM`: the
+        parameter says what the designer meant, the B-Rep what the script made.
+        """
+        return mm.cylinder_radius(self._part(obj), kind=kind, axis=axis)
+
 
 _METHODS = {
     "bbox_size": Build123dAdapter._bbox_size,
     "volume": Build123dAdapter._volume,
     "mass": Build123dAdapter._mass,
     "face_count": Build123dAdapter._face_count,
+    "cylinder_radius": Build123dAdapter._cylinder_radius,
 }

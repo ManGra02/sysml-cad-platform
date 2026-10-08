@@ -136,6 +136,24 @@ def test_an_attribute_with_no_obvious_axis_gets_no_bounding_box_proposal():
     ]
 
 
+def test_a_radius_is_proposed_as_a_cylinder_radius():
+    """The one measurement that IS a bore radius, narrowed to a hole because
+    the name says bore -- a shaft or a fillet must not answer for it."""
+    bore = [p for p in _proposals() if p.attribute == "boreRadius"]
+    assert bore, "the test needs candidates to say anything"
+    for proposal in bore:
+        assert proposal.method == "cylinder_radius"
+        assert proposal.args == {"kind": "hole"}
+
+
+def test_only_a_radius_is_proposed_as_a_cylinder_radius():
+    """`length` is a length too, and the part has a bore; that is no reason."""
+    assert not [
+        p for p in _proposals()
+        if p.method == "cylinder_radius" and p.attribute != "boreRadius"
+    ]
+
+
 def test_a_named_parameter_is_the_strongest_evidence():
     """`LENGTH_MM` in a script is a deliberate statement by whoever wrote it."""
     best = max(

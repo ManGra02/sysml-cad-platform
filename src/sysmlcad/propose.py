@@ -47,11 +47,18 @@ from .verify import AdapterPool, _leaf
 #: against `mass`. Getting a wrong-but-plausible number is the failure this
 #: whole project is built to avoid, and a proposer is where it would start.
 _BY_DIMENSION = {
-    ureg.mm.dimensionality: ("bbox_size",),
+    ureg.mm.dimensionality: ("bbox_size", "cylinder_radius"),
     ureg.kg.dimensionality: ("mass",),
     (ureg.mm**3).dimensionality: ("volume",),
     ureg.dimensionless.dimensionality: ("face_count",),
 }
+
+#: A `cylinder_radius` is only offered for an attribute whose name ends in
+#: "radius" -- a length or a thickness is not one, whatever the part's bores
+#: measure. A name that also says "bore" or "hole" narrows it to a bore, so a
+#: shaft or a fillet on the same part cannot answer for it.
+_RADIUS_WORD = "radius"
+_BORE_WORDS = {"bore", "hole"}
 
 #: Which axis a named dimension is measured along comes from the catalogue --
 #: the project's `axes:` over `project.DEFAULT_AXES`. A convention, not a fact,
@@ -244,11 +251,17 @@ class DifflibProposer:
                     continue
 
                 args = {}
+                named = normalise(attribute.name).split()
                 if method == "bbox_size":
-                    axis = catalog.axes.get(normalise(attribute.name).split()[-1])
+                    axis = catalog.axes.get(named[-1])
                     if axis is None:
                         continue    # no idea which axis; guessing is the bug
                     args = {"axis": axis}
+                elif method == "cylinder_radius":
+                    if named[-1] != _RADIUS_WORD:
+                        continue    # a length is not a radius
+                    if _BORE_WORDS & set(named):
+                        args = {"kind": "hole"}
 
                 candidates.append(Proposal(
                     id="",
@@ -263,7 +276,10 @@ class DifflibProposer:
                         f"identity match {part_score:.2f} between {matched_on!r} "
                         f"and {target.reference!r}; {why}"
                         + (f"; {attribute.name} taken along {args['axis']} by the "
-                           f"project's axis convention, not from the model" if args else "")
+                           f"project's axis convention, not from the model"
+                           if "axis" in args else "")
+                        + (f"; the name says bore, so only a hole counts"
+                           if "kind" in args else "")
                     ),
                     proposed_by=self.name,
                 ))

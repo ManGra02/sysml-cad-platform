@@ -160,7 +160,10 @@ def test_both_adapters_measure_the_same_component():
     script = Build123dAdapter()
     step = StepAdapter()
 
-    for method, args in [("volume", {}), ("bbox_size", {"axis": "X"}), ("face_count", {})]:
+    for method, args in [
+        ("volume", {}), ("bbox_size", {"axis": "X"}), ("face_count", {}),
+        ("cylinder_radius", {}),
+    ]:
         from_script = script.measure("gearbox#Housing", method, args)
         from_file = step.measure("fixtures/step/gearbox.step#Housing", method, args)
         assert from_script.magnitude == pytest.approx(from_file.magnitude, rel=1e-9), method
@@ -213,3 +216,15 @@ def test_a_component_target_offers_mass(adapter):
     assert "mass" in housing.methods
     assert housing.kind == "part"
     assert "AlSi10Mg" in housing.note
+
+
+def test_the_bore_is_measured_on_each_component(adapter):
+    """The interface dimension, from the geometry each builder made -- not from
+    `BORE_RADIUS_MM`, which says what was meant rather than what was built."""
+    for obj in ("gearbox#Housing", "gearbox#Cover"):
+        assert adapter.measure(obj, "cylinder_radius", {"kind": "hole"}) == 8.0 * ureg.mm
+
+
+def test_a_typo_in_cylinder_radius_args_is_unsupported(adapter):
+    with pytest.raises(Unsupported):
+        adapter.measure("gearbox#Housing", "cylinder_radius", {"knid": "hole"})

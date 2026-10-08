@@ -5,8 +5,9 @@ Check SysML v2 requirements automatically against CAD geometry. CI turns red whe
 the CAD model violates a system requirement. Later: a mapping store, AI-assisted
 mapping proposals, bidirectional sync, SMT-based verification.
 
-**Status: stages A, A2, E and H complete; 265 tests pass** (252 plus 13
-skipped without the optional AI SDK, which is how CI's first step runs). The verification
+**Status: stages A, A2, E and H complete; 282 tests pass** (plus 13
+skipped without the optional AI SDK, which is how CI's first step runs; four
+`cube_freecad`/prompt tests fail as of 2026-10-02, see git log). The verification
 chain runs end to end (SysML v2 API → extractor → CAD adapter → verdict → exit
 code), and on top of it the mapping can now be *proposed*: a catalogue of both
 sides, four gates over any proposed entry, a proposal store, a human
@@ -137,7 +138,7 @@ make catalog                    # what exists on each side, as data
 make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
 make step-fixtures              # regenerate fixtures/step/ (they are committed)
 python -m sysmlcad.verify -p gearbox api   # same as make verify-api PROJECT=gearbox
-make test                       # pytest, JUnit XML to out/ (265 tests)
+make test                       # pytest, JUnit XML to out/ (282 tests)
 
 # Mapping proposals -- nothing here can change a verdict
 make propose                    # baseline proposer -> projects/<name>/proposals.yaml
@@ -220,9 +221,11 @@ src/sysmlcad/      config, units, model, sysml_client, extract, mapping,
                    score.py       hit rate against the gold set
 src/sysmlcad/adapters/   __init__.py (CadAdapter protocol, CadTarget),
                          build123d_adapter.py, step_adapter.py,
-                         measurements.py (vocabulary over a Shape)
+                         measurements.py (vocabulary over a Shape;
+                         cylinder_radius lives only here)
 src/sysmlcad/explore_cad.py   what is inside a STEP file
 tests/             test_extract.py, test_requirements.py, test_verify.py,
+                   test_measurements.py,
                    test_project.py, test_build123d_adapter.py,
                    test_step_adapter.py, test_catalog.py, test_gates.py,
                    test_confirm.py, test_propose.py, test_propose_ai.py,
@@ -738,6 +741,21 @@ Set the motorHousing part entry to `status: proposed` and the run now says
   difference: the mass entry then needs `args: {density_g_per_cm3: 2.70}`,
   because the STEP export carries no material and the adapter reports a gap
   rather than assuming aluminium.
+- **`cylinder_radius(kind=None, axis=None)` measures a bore on the B-Rep**
+  (2026-10-02), for STEP and script alike, from ONE implementation in
+  `measurements.py`. Cylindrical faces are grouped into features by radius
+  and axis LINE (a bore through housing and cover is one feature; two
+  parallel bores are two). `kind` is decided by the face normal against the
+  radial direction -- the face's orientation flag is not enough, a fillet's
+  reads either way. More than one feature after narrowing is `Unsupported`:
+  a fillet is a cylinder too, so a rounded part needs `kind`/`axis`. The
+  baseline proposes it only for an attribute whose name ends in "radius",
+  with `kind: hole` when the name says bore/hole; the gold set's two
+  `boreRadius` entries now accept it instead of "nothing" (baseline still
+  11/11, wrong@1 0). The prompt changed with it, so the AI numbers above
+  predate it. **Confirming a proposal does not link it to a requirement**
+  (`requirement: ''`): add the requirement by hand, or the run never uses
+  the entry. MinBoreRadius stays a gap until that is done.
 - **The measurement vocabulary exists twice, on purpose.** `measurements.py`
   serves the step adapter; `Build123dAdapter` keeps its own copy because adding
   STEP support was an add-on and rewiring working code is how add-ons lose

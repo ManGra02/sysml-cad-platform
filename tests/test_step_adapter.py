@@ -53,6 +53,7 @@ def test_both_adapters_measure_the_same(adapter):
         ("bbox_size", {"axis": "X"}),
         ("bbox_size", {"axis": "Z"}),
         ("face_count", {}),
+        ("cylinder_radius", {"kind": "hole"}),
     ]:
         from_script = native.measure("motor_housing", method, args)
         from_file = adapter.measure(HOUSING, method, args)

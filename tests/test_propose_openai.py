@@ -20,6 +20,7 @@ import pytest
 
 from sysmlcad.adapters import CadTarget
 from sysmlcad.catalog import Catalog, CatalogAttribute, CatalogPart
+from sysmlcad.propose_ai import SYSTEM
 from sysmlcad.propose_openai import (
     FORMAT_ENV,
     KEY_FILE_ENV,
@@ -127,7 +128,7 @@ def test_the_request_carries_the_schema_and_both_prompt_halves():
     assert sent["response_format"]["type"] == "json_schema"
     assert sent["response_format"]["json_schema"]["strict"] is True
     assert sent["messages"][0]["role"] == "system"
-    assert "propose; a human confirms" in sent["messages"][0]["content"]
+    assert sent["messages"][0]["content"] == SYSTEM
     assert "cad_object motor_housing" in sent["messages"][1]["content"]
 
 

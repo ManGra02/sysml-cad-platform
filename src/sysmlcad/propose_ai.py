@@ -65,8 +65,10 @@ Decide each attribute in three steps:
    Never measure a component on the assembly around it, even where the numbers
    would agree -- that is a plausible number from the wrong object.
 2. The method, by the attribute's dimension: [length] -> bbox_size,
-   [mass] -> mass, [length] ** 3 -> volume, dimensionless -> face_count. Use
-   only a method the object lists as measurable.
+   [mass] -> mass, [length] ** 3 -> volume, dimensionless -> face_count. A
+   [length] whose name ends in "radius" -> cylinder_radius, never bbox_size;
+   set kind "hole" when the name says bore or hole. Use only a method the
+   object lists as measurable.
 3. The axis, for bbox_size: look up the attribute's name in the "axes" line.
    CAD systems differ, so never assume X, Y, Z. A name that is not in that
    line gets no bbox_size candidate.
@@ -105,9 +107,12 @@ def _schema():
         sysml_part: str = Field(description="part name, verbatim from the excerpt")
         attribute: str = Field(description="attribute name, verbatim from the excerpt")
         cad_object: str = Field(description="cad_object reference, verbatim from the excerpt")
-        method: Literal["bbox_size", "volume", "mass", "face_count"]
+        method: Literal["bbox_size", "volume", "mass", "face_count", "cylinder_radius"]
         axis: Literal["X", "Y", "Z"] | None = Field(
             default=None, description="required for bbox_size, omit otherwise"
+        )
+        kind: Literal["hole", "boss"] | None = Field(
+            default=None, description="cylinder_radius only: hole for a bore"
         )
         # No density field, on purpose. A density is a fact about the part, and
         # a mapping entry carrying one goes silently stale when the material
@@ -144,7 +149,7 @@ def _strictify(node):
         out["additionalProperties"] = False
         # Strict mode has no notion of an optional property: a field that may be
         # absent is expressed as a nullable type instead, which pydantic has
-        # already done for `axis` and `density_g_per_cm3`.
+        # already done for `axis`, `kind` and `density_g_per_cm3`.
         out["required"] = list(out["properties"])
     return out
 
@@ -374,6 +379,15 @@ class LlmProposer:
                 )
                 return None
             args = {"axis": axis}
+        elif method == "cylinder_radius":
+            kind = candidate.get("kind")
+            if kind not in (None, "hole", "boss"):
+                self.dropped.append(
+                    f"{part.name}.{attribute.name}: cylinder_radius kind {kind!r}"
+                )
+                return None
+            if kind is not None:
+                args = {"kind": kind}
 
         return Proposal(
             id="",

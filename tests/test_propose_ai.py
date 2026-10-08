@@ -158,6 +158,19 @@ def test_a_density_from_the_model_is_dropped(proposer):
     assert any("density" in reason for reason in replay.dropped)
 
 
+def test_a_cylinder_radius_carries_its_kind_and_no_axis(proposer):
+    replay, proposals = _one(proposer, method="cylinder_radius", axis="X", kind="hole")
+    assert [p.args for p in proposals] == [{"kind": "hole"}]
+
+
+def test_a_cylinder_radius_of_unknown_kind_is_dropped(proposer):
+    """In plain JSON mode the schema's Literal is not enforced. An unknown kind
+    would reach the adapter as a mapping fault; drop it here instead."""
+    replay, proposals = _one(proposer, method="cylinder_radius", axis=None, kind="inner")
+    assert proposals == []
+    assert any("kind" in reason for reason in replay.dropped)
+
+
 @pytest.mark.parametrize("confidence", [1.7, -0.1, "high", None, float("nan")])
 def test_a_confidence_outside_zero_to_one_is_dropped(proposer, confidence):
     """In plain JSON mode nothing enforces the schema's bounds. A score of 1.7

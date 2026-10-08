@@ -19,9 +19,13 @@ never a substituted value. SRS FREQ-2: "Where a property cannot be computed,
     mass()                volume times density; density comes from the
                           object's material unless overridden in `args`
     face_count()          topological count, for geometry regression tests
+    cylinder_radius(kind=None, axis=None)
+                          radius of the one cylindrical feature -- a bore
+                          (kind="hole") or a shaft/fillet (kind="boss"); more
+                          than one left after narrowing is Unsupported
 
 METHODS is that vocabulary as data, so a catalogue can list what an adapter
-offers without every caller repeating the four names.
+offers without every caller repeating the names.
 
 `bbox_size` is deliberately not called "length". A bounding-box extent and a
 named feature dimension are different things, and the difference only shows up
@@ -39,7 +43,7 @@ from ..units import Q
 #: The measurement vocabulary, as data. Adapter-independent by design; an
 #: adapter that cannot do one of these raises `Unsupported` rather than
 #: quietly offering fewer.
-METHODS = ("bbox_size", "volume", "mass", "face_count")
+METHODS = ("bbox_size", "volume", "mass", "face_count", "cylinder_radius")
 
 
 class Unsupported(Exception):

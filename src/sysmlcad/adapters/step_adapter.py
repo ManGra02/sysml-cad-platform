@@ -54,7 +54,7 @@ from . import measurements as mm
 
 ROOT = Path(__file__).resolve().parents[3]
 
-_METHODS = {"bbox_size", "volume", "mass", "face_count"}
+_METHODS = {"bbox_size", "volume", "mass", "face_count", "cylinder_radius"}
 
 #: Which build123d wrapper fits which OCCT shape type. Explicit rather than
 #: build123d's internal shape_LUT, whose values are class *names*, not classes.
@@ -279,7 +279,12 @@ class StepAdapter:
         shape = self._shape(entry, node)
         args = dict(args or {})
 
-        geometric = {"bbox_size": mm.bbox_size, "volume": mm.volume, "face_count": mm.face_count}
+        geometric = {
+            "bbox_size": mm.bbox_size,
+            "volume": mm.volume,
+            "face_count": mm.face_count,
+            "cylinder_radius": mm.cylinder_radius,
+        }
         if method in geometric:
             check_args(method, geometric[method], shape, **args)
             return geometric[method](shape, **args)

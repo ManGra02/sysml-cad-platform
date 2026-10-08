@@ -94,10 +94,12 @@ attributes:
     note: "No density here on purpose. Change the material in cad/gearbox.py and
            this check follows; freeze it here and it would not."
 
-  # DELIBERATELY UNMAPPED: housing.boreRadius, checked by MinBoreRadius.
-  # No measurement in the vocabulary can express a bore radius -- a bounding box
-  # cannot, and the parameter that does know it (BORE_RADIUS_MM) is a named value
-  # in the script that no measurement method reads. So the run reports
-  # MinBoreRadius as NOT CHECKED, which is the honest answer. Mapping it to
-  # something merely dimensionally plausible would be the exact failure this
-  # project exists to prevent.
+  # NOT YET MAPPED: housing.boreRadius, checked by MinBoreRadius.
+  # Until 2026-10-02 no measurement could express a bore radius -- a bounding
+  # box cannot, and BORE_RADIUS_MM is a named value no method reads -- so the
+  # run reported MinBoreRadius as NOT CHECKED. `cylinder_radius` now measures
+  # the bore on the B-Rep, and proposals.yaml holds the candidate. It reaches
+  # this file through `make confirm`, plus `requirement: MinBoreRadius` by hand:
+  # a proposal does not know which requirement checks an attribute (see
+  # simplification 1 in CLAUDE.md). Never map it to a bounding-box extent --
+  # dimensionally plausible and wrong.

@@ -11,13 +11,15 @@
 #    identical verdicts -- that is the adapter seam working, not a mistake to
 #    penalise. So each entry lists every accepted answer, preferred one first.
 #
-# 2. SOMETIMES THE RIGHT ANSWER IS NOTHING. `boreRadius` is a real attribute of
-#    a real part, and no measurement in the vocabulary can express it: a bounding
-#    box cannot, and the parameter that does know it lives in a script that
-#    cannot address a single component. An entry with an empty `accept:` scores
-#    a hit when the proposer stays silent, and a false positive when it does not.
-#    A proposer that fills every gap with something plausible is worse than one
-#    that leaves gaps, because a human has to check all of them either way.
+# 2. A PLAUSIBLE MEASUREMENT IS NOT THE RIGHT ONE. `boreRadius` is a length,
+#    and a bounding-box extent is a length too -- dimensionally valid, passing
+#    every gate, and wrong. Its only right answer is `cylinder_radius`, the
+#    radius of the bore itself. Until that method existed, the right answer was
+#    nothing: an entry with an empty `accept:` scores a hit when the proposer
+#    stays silent and a false positive when it does not, and that rule still
+#    holds for any attribute the vocabulary cannot express. A proposer that
+#    fills every gap with something plausible is worse than one that leaves
+#    gaps, because a human has to check all of them either way.
 #
 # 3. TWO PARTS HAVE THE SAME SHAPE IN X AND Y. Housing and Cover are both
 #    90 x 60, so length and width alone cannot tell them apart -- only the name
@@ -65,11 +67,17 @@ gold:
   - sysml_part: housing
     attribute: boreRadius
     note: >-
-      NOTHING is the right answer. No measurement in the vocabulary yields a
-      bore radius. Suggesting a bounding box extent here would be dimensionally
-      valid, plausible, and wrong -- the exact failure the gates cannot catch,
-      because the mistake is in the meaning rather than in the arithmetic.
-    accept: []
+      The radius of the bore, measured on the B-Rep. `kind: hole` is preferred
+      because it says what the name says, but the housing has exactly one
+      cylinder, so the unnarrowed form measures the same feature. A bounding
+      box extent here would be dimensionally valid, plausible, and wrong --
+      the exact failure the gates cannot catch, because the mistake is in the
+      meaning rather than in the arithmetic.
+    accept:
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: cylinder_radius, args: {kind: hole}}
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: cylinder_radius, args: {}}
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: cylinder_radius, args: {kind: hole}}
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: cylinder_radius, args: {}}
 
   - sysml_part: cover
     attribute: length
@@ -101,8 +109,12 @@ gold:
 
   - sysml_part: cover
     attribute: boreRadius
-    note: Nothing, for the same reason as the housing bore.
-    accept: []
+    note: The cover's own bore, for the same reason as the housing's.
+    accept:
+      - {adapter: build123d, cad_object: "gearbox#Cover", method: cylinder_radius, args: {kind: hole}}
+      - {adapter: build123d, cad_object: "gearbox#Cover", method: cylinder_radius, args: {}}
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: cylinder_radius, args: {kind: hole}}
+      - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: cylinder_radius, args: {}}
 
   - sysml_part: gearbox
     attribute: mass
