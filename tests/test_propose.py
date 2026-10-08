@@ -122,7 +122,9 @@ def test_an_attribute_of_unknown_type_is_not_forced_into_a_measurement():
 def test_the_axis_comes_from_the_name_and_says_so():
     """Which axis a `length` is measured along is a convention, not a fact. A
     proposal that used it silently would hide its weakest assumption."""
-    length = next(p for p in _proposals() if p.attribute == "length")
+    length = next(
+        p for p in _proposals() if p.attribute == "length" and p.method == "bbox_size"
+    )
     assert length.args == {"axis": "X"}
     assert "convention" in length.rationale
 
@@ -139,11 +141,68 @@ def test_an_attribute_with_no_obvious_axis_gets_no_bounding_box_proposal():
 def test_a_radius_is_proposed_as_a_cylinder_radius():
     """The one measurement that IS a bore radius, narrowed to a hole because
     the name says bore -- a shaft or a fillet must not answer for it."""
-    bore = [p for p in _proposals() if p.attribute == "boreRadius"]
+    bore = [
+        p for p in _proposals()
+        if p.attribute == "boreRadius" and p.method != "parameter"
+    ]
     assert bore, "the test needs candidates to say anything"
     for proposal in bore:
         assert proposal.method == "cylinder_radius"
         assert proposal.args == {"kind": "hole"}
+
+
+def test_a_parameter_is_proposed_only_for_the_attribute_its_name_states():
+    """`BORE_RADIUS_MM` is the bore radius; it is not the length, and
+    `HOUSING_LENGTH_MM` -- which builds the cover too -- is not the cover's
+    length, because its name says housing."""
+    for proposal in _proposals():
+        if proposal.method != "parameter":
+            continue
+        name = proposal.args["name"]
+        if proposal.attribute == "boreRadius":
+            assert name == "BORE_RADIUS_MM"
+        elif proposal.attribute == "length":
+            assert name in ("LENGTH_MM", "HOUSING_LENGTH_MM")
+            assert not (proposal.sysml_part == "cover" and name == "HOUSING_LENGTH_MM")
+        assert "not a measurement" in proposal.rationale
+
+
+def test_a_stated_dimension_outranks_its_bounding_box():
+    """A rotated part has another bounding box and the same `LENGTH_MM`. When
+    both are on offer the parameter ranks first, and the bounding box stays a
+    candidate below it rather than disappearing."""
+    length = sorted(
+        (p for p in _proposals() if p.attribute == "length" and p.cad_object == "motor_housing"),
+        key=lambda p: p.confidence, reverse=True,
+    )
+    assert [p.method for p in length[:2]] == ["parameter", "bbox_size"]
+    assert length[0].confidence > length[1].confidence
+
+
+def test_a_parameter_of_another_dimension_is_never_proposed():
+    """`Params.Length` as a bare number in a spreadsheet is dimensionless; a
+    length attribute must not be answered by it, whatever its name says."""
+    from sysmlcad.adapters import CadTarget
+    from sysmlcad.catalog import Catalog, CatalogAttribute, CatalogPart
+    from sysmlcad.propose import DifflibProposer
+    from sysmlcad.units import ureg
+
+    part = CatalogPart(
+        name="box", element_id="b", definition="Box", package="Cube",
+        attributes=(CatalogAttribute("length", "a", "LengthValue"),),
+    )
+    def target(value):
+        return CadTarget(
+            adapter="freecad", reference="cube.FCStd#Box", kind="part", name="Box",
+            methods=("bbox_size", "parameter"), parameters={"Params.Length": value},
+        )
+    def proposals(value):
+        catalog = Catalog(parts=(part,), targets=(target(value),), source="test")
+        return [p for p in DifflibProposer().propose(catalog) if p.method == "parameter"]
+
+    assert not proposals(100 * ureg.dimensionless)
+    [stated] = proposals(100 * ureg.mm)
+    assert stated.args == {"name": "Params.Length"}
 
 
 def test_only_a_radius_is_proposed_as_a_cylinder_radius():

@@ -47,6 +47,10 @@ ROOT = Path(__file__).resolve().parents[2]
 #: knowledge -- which is why it lives here and not in the adapter.
 STEP_DIRS = (ROOT / "fixtures" / "step",)
 
+#: The same for FreeCAD documents. Only asked about when a `.FCStd` actually
+#: exists, so a project without one never needs the FreeCAD worker.
+FREECAD_DIRS = (ROOT / "fixtures" / "freecad",)
+
 #: SysML library value type -> the unit this project measures it in. The unit is
 #: a stand-in for the dimension; only the dimensionality is ever compared.
 #: Deliberately explicit: a mis-typed entry here would let a wrong mapping pass
@@ -282,9 +286,9 @@ def cad_catalog(
     modules and files to ask about is project layout, so it happens here and
     not behind the seam.
 
-    `project_dirs` adds a project's own STEP files: an export that belongs to
-    one model lives in that model's directory, next to its mapping, rather
-    than among the shared fixtures every project sees.
+    `project_dirs` adds a project's own STEP files and FreeCAD documents: a
+    file that belongs to one model lives in that model's directory, next to
+    its mapping, rather than among the shared fixtures every project sees.
     """
     pool = pool or AdapterPool()
     out: list[CadTarget] = list(pool.get("build123d").catalog())
@@ -299,6 +303,18 @@ def cad_catalog(
     ]
     if files:
         out.extend(pool.get("step").catalog(files))
+
+    # A document the worker cannot read right now comes back as one target
+    # with no methods and the reason in its note -- listed, not dropped, so a
+    # stopped FreeCAD container reads as exactly that.
+    documents = [
+        reference(path)
+        for directory in (*FREECAD_DIRS, *project_dirs) if directory.is_dir()
+        for path in sorted(directory.iterdir())
+        if path.suffix.lower() == ".fcstd"
+    ]
+    if documents:
+        out.extend(pool.get("freecad").catalog(documents))
     return tuple(out)
 
 

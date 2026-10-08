@@ -60,6 +60,18 @@ _BY_DIMENSION = {
 _RADIUS_WORD = "radius"
 _BORE_WORDS = {"bore", "hole"}
 
+#: How much a matching parameter counts for a *measurement* of the same object.
+#: Less than for the parameter itself: `LENGTH_MM` says the object has a length,
+#: and a bounding box is only an approximation of it -- the parameter IS it.
+#: So when both are possible the parameter ranks first, and the bounding box
+#: stays a candidate below it.
+_PARAMETER_SUPPORT = 0.8
+
+#: A parameter is only proposed as the attribute when every word of its name is
+#: accounted for by the part and the attribute. `HOUSING_LENGTH_MM` for the
+#: cover's length would be a plausible number from a different feature.
+_PARAMETER_EXACT = 1.0
+
 #: Which axis a named dimension is measured along comes from the catalogue --
 #: the project's `axes:` over `project.DEFAULT_AXES`. A convention, not a fact,
 #: which is why every proposal that uses it says so in its rationale.
@@ -188,6 +200,20 @@ def similarity(left: str, right: str) -> float:
     return ratio
 
 
+def _parameter_words(name: str) -> set[str]:
+    """The words a parameter name speaks, without its unit suffix or its container.
+
+    `LENGTH_MM` -> {length}; `Params.Length` -> {length}; `Pad.Length` ->
+    {length}. A FreeCAD spreadsheet or feature label is where the value is
+    kept, not what it is about -- `Params` would otherwise be a word the part
+    can never account for.
+    """
+    bare = re.sub(r"_(MM|KG|DEG|G_PER_CM3)$", "", name)
+    if "." in bare:
+        bare = bare.rsplit(".", 1)[1]
+    return words(bare)
+
+
 # --------------------------------------------------------------------------
 # The baseline
 # --------------------------------------------------------------------------
@@ -227,18 +253,21 @@ class DifflibProposer:
             if not target.addressable:
                 continue
 
-            methods = [
-                m for m in target.methods
-                if allowed is None or m in allowed
-            ]
-            if not methods:
-                continue
-
             # Does this CAD object identify the same thing as this part? Judged
             # on the qualified name against the file-plus-node, so that a second
             # published model cannot steal the match with a shared word.
             part_score = identity_score(part, target)
             matched_on = part.qualified
+
+            if "parameter" in target.methods:
+                candidates.extend(
+                    self._parameter_candidates(part, attribute, target, part_score)
+                )
+
+            methods = [
+                m for m in target.methods
+                if m != "parameter" and (allowed is None or m in allowed)
+            ]
 
             for method in methods:
                 evidence, why = self._attribute_evidence(part, attribute, target, method)
@@ -285,6 +314,56 @@ class DifflibProposer:
                 ))
         return candidates
 
+    def _parameter_candidates(
+        self, part: CatalogPart, attribute: CatalogAttribute, target, part_score: float
+    ) -> list[Proposal]:
+        """A named parameter that states this attribute, proposed as the attribute.
+
+        Two conditions, both hard. The name: every word of it is accounted for
+        by the part and the attribute, and the attribute's own words all appear
+        in it -- `BORE_RADIUS_MM` for `boreRadius`, never for `length`. The
+        dimension: the parameter's quantity has the attribute's, so a
+        dimensionless spreadsheet cell never stands for a length. An attribute
+        whose type is unknown gets no parameter candidate: there is nothing to
+        hold the parameter's dimension against.
+        """
+        dimension = attribute.dimensionality
+        if dimension is None:
+            return []
+        claimed = words(part.name) | words(part.package) | words(attribute.name)
+        wanted = words(attribute.name)
+
+        out: list[Proposal] = []
+        for name, value in target.parameters.items():
+            if getattr(value, "dimensionality", None) != dimension:
+                continue
+            spoken = _parameter_words(name)
+            if not spoken or not wanted <= spoken:
+                continue
+            if len(spoken & claimed) / len(spoken) < _PARAMETER_EXACT:
+                continue
+            confidence = round(0.75 * part_score + 0.25 * 1.0, 3)
+            if confidence < self.threshold:
+                continue
+            out.append(Proposal(
+                id="",
+                sysml_part=part.name,
+                attribute=attribute.name,
+                adapter=target.adapter,
+                cad_object=target.reference,
+                method="parameter",
+                args={"name": name},
+                confidence=confidence,
+                rationale=(
+                    f"identity match {part_score:.2f} between {part.qualified!r} "
+                    f"and {target.reference!r}; the named parameter {name} "
+                    f"({value:~P}) states {part.name}.{attribute.name} -- a "
+                    f"stated dimension, not a measurement of the shape"
+                ),
+                proposed_by=self.name,
+            ))
+        return out
+
     def _attribute_evidence(self, part, attribute, target, method) -> tuple[float, str]:
         """How much the CAD side says about *this attribute*, beyond the object.
 
@@ -302,11 +381,10 @@ class DifflibProposer:
         claimed = words(part.name) | words(part.package) | words(attribute.name)
 
         for parameter in target.parameters:
-            bare = re.sub(r"_(MM|KG|DEG|G_PER_CM3)$", "", parameter)
-            spoken = words(bare)
+            spoken = _parameter_words(parameter)
             if not spoken:
                 continue
-            score = len(spoken & claimed) / len(spoken)
+            score = _PARAMETER_SUPPORT * len(spoken & claimed) / len(spoken)
             if score > best:
                 best, why = score, (
                     f"parameter {parameter} accounted for by "

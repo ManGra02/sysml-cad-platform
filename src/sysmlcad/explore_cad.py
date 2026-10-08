@@ -1,10 +1,11 @@
-"""Show what is inside a STEP file.
+"""Show what is inside a STEP file or a FreeCAD document.
 
 The counterpart to explore.py, which does the same for the SysML side. Without
 this you cannot write a mapping for a file you did not author: the node names
 are the addresses, and there is no other way to learn them.
 
     python -m sysmlcad.explore_cad fixtures/step/gearbox.step
+    python -m sysmlcad.explore_cad projects/cube_freecad/cube.FCStd   (needs the worker)
 
 It prints the reference string for each node in the form mapping.yaml expects,
 so writing the mapping is copy-and-paste rather than guesswork.
@@ -20,10 +21,51 @@ from __future__ import annotations
 import sys
 
 from .adapters import Unsupported
+from .adapters.freecad_adapter import FreeCadAdapter
 from .adapters.step_adapter import StepAdapter
 
 
+def describe_freecad(path: str) -> int:
+    """A FreeCAD document: objects, the measurements each offers, and the named
+    parameters -- the thing a STEP export cannot show."""
+    adapter = FreeCadAdapter()
+    targets = adapter.catalog([path])
+    if len(targets) == 1 and not targets[0].addressable and targets[0].note.startswith("not readable"):
+        print(f"error: {targets[0].note}")
+        return 1
+
+    print(f"\n{path}")
+    print(f"state    : freecad:{adapter.state_id()}")
+    print(f"objects  : {len(targets)}\n")
+    header = f"{'object':<34} {'kind':<9} {'bbox X/Y/Z [mm]':>26}  note"
+    print(header)
+    print("-" * len(header))
+    for target in targets:
+        try:
+            size = [adapter.measure(target.reference, "bbox_size", {"axis": a}).magnitude
+                    for a in "XYZ"]
+            bbox = f"{size[0]:7.2f} /{size[1]:7.2f} /{size[2]:7.2f}"
+        except Unsupported as exc:
+            bbox = f"({exc})"
+        print(f"{'   ' * target.depth + target.name:<34} {target.kind:<9} {bbox:>26}  {target.note}")
+
+    parameters = targets[0].parameters if targets else {}
+    if parameters:
+        print("\nnamed parameters (method: parameter, args: {name: ...}):")
+        for name, value in sorted(parameters.items()):
+            print(f"    {name:<40} {value:.4g~P}")
+
+    print("\nreference strings for mapping.yaml:")
+    for target in targets:
+        marker = "" if target.addressable else f"  # {target.note}"
+        print(f"    cad_object: {target.reference}{marker}")
+    print()
+    return 0
+
+
 def describe(path: str) -> int:
+    if path.lower().endswith(".fcstd"):
+        return describe_freecad(path)
     adapter = StepAdapter()
 
     try:
@@ -77,7 +119,7 @@ def describe(path: str) -> int:
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("usage: python -m sysmlcad.explore_cad <file.step>")
+        print("usage: python -m sysmlcad.explore_cad <file.step | file.FCStd>")
         return 2
     return describe(sys.argv[1])
 

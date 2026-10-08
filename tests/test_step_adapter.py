@@ -254,3 +254,15 @@ def test_tree_reports_the_assembly_structure(adapter):
     assert {"Gearbox", "Housing", "Cover"} <= names
     depths = {node.name: depth for depth, node in nodes}
     assert depths["Housing"] > depths["Gearbox"], "children sit below the assembly"
+
+
+def test_parameter_on_a_step_file_is_a_gap_that_says_why(adapter):
+    """The method exists in the vocabulary; a baked file simply has nothing
+    for it. The message points at where a stated dimension would live."""
+    with pytest.raises(Unsupported, match="no named parameters"):
+        adapter.measure(HOUSING, "parameter", {"name": "LENGTH_MM"})
+
+
+def test_the_step_catalogue_never_offers_parameter(adapter):
+    for target in adapter.catalog([GEARBOX]):
+        assert "parameter" not in target.methods

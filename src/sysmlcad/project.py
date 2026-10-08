@@ -21,7 +21,8 @@ missing.
         proposals.yaml      machine-written, read by no verification run
 
 `project.yaml` holds two keys, plus an optional `axes:` for CAD systems that do
-not put length, width and height on X, Y and Z (see `DEFAULT_AXES`); every
+not put length, width and height on X, Y and Z (see `DEFAULT_AXES`) and an
+optional `freecad: {limits_sheet: ...}` for `make sync-limits`; every
 other path is the directory plus a fixed name. The one check on load is the one that matters: the
 capture's Package must be the project it claims to be, so a mis-filed
 `elements.json` fails loudly instead of quietly verifying the wrong model.
@@ -31,6 +32,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -53,6 +55,10 @@ DEFAULT_AXES: dict[str, str] = {
 
 _AXES = {"X", "Y", "Z"}
 
+#: Where requirement limits land in a FreeCAD document unless the project says
+#: otherwise. A designer can then write `=SysML.MaxLength` in an expression.
+DEFAULT_LIMITS_SHEET = "SysML"
+
 #: How a CLI learns which project is meant when `--project` is not given.
 #: There is no other fallback: guessing a project would be guessing which
 #: model to verify.
@@ -72,6 +78,11 @@ class Project:
     #: Read by the proposers, the LLM excerpt and the gates -- never by a run,
     #: which measures exactly the axis each mapping entry states.
     axes: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_AXES), hash=False)
+    #: The spreadsheet `make sync-limits` writes requirement limits into, in
+    #: every FreeCAD document this project maps -- `freecad: {limits_sheet:}`
+    #: in project.yaml. A sheet the sync owns, never one a designer keeps
+    #: parameters in.
+    limits_sheet: str = DEFAULT_LIMITS_SHEET
 
     @property
     def mapping_path(self) -> Path:
@@ -157,7 +168,22 @@ def load_project(name: str | None = None, projects_dir: Path = PROJECTS_DIR) -> 
         sysml_project=str(sysml_project),
         root=root,
         axes=_axes(meta.get("axes"), root / "project.yaml"),
+        limits_sheet=_limits_sheet(meta.get("freecad"), root / "project.yaml"),
     )
+
+
+def _limits_sheet(configured, where: Path) -> str:
+    if configured is None:
+        return DEFAULT_LIMITS_SHEET
+    if not isinstance(configured, dict) or set(configured) - {"limits_sheet"}:
+        raise ValueError(f"{where}: `freecad:` takes one key, limits_sheet")
+    sheet = configured.get("limits_sheet", DEFAULT_LIMITS_SHEET)
+    if not isinstance(sheet, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", sheet):
+        raise ValueError(
+            f"{where}: freecad.limits_sheet {sheet!r} must be a plain name -- "
+            f"it is what an expression like `={sheet}.MaxLength` refers to"
+        )
+    return sheet
 
 
 def _axes(configured, where: Path) -> dict[str, str]:

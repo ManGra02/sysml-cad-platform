@@ -17,7 +17,11 @@
 #    radius of the bore itself. Until that method existed, the right answer was
 #    nothing: an entry with an empty `accept:` scores a hit when the proposer
 #    stays silent and a false positive when it does not, and that rule still
-#    holds for any attribute the vocabulary cannot express. A proposer that
+#    holds for any attribute the vocabulary cannot express. Since `parameter`
+#    exists, a named parameter whose name states the attribute (HOUSING_LENGTH_MM,
+#    BORE_RADIUS_MM) is accepted too: the stated dimension, read rather than
+#    measured. Never one whose name says another feature -- HOUSING_LENGTH_MM
+#    builds the cover too, but its name does not say so. A proposer that
 #    fills every gap with something plausible is worse than one that leaves
 #    gaps, because a human has to check all of them either way.
 #
@@ -37,18 +41,21 @@ gold:
   - sysml_part: housing
     attribute: length
     accept:
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: parameter, args: {name: HOUSING_LENGTH_MM}}
       - {adapter: build123d, cad_object: "gearbox#Housing", method: bbox_size, args: {axis: X}}
       - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: bbox_size, args: {axis: X}}
 
   - sysml_part: housing
     attribute: width
     accept:
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: parameter, args: {name: HOUSING_WIDTH_MM}}
       - {adapter: build123d, cad_object: "gearbox#Housing", method: bbox_size, args: {axis: Y}}
       - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: bbox_size, args: {axis: Y}}
 
   - sysml_part: housing
     attribute: height
     accept:
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: parameter, args: {name: HOUSING_HEIGHT_MM}}
       - {adapter: build123d, cad_object: "gearbox#Housing", method: bbox_size, args: {axis: Z}}
       - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: bbox_size, args: {axis: Z}}
 
@@ -74,6 +81,7 @@ gold:
       the exact failure the gates cannot catch, because the mistake is in the
       meaning rather than in the arithmetic.
     accept:
+      - {adapter: build123d, cad_object: "gearbox#Housing", method: parameter, args: {name: BORE_RADIUS_MM}}
       - {adapter: build123d, cad_object: "gearbox#Housing", method: cylinder_radius, args: {kind: hole}}
       - {adapter: build123d, cad_object: "gearbox#Housing", method: cylinder_radius, args: {}}
       - {adapter: step, cad_object: "fixtures/step/gearbox.step#Housing", method: cylinder_radius, args: {kind: hole}}
@@ -98,6 +106,7 @@ gold:
       quietly wrong -- the cost of a bounding box standing in for a named
       feature dimension.
     accept:
+      - {adapter: build123d, cad_object: "gearbox#Cover", method: parameter, args: {name: COVER_THICKNESS_MM}}
       - {adapter: build123d, cad_object: "gearbox#Cover", method: bbox_size, args: {axis: Z}}
       - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: bbox_size, args: {axis: Z}}
 
@@ -111,6 +120,7 @@ gold:
     attribute: boreRadius
     note: The cover's own bore, for the same reason as the housing's.
     accept:
+      - {adapter: build123d, cad_object: "gearbox#Cover", method: parameter, args: {name: BORE_RADIUS_MM}}
       - {adapter: build123d, cad_object: "gearbox#Cover", method: cylinder_radius, args: {kind: hole}}
       - {adapter: build123d, cad_object: "gearbox#Cover", method: cylinder_radius, args: {}}
       - {adapter: step, cad_object: "fixtures/step/gearbox.step#Cover", method: cylinder_radius, args: {kind: hole}}

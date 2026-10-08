@@ -39,7 +39,7 @@ from types import ModuleType
 from build123d import Part
 
 from ..units import Q, ureg
-from . import METHODS, CadTarget, Material, Unsupported, check_args, check_density
+from . import METHODS, NEEDS_PARAMETERS, CadTarget, Material, Unsupported, check_args, check_density
 from . import measurements as mm
 
 #: Where the CAD scripts live, for `catalog()`. The modules are addressed by
@@ -219,7 +219,8 @@ class Build123dAdapter:
             material = self.material(name)
             methods = tuple(
                 m for m in METHODS
-                if m != "mass" or (material is not None and material.density is not None)
+                if (m != "mass" or (material is not None and material.density is not None))
+                and (m not in NEEDS_PARAMETERS or parameters)
             )
             note = f"material {material.name}" if material else "no material declared"
             out.append(CadTarget(
@@ -300,6 +301,20 @@ class Build123dAdapter:
         """
         return mm.cylinder_radius(self._part(obj), kind=kind, axis=axis)
 
+    def _parameter(self, obj: str, name: str) -> Q:
+        """A module constant, read rather than measured.
+
+        What the script says the dimension is. For a script that builds its
+        geometry from the constant the two agree; the measurement methods are
+        there for when "what was meant" and "what was made" have to be told
+        apart. A name the module does not have is a gap, never a zero.
+        """
+        value = self.parameter(obj, name)
+        if value is None:
+            module_name, _ = self._resolve(obj)
+            raise Unsupported(f"{module_name} has no numeric parameter {name!r}")
+        return value
+
 
 _METHODS = {
     "bbox_size": Build123dAdapter._bbox_size,
@@ -307,4 +322,5 @@ _METHODS = {
     "mass": Build123dAdapter._mass,
     "face_count": Build123dAdapter._face_count,
     "cylinder_radius": Build123dAdapter._cylinder_radius,
+    "parameter": Build123dAdapter._parameter,
 }

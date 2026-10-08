@@ -49,7 +49,7 @@ from OCP.TopAbs import TopAbs_ShapeEnum
 from OCP.XCAFDoc import XCAFDoc_DocumentTool
 
 from ..units import Q, ureg
-from . import METHODS, CadTarget, Material, Unsupported, check_args, check_density
+from . import METHODS, NEEDS_PARAMETERS, CadTarget, Material, Unsupported, check_args, check_density
 from . import measurements as mm
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -273,6 +273,12 @@ class StepAdapter:
         return Material(name=name or "unnamed", density=density)
 
     def measure(self, obj: str, method: str, args: dict | None = None) -> Q:
+        if method == "parameter":
+            raise Unsupported(
+                f"{obj}: a STEP file is baked geometry and has no named parameters "
+                f"-- measure the shape, or map the part to the document that "
+                f"declares the parameter"
+            )
         if method not in _METHODS:
             raise Unsupported(f"unknown measurement method: {method}")
         entry, node = self._node(obj)
@@ -339,7 +345,8 @@ class StepAdapter:
                 material = None if ambiguous else self.material(target_ref)
                 methods = () if ambiguous else tuple(
                     m for m in METHODS
-                    if m != "mass"
+                    if m not in NEEDS_PARAMETERS
+                    and m != "mass"
                     or (material is not None and material.density is not None)
                 )
                 out.append(CadTarget(

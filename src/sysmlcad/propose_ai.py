@@ -64,19 +64,25 @@ Decide each attribute in three steps:
    is an assembly, and stands only for a part that is itself the assembly.
    Never measure a component on the assembly around it, even where the numbers
    would agree -- that is a plausible number from the wrong object.
-2. The method, by the attribute's dimension: [length] -> bbox_size,
-   [mass] -> mass, [length] ** 3 -> volume, dimensionless -> face_count. A
-   [length] whose name ends in "radius" -> cylinder_radius, never bbox_size;
-   set kind "hole" when the name says bore or hole. Use only a method the
-   object lists as measurable.
+2. The method. First: if the object lists a parameter whose name states
+   exactly this attribute of this part (HOUSING_LENGTH_MM for housing.length,
+   Params.Length for a box's length) and whose unit has the attribute's
+   dimension, use method parameter with parameter_name set to that name,
+   verbatim -- the stated dimension beats a measured approximation. Never a
+   parameter whose name says another part or feature. Otherwise by the
+   attribute's dimension: [length] -> bbox_size, [mass] -> mass,
+   [length] ** 3 -> volume, dimensionless -> face_count. A [length] whose name
+   ends in "radius" -> cylinder_radius, never bbox_size; set kind "hole" when
+   the name says bore or hole. Use only a method the object lists as
+   measurable.
 3. The axis, for bbox_size: look up the attribute's name in the "axes" line.
    CAD systems differ, so never assume X, Y, Z. A name that is not in that
    line gets no bbox_size candidate.
 
 Return one candidate for every attribute that passes all three steps, and
 nothing for an attribute no listed measurement can express: a radius or a bore
-is not a bounding-box extent, and a named parameter is evidence, not a
-measurement -- no method reads it.
+is not a bounding-box extent, and a parameter answers only for the attribute
+its name states.
 
 Only name a sysml_part, attribute and cad_object that appear verbatim in the
 excerpt; never invent, complete or correct a name. Never supply a density:
@@ -107,12 +113,15 @@ def _schema():
         sysml_part: str = Field(description="part name, verbatim from the excerpt")
         attribute: str = Field(description="attribute name, verbatim from the excerpt")
         cad_object: str = Field(description="cad_object reference, verbatim from the excerpt")
-        method: Literal["bbox_size", "volume", "mass", "face_count", "cylinder_radius"]
+        method: Literal["bbox_size", "volume", "mass", "face_count", "cylinder_radius", "parameter"]
         axis: Literal["X", "Y", "Z"] | None = Field(
             default=None, description="required for bbox_size, omit otherwise"
         )
         kind: Literal["hole", "boss"] | None = Field(
             default=None, description="cylinder_radius only: hole for a bore"
+        )
+        parameter_name: str | None = Field(
+            default=None, description="parameter only: the parameter's name, verbatim"
         )
         # No density field, on purpose. A density is a fact about the part, and
         # a mapping entry carrying one goes silently stale when the material
@@ -388,6 +397,18 @@ class LlmProposer:
                 return None
             if kind is not None:
                 args = {"kind": kind}
+        elif method == "parameter":
+            # A schema guarantees a string, not that the parameter exists. The
+            # dimension is the gates' to check; existence is checked here, like
+            # every other name a model hands back.
+            name = candidate.get("parameter_name")
+            if not isinstance(name, str) or name not in target.parameters:
+                self.dropped.append(
+                    f"{part.name}.{attribute.name}: {target.reference} has no "
+                    f"parameter {name!r}"
+                )
+                return None
+            args = {"name": name}
 
         return Proposal(
             id="",

@@ -228,3 +228,41 @@ def test_the_bore_is_measured_on_each_component(adapter):
 def test_a_typo_in_cylinder_radius_args_is_unsupported(adapter):
     with pytest.raises(Unsupported):
         adapter.measure("gearbox#Housing", "cylinder_radius", {"knid": "hole"})
+
+
+# --------------------------------------------------------------------------
+# `parameter`: the stated dimension, read rather than measured
+# --------------------------------------------------------------------------
+
+def test_a_named_parameter_is_read_with_its_unit(adapter):
+    """`LENGTH_MM` comes back as millimetres, not as a bare 118.0 -- the
+    dimension gate has to be able to hold it against a LengthValue."""
+    assert adapter.measure("motor_housing", "parameter", {"name": "LENGTH_MM"}) == 118.0 * ureg.mm
+
+
+def test_a_component_reads_its_module_parameters(adapter):
+    """Module-level: the interface dimension both parts of the gearbox build
+    from is reachable from either of them."""
+    assert adapter.measure("gearbox#Cover", "parameter", {"name": "BORE_RADIUS_MM"}) == 8.0 * ureg.mm
+
+
+def test_a_missing_parameter_is_a_gap_not_a_zero(adapter):
+    with pytest.raises(Unsupported, match="no numeric parameter 'WIDTH'"):
+        adapter.measure("motor_housing", "parameter", {"name": "WIDTH"})
+
+
+def test_a_text_constant_is_not_a_parameter(adapter):
+    """`MATERIAL = "AlSi10Mg"` is a name, not a quantity."""
+    with pytest.raises(Unsupported):
+        adapter.measure("motor_housing", "parameter", {"name": "MATERIAL"})
+
+
+def test_parameter_without_a_name_is_refused(adapter):
+    with pytest.raises(Unsupported, match="parameter"):
+        adapter.measure("motor_housing", "parameter", {})
+
+
+def test_the_catalogue_offers_parameter_where_there_are_parameters(adapter):
+    target = next(t for t in adapter.catalog(["motor_housing"]) if t.reference == "motor_housing")
+    assert "parameter" in target.methods
+    assert "LENGTH_MM" in target.parameters

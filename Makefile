@@ -26,13 +26,15 @@ COMPOSE := docker compose --env-file docker/.env \
 
 .PHONY: help venv secret vendor up api jupyter down logs api-docs \
         cad verify verify-api test clean step-fixtures explore-cad catalog gates \
-        propose proposals confirm propose-score projects publish capture
+        propose proposals confirm propose-score projects publish capture \
+        sync-limits freecad-health
 
 help:
 	@echo "In the devcontainer:  cad  verify  verify-api  gates  test  clean"
 	@echo "                      catalog  explore-cad  step-fixtures"
 	@echo "Mapping proposals:    propose  proposals  confirm ID=p-01  propose-score"
 	@echo "Projects:             projects  publish NB=...  capture   (PROJECT=<name>)"
+	@echo "FreeCAD:              freecad-health  sync-limits [APPLY=1]"
 	@echo "                      (default: $(PROJECT))"
 	@echo "On the host:          secret  vendor  api  jupyter  logs  down  up"
 
@@ -47,8 +49,9 @@ cad:
 step-fixtures:
 	$(PY) cad/export_fixtures.py
 
-# Show what is inside a STEP file: node names, volumes, bounding boxes, and the
-# reference strings to paste into mapping.yaml.
+# Show what is inside a STEP file or a FreeCAD document (.FCStd, needs the
+# worker): node names, sizes, named parameters, and the reference strings to
+# paste into mapping.yaml.
 #   make explore-cad FILE=fixtures/step/gearbox.step
 explore-cad:
 	$(PY) -m sysmlcad.explore_cad $(or $(FILE),fixtures/step/gearbox.step)
@@ -105,6 +108,19 @@ propose-score:
 
 verify:
 	$(PY) -m sysmlcad.verify $(P)
+
+# Write the project's requirement limits into its FreeCAD documents, into the
+# sheet named by project.yaml (default `SysML`). A dry run that prints the diff
+# unless APPLY=1. Writes limits only -- never a value that drives geometry.
+#   make sync-limits PROJECT=cube_freecad            what would change
+#   make sync-limits PROJECT=cube_freecad APPLY=1    write it, log to out/sync_log.jsonl
+sync-limits:
+	$(PY) -m sysmlcad.sync $(P) $(if $(APPLY),--apply,)
+
+# Is the FreeCAD worker there, and does it speak our protocol? Needs
+# SYSMLCAD_FREECAD_URL (see docs/freecad_worker_protocol.md).
+freecad-health:
+	$(PY) -m sysmlcad.adapters.freecad_adapter
 
 verify-api:
 	$(PY) -m sysmlcad.verify $(P) api

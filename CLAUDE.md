@@ -5,9 +5,11 @@ Check SysML v2 requirements automatically against CAD geometry. CI turns red whe
 the CAD model violates a system requirement. Later: a mapping store, AI-assisted
 mapping proposals, bidirectional sync, SMT-based verification.
 
-**Status: stages A, A2, E and H complete; 282 tests pass** (plus 13
-skipped without the optional AI SDK, which is how CI's first step runs; four
-`cube_freecad`/prompt tests fail as of 2026-10-02, see git log). The verification
+**Status: stages A, A2, E and H complete; F (FreeCAD) client-side done and
+G's downward half (limits into FreeCAD) built; 356 tests pass** (the AI tests
+skip without the optional SDK, which is how CI's first step runs; three
+`cube_freecad` tests fail as of 2026-10-08 because that project's mapping is
+still empty, see git log). The verification
 chain runs end to end (SysML v2 API → extractor → CAD adapter → verdict → exit
 code), and on top of it the mapping can now be *proposed*: a catalogue of both
 sides, four gates over any proposed entry, a proposal store, a human
@@ -111,6 +113,7 @@ Four containers, one Compose project (`sysml-cad-poc`), one network:
 | `sysml2-postgres` | PostgreSQL 16, database `sysml2` | 5432 |
 | `sysml2-api` | SysML v2 API Services (Play/Scala/Hibernate) | 9000 |
 | `sysml2-jupyter` | SysML v2 kernel, `%publish` into the repository | 8888 |
+| `freecad` | **not yet here** -- headless FreeCAD worker, delivered by a colleague; contract in `docs/freecad_worker_protocol.md` | 8765, network only |
 
 Compose files: `docker/docker-compose.yml` + `.devcontainer/docker-compose.dev.yml`
 (an overlay that adds `dev`). The two are always loaded together.
@@ -136,9 +139,13 @@ make verify-api                 # verify against the live server, matched BY NAM
 make gates                      # is the MAPPING sound? (not: is the design ok)
 make catalog                    # what exists on each side, as data
 make explore-cad FILE=x.step    # what is inside a STEP file: node names, sizes
+make explore-cad FILE=x.FCStd   # ...or a FreeCAD document, with its parameters (worker)
 make step-fixtures              # regenerate fixtures/step/ (they are committed)
 python -m sysmlcad.verify -p gearbox api   # same as make verify-api PROJECT=gearbox
-make test                       # pytest, JUnit XML to out/ (282 tests)
+make test                       # pytest, JUnit XML to out/ (359 tests)
+make freecad-health             # is the FreeCAD worker there, protocol 1?
+make sync-limits PROJECT=x      # dry run: which limits would go into FreeCAD
+make sync-limits PROJECT=x APPLY=1   # write them, log to out/sync_log.jsonl
 
 # Mapping proposals -- nothing here can change a verdict
 make propose                    # baseline proposer -> projects/<name>/proposals.yaml
@@ -191,8 +198,10 @@ projects/          ONE DIRECTORY PER SYSML MODEL. Everything that belongs to a
   <name>/
     project.yaml   name + sysml_project (the Package / server project name),
                    optionally `axes:` -- which bbox axis a named dimension
-                   lies along on this project's CAD side
+                   lies along on this project's CAD side -- and
+                   `freecad: {limits_sheet: SysML}` for sync-limits
     *.step         the project's own CAD exports, if any (box1, box2)
+    *.FCStd        the project's own FreeCAD documents, if any
     mapping.yaml   schema v2: parts ↔ CAD objects, attributes ↔ measurements
     elements.json  captured API response -- the offline source for
                    requirements, catalogue and tests. Checked on load: its
@@ -204,6 +213,11 @@ fixtures/          ai_response.json   (a CONSTRUCTED model response, so the AI
                                        proposer's validation is testable with
                                        no key; says so in its own _comment)
                    step/*.step        (committed STEP fixtures, shared)
+                   freecad/*.FCStd    (to come with the worker -- generated
+                                       in its container, then committed)
+docs/              freecad_worker_protocol.md -- the contract with the FreeCAD
+                   worker, protocol 1; tests/freecad_fake.py is the same
+                   contract in executable form
 src/sysmlcad/      config, units, model, sysml_client, extract, mapping,
                    verify, explore
                    project.py     Project: one model, one mapping, no guessing;
@@ -219,17 +233,22 @@ src/sysmlcad/      config, units, model, sysml_client, extract, mapping,
                    propose_openai.py  any OpenAI-protocol server
                    confirm.py     human confirmation -> mapping.yaml
                    score.py       hit rate against the gold set
-src/sysmlcad/adapters/   __init__.py (CadAdapter protocol, CadTarget),
+                   sync.py        requirement limits -> FreeCAD sheet (G, down)
+src/sysmlcad/adapters/   __init__.py (CadAdapter + WritableAdapter protocols,
+                         CadTarget, LimitChange),
                          build123d_adapter.py, step_adapter.py,
+                         freecad_adapter.py (HTTP client of the worker),
                          measurements.py (vocabulary over a Shape;
                          cylinder_radius lives only here)
-src/sysmlcad/explore_cad.py   what is inside a STEP file
+src/sysmlcad/explore_cad.py   what is inside a STEP file or FreeCAD document
 tests/             test_extract.py, test_requirements.py, test_verify.py,
                    test_measurements.py,
                    test_project.py, test_build123d_adapter.py,
                    test_step_adapter.py, test_catalog.py, test_gates.py,
                    test_confirm.py, test_propose.py, test_propose_ai.py,
-                   test_propose_openai.py, test_sysml_client.py
+                   test_propose_openai.py, test_sysml_client.py,
+                   test_freecad_adapter.py, test_sync.py,
+                   freecad_fake.py (stand-in worker, protocol 1)
 pyproject.toml     package metadata + pytest config (pytest.ini is gone)
 out/               STEP, JUnit XML, dumps. Only *.step and *.xml are
                    gitignored; out/relevant.txt (a real API payload excerpt)
@@ -497,6 +516,43 @@ first:
 - `explore.py` has a `depth > 8` limit in `walk()`, which truncates the path to
   the unit. Raise it when debugging.
 
+**FreeCAD worker and write-back** (client built 2026-10-08, worker pending)
+- **FreeCAD runs in its own container, never in dev.** It brings its own
+  Python (dev is 3.14). `FreeCadAdapter` is an HTTP client; the contract is
+  `docs/freecad_worker_protocol.md`, protocol 1, and `tests/freecad_fake.py`
+  is the contract in executable form -- if the real worker and the fake
+  disagree, the worker is wrong. The client refuses any other protocol version.
+- **Every rule stays on the client.** Label -> object, ambiguity, the root
+  rule, mass = volume x density, the density override and a dimension check on
+  every answer live in `freecad_adapter.py`; the worker only reads documents
+  and measures shapes. The client sends the object's internal NAME to
+  `/v1/measure`, never the label, so the worker never resolves anything.
+- **Units travel as FreeCAD's internal value plus its 8-integer unit
+  signature**, never as a formatted string: a unit name depends on the user's
+  unit schema and would make one document read differently on two machines.
+- **A missing worker is a gap, not a crash.** Unset `SYSMLCAD_FREECAD_URL`,
+  connection refused, HTTP 500, a malformed answer: all `Unsupported`. In the
+  catalogue an unreadable document is ONE target with no methods and the
+  reason as its note; `cad_catalog` only asks the worker when a `.FCStd`
+  exists, so a project without one never needs FreeCAD. There is no default
+  URL on purpose -- "not configured" must not read like a network fault.
+- **An object that does not recompute is not measured.** The worker reports
+  `error`; the client refuses before sending `/v1/measure`. A stale shape is
+  the last good design, not the current one.
+- **A zero density is no density.** FreeCAD's default material reads 0, which
+  would make every mass limit pass.
+- **`sync-limits` writes limits and nothing else**, into a sheet it owns
+  (`SysML`, marker in A1, column C `sysmlcad`); a sheet without the marker is
+  refused. Dry run unless `APPLY=1`. An entry with `direction: sysml_owns` is
+  reported as HELD BACK -- writing the value would rebuild the part. Applied
+  changes go to `out/sync_log.jsonl` with commit id, mapping digest and the
+  document digest before/after. Saving an unchanged FCStd still changes its
+  digest (it is a zip with timestamps), which is why the worker must not save
+  when there is nothing to change.
+- **`WritableAdapter` is a separate protocol on purpose.** `CadAdapter` --
+  what a verification run gets -- has no write method, so a run cannot write
+  even by mistake.
+
 **Mapping proposals, gates and the AI**
 - **A proposal is gated on the object it names.** `merged_mapping()` used to
   keep the EXISTING part entry, so a candidate for an already-mapped part was
@@ -756,6 +812,21 @@ Set the motorHousing part entry to `status: proposed` and the run now says
   predate it. **Confirming a proposal does not link it to a requirement**
   (`requirement: ''`): add the requirement by hand, or the run never uses
   the entry. MinBoreRadius stays a gap until that is done.
+- **`parameter(name)` reads a stated dimension instead of measuring one**
+  (2026-10-08). A bounding box is the length only while the part lies on its
+  axis; `LENGTH_MM`, `Params.Length` or `Pad.Length` stays the length when the
+  part is rotated. build123d reads module constants, FreeCAD spreadsheet
+  aliases / feature properties / VarSets, STEP refuses (`Unsupported`, and
+  never in its catalogue). Offered only on a target that has parameters
+  (`NEEDS_PARAMETERS`). The baseline proposes it only when every word of the
+  parameter's name is accounted for by part and attribute AND it has the
+  attribute's dimension -- `HOUSING_LENGTH_MM` builds the cover too and is
+  still not the cover's length -- and ranks it above the bounding box
+  (`_PARAMETER_SUPPORT` = 0.8 for a measurement backed by a parameter). Both
+  gold sets accept it; baseline still 2/2 and 11/11, wrong@1 0. The trade-off,
+  stated in the gold notes: a parameter says what was meant, the B-Rep what was
+  made. The LLM schema gained `method: parameter` + `parameter_name`, so the
+  prompt digest changed again and the AI numbers above predate it.
 - **The measurement vocabulary exists twice, on purpose.** `measurements.py`
   serves the step adapter; `Build123dAdapter` keeps its own copy because adding
   STEP support was an add-on and rewiring working code is how add-ons lose
@@ -852,8 +923,10 @@ One bad mapping entry is one unchecked requirement, not a lost run.
 
 Stages, rationale, and open architectural questions are in
 **[ROADMAP.md](ROADMAP.md)**. In short: phases 0–3 and stages A, A2, E and H are
-done; what remains is B (change-impact analysis), C (evidence log and reports),
-D (MCP server), F (FreeCAD adapter) and G (ownership-gated writes).
+done; F's client half and G's downward half (limits into FreeCAD) are built and
+wait for the FreeCAD worker container. What remains is B (change-impact
+analysis), C (evidence log and reports), D (MCP server), the worker and its
+fixtures for F, and G's upward half (actual values back to SysML).
 
 Ordering that must not be broken: **gates before writes, gates before AI,
 adapter seam before FreeCAD.** The middle one is now satisfied rather than

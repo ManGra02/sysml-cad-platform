@@ -17,8 +17,8 @@ both in a few places; where it does, the reason is written down.
 | B | Change-impact analysis | open |
 | C | Evidence log and reports | open |
 | D | MCP server | open |
-| F | FreeCAD adapter — the parametric half STEP cannot do | open |
-| G | Ownership-gated writes | open |
+| F | FreeCAD adapter — the parametric half STEP cannot do | **client done**, worker container pending |
+| G | Ownership-gated writes | **down (limits) done** against the FreeCAD client; up open |
 
 E and H were brought forward, in that order, because the constraint below said
 they had to be: an AI proposer without gates is a guess with a confidence score
@@ -256,6 +256,28 @@ What remains for FreeCAD is what a file fundamentally cannot carry:
 
 `Build123dAdapter` stays regardless, so CI never needs FreeCAD installed.
 
+**Status, 2026-10-08: the client half is built; the worker is not.** FreeCAD
+brings its own Python and cannot be imported into the 3.14 devcontainer, so it
+runs as a headless worker in its own container (to be delivered by a
+colleague), and `adapters/freecad_adapter.py` speaks JSON/HTTP to it. The
+contract is `docs/freecad_worker_protocol.md`, protocol 1; `tests/freecad_fake.py`
+is the same contract in executable form, and every client decision is tested
+against it with no FreeCAD at all. What came with it:
+
+- `parameter(name)` joined the shared vocabulary -- for build123d (module
+  constants) as well as FreeCAD (spreadsheet aliases, feature properties,
+  VarSets); STEP refuses it. A stated length survives a rotation that moves the
+  bounding box. The baseline proposes it when a parameter's name states the
+  attribute exactly, and ranks it above the bounding box; the gold sets accept
+  it; the baseline still scores 2/2 and 11/11 with zero false positives.
+- Labels, the root rule and ambiguity are decided on the client, the worker
+  only reads documents and measures shapes -- so it can be replaced without
+  moving a single rule.
+- A missing worker is a gap per requirement, never a lost run.
+
+Open until the worker exists: the container, the `.FCStd` fixtures, and the
+equivalence test against the STEP adapter (protocol doc, section 6).
+
 ## Stage G — Ownership-gated writes
 
 The authority rule instead of a merge algorithm. The original plan proposed
@@ -274,6 +296,16 @@ is what FREQ-3's `direction` field already is.
   needed without an algorithm silently rebuilding a part.
 - Every run offers a dry-run preview of the value changes it would make
   (SRS §4.1, synchronisation view). Every write lands in the evidence log.
+
+**Down, built 2026-10-08 (`sync.py`, `make sync-limits`):** the limit of each
+requirement whose part is mapped to a FreeCAD document goes into a spreadsheet
+the sync owns (`SysML` by default, `freecad: {limits_sheet:}` in
+project.yaml), as an alias a designer can reference (`=SysML.MaxLength`).
+Dry run by default; a sheet without the sync's marker is refused; an entry
+with `direction: sysml_owns` is reported and its value never written; every
+applied change is appended to `out/sync_log.jsonl` with the commit id, the
+mapping digest and the document digest before and after. `WritableAdapter` is
+a separate protocol, so `CadAdapter` -- what a run uses -- still cannot write.
 
 **FREQ-6 (structural instantiation)** — generating a CAD skeleton from the
 SysML part structure — is deferred until this is stable. It is the most

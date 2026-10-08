@@ -14,6 +14,7 @@ from dataclasses import replace
 
 from .adapters import CadAdapter, Unsupported
 from .adapters.build123d_adapter import Build123dAdapter
+from .adapters.freecad_adapter import FreeCadAdapter
 from .adapters.step_adapter import StepAdapter
 from .extract import load_with_context
 from .mapping import AttributeMapping, Mapping, load_mapping
@@ -32,6 +33,7 @@ from .model import (
 ADAPTERS: dict[str, type] = {
     "build123d": Build123dAdapter,
     "step": StepAdapter,
+    "freecad": FreeCadAdapter,
 }
 
 _STATUS_LABEL = {

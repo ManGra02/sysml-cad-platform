@@ -33,10 +33,13 @@ gold:
   - sysml_part: motorHousing
     attribute: length
     note: >-
-      Length is the bounding box along X. Not the same thing as a named feature
-      dimension -- which is why the accepted answers pin the axis, not just the
-      object.
+      The named parameter LENGTH_MM states the length; the bounding box along X
+      measures the shape. Both are right for this script, which builds its
+      geometry from the parameter -- the parameter first, because it stays the
+      length when the part is rotated and the bounding box does not. The
+      bounding-box answers pin the axis, not just the object.
     accept:
+      - {adapter: build123d, cad_object: motor_housing, method: parameter, args: {name: LENGTH_MM}}
       - {adapter: build123d, cad_object: motor_housing, method: bbox_size, args: {axis: X}}
       - {adapter: step, cad_object: fixtures/step/motor_housing.step, method: bbox_size, args: {axis: X}}
 

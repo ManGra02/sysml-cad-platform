@@ -23,13 +23,20 @@ never a substituted value. SRS FREQ-2: "Where a property cannot be computed,
                           radius of the one cylindrical feature -- a bore
                           (kind="hole") or a shaft/fillet (kind="boss"); more
                           than one left after narrowing is Unsupported
+    parameter(name)       a named parameter, read rather than measured:
+                          `LENGTH_MM` in a script, `Params.Length` or
+                          `Pad.Length` in a FreeCAD document. What the designer
+                          stated, not what the B-Rep turned out to be -- an
+                          adapter without parameters (STEP) raises Unsupported
 
 METHODS is that vocabulary as data, so a catalogue can list what an adapter
 offers without every caller repeating the names.
 
 `bbox_size` is deliberately not called "length". A bounding-box extent and a
 named feature dimension are different things, and the difference only shows up
-at the first draft angle. The mapping entry has to say which one it means.
+at the first draft angle. The mapping entry has to say which one it means --
+`parameter` is the other one, the named dimension itself, and the reason it
+exists: a rotated part has a different bounding box and the same `Length`.
 """
 
 from __future__ import annotations
@@ -43,7 +50,12 @@ from ..units import Q
 #: The measurement vocabulary, as data. Adapter-independent by design; an
 #: adapter that cannot do one of these raises `Unsupported` rather than
 #: quietly offering fewer.
-METHODS = ("bbox_size", "volume", "mass", "face_count", "cylinder_radius")
+METHODS = ("bbox_size", "volume", "mass", "face_count", "cylinder_radius", "parameter")
+
+#: Methods a target offers only when it actually has something for them --
+#: `parameter` needs named parameters, and offering it on an object without any
+#: would propose a mapping whose only possible outcome is a gap.
+NEEDS_PARAMETERS = ("parameter",)
 
 
 class Unsupported(Exception):
@@ -168,3 +180,46 @@ class CadAdapter(Protocol):
         adapter has loaded so far.
         """
         ...
+
+
+# --------------------------------------------------------------------------
+# Writing back -- only limits, only where an adapter can
+# --------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class LimitChange:
+    """One requirement limit as it is in the CAD document and as it will be.
+
+    `old` is None when the document does not carry that limit yet. A change
+    whose `old` equals its `new` is not reported at all: a second sync of an
+    unchanged model has nothing to say.
+    """
+
+    alias: str
+    old: Q | None
+    new: Q
+
+
+@runtime_checkable
+class WritableAdapter(Protocol):
+    """An adapter that can write requirement limits into its CAD document.
+
+    Deliberately not part of `CadAdapter`: a STEP file and a build123d script
+    have nowhere to put a limit, and the verification engine never writes.
+    What may be written is exactly one thing -- SysML's limits, into a sheet
+    the sync owns (`limits_sheet`) -- never a parameter that drives geometry.
+    SysML owns limits, CAD owns actual values; that is what keeps the two from
+    colliding (ROADMAP, stage G).
+    """
+
+    def write_limits(
+        self, document: str, sheet: str, values: dict[str, Q], apply: bool = False
+    ) -> list[LimitChange]:
+        """The changes that `values` makes to `sheet` of `document`.
+
+        With `apply=False` (the default) nothing is written -- the result is
+        the dry run. Raises `Unsupported` for a document that cannot be
+        written, or a sheet the sync does not own.
+        """
+        ...
+
