@@ -12,7 +12,7 @@ import pytest
 
 from app.projects.base import CadError, ProjectModule, Ref
 from app.projects.bds import BdsModule
-from app.projects.mcr import McrModule
+from app.projects.cra import CraModule
 from conftest import BrowserClient, running_backend, wait_for
 
 
@@ -59,7 +59,7 @@ class BrokenModule(ProjectModule):
         raise RuntimeError("A module error must not stop the platform")
 
 
-MODULES = [BdsModule, McrModule, RecordingModule, BrokenModule]
+MODULES = [BdsModule, CraModule, RecordingModule, BrokenModule]
 
 
 @pytest_asyncio.fixture
@@ -79,7 +79,7 @@ def module(platform, module_id):
 async def test_standardmodule_sind_registriert(backend):
     code, body = await backend.get("/api/projects")
     assert code == 200
-    assert [p["id"] for p in body["projects"]] == ["bds", "mcr"]
+    assert [p["id"] for p in body["projects"]] == ["bds", "cra"]
     assert body["active"] is None
     assert all(p["title"] and p["description"] and p["icon"] for p in body["projects"])
 
@@ -112,13 +112,40 @@ async def test_nochmal_aktivieren_ist_kein_neustart(platform):
 async def test_alle_tabs_erfahren_den_wechsel(platform):
     browser = await BrowserClient(platform.url).connect()
     try:
-        await platform.post("/api/projects/mcr/activate")
+        await platform.post("/api/projects/cra/activate")
         await wait_for(lambda: any(f.get("type") == "project.activated" for f in browser.frames))
         frame = [f for f in browser.frames if f.get("type") == "project.activated"][0]
-        assert frame["id"] == "mcr"
+        assert frame["id"] == "cra"
     finally:
         await browser.close()
 
+
+async def test_deaktivieren(platform):
+    await platform.post("/api/projects/rec/activate")
+    code, body = await platform.post("/api/projects/deactivate")
+    assert code == 200
+    assert body["active"] is None
+    assert not any(p["active"] for p in body["projects"])
+    assert RecordingModule.calls == [("activate", "rec"), ("deactivate", "rec")]
+
+
+async def test_deaktivieren_ohne_aktives_projekt_ist_harmlos(platform):
+    code, body = await platform.post("/api/projects/deactivate")
+    assert code == 200
+    assert body["active"] is None
+    assert RecordingModule.calls == []
+
+
+async def test_alle_tabs_erfahren_das_deaktivieren(platform):
+    await platform.post("/api/projects/cra/activate")
+    browser = await BrowserClient(platform.url).connect()
+    try:
+        await platform.post("/api/projects/deactivate")
+        await wait_for(lambda: any(f.get("type") == "project.deactivated" for f in browser.frames))
+        frame = [f for f in browser.frames if f.get("type") == "project.deactivated"][0]
+        assert frame["previous"] == "cra"
+    finally:
+        await browser.close()
 
 async def test_hello_nennt_das_aktive_projekt(platform):
     await platform.post("/api/projects/bds/activate")
@@ -142,6 +169,18 @@ async def test_wahl_ueberlebt_den_neustart(handshake, state_dir):
         assert RecordingModule.calls == [("activate", "rec")]  # module becomes active again
     assert json.loads((state_dir / "state.json").read_text())["active"] == "rec"
 
+
+async def test_deaktivieren_ueberlebt_den_neustart(handshake, state_dir):
+    """After a restart the start page shows the pure selection again."""
+    async with running_backend(project_modules=MODULES) as first:
+        await first.post("/api/projects/rec/activate")
+        await first.post("/api/projects/deactivate")
+    RecordingModule.calls = []
+    async with running_backend(project_modules=MODULES) as second:
+        _, body = await second.get("/api/projects")
+        assert body["active"] is None
+        assert RecordingModule.calls == []  # no module is woken up
+    assert json.loads((state_dir / "state.json").read_text())["active"] is None
 
 async def test_kaputte_zustandsdatei_ist_kein_absturz(handshake, state_dir):
     state_dir.mkdir(parents=True)
@@ -193,6 +232,18 @@ async def test_ohne_aktives_projekt_wird_nichts_zugestellt(bridge, platform):
     await wait_for(lambda: module(platform, "rec").events)
     assert [e["obj"] for e in module(platform, "rec").events] == ["Second"]
 
+
+async def test_nach_dem_deaktivieren_wird_nichts_mehr_zugestellt(bridge, platform):
+    await wait_for(lambda: platform.state.bridge.state == "ok")
+    await platform.post("/api/projects/rec/activate")
+    await bridge.push([{"type": "cad.changed", "doc": "Doc", "obj": "Box", "origin": "freecad:user"}])
+    await wait_for(lambda: module(platform, "rec").events)
+    await platform.post("/api/projects/deactivate")
+    await bridge.push([{"type": "cad.changed", "doc": "Doc", "obj": "Late", "origin": "freecad:user"}])
+    await platform.post("/api/projects/bds/activate")
+    await bridge.push([{"type": "cad.changed", "doc": "Doc", "obj": "Marker", "origin": "freecad:user"}])
+    await wait_for(lambda: module(platform, "bds").events_seen == 1)
+    assert [e["obj"] for e in module(platform, "rec").events] == ["Box"]
 
 async def test_modulfehler_stoppt_die_zustellung_nicht(bridge, platform):
     await wait_for(lambda: platform.state.bridge.state == "ok")

@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { McrPage } from "@/features/mcr/McrPage"
+import { CraPage } from "@/features/cra/CraPage"
 import { ProjectFrame } from "@/features/projects/ProjectFrame"
 import { ensureKnown } from "@/features/projects/queries"
 
-export const Route = createFileRoute("/projects/mcr")({
-  beforeLoad: ({ context }) => ensureKnown(context.queryClient, "mcr"),
+export const Route = createFileRoute("/projects/cra")({
+  beforeLoad: ({ context }) => ensureKnown(context.queryClient, "cra"),
   component: () => (
-    <ProjectFrame id="mcr">
-      <McrPage />
+    <ProjectFrame id="cra">
+      <CraPage />
     </ProjectFrame>
   ),
 })
