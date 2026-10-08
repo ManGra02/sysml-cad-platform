@@ -17,7 +17,8 @@
   "nav": {
     "cadExplorer": "CAD Explorer",
     "chooseProject": "Choose project",
-    "activeProject": "Active project: {{title}}"
+    "activeProject": "Active project: {{title}}",
+    "sysmlModel": "SysML Model"
   },
   "theme": {
     "system": "Theme: system",
@@ -46,7 +47,8 @@
     "openExplorerOnly": "Open only the CAD Explorer",
     "activateAndOpen": "Activate and open",
     "activateAndOpenLabel": "Activate and open {{title}}",
-    "uiMissing": "User interface missing:"
+    "uiMissing": "User interface missing:",
+    "openSysml": "Open the SysML model"
   },
   "projects": {
     "activated": "Active project: {{title}}",
@@ -249,6 +251,79 @@
       "contract_mismatch": "Connected, but the contract versions differ."
     }
   },
+  "sysml": {
+    "pageTitle": "SysML model",
+    "title": "SysML model",
+    "hint": "The system model as it is stored in Flexo MMS (SysML v2): parts, their values and the requirements they satisfy. Read-only – it shows the latest version of the default branch.",
+    "project": "Project",
+    "version": "Version {{id}}",
+    "reload": "Reload",
+    "noProjects": "Flexo is running but contains no SysML project yet. Load the demo model with:",
+    "warnings_one": "{{count}} note from reading the model",
+    "warnings_other": "{{count}} notes from reading the model",
+    "status": {
+      "ok": "Connected to Flexo MMS",
+      "projects_one": "{{count}} project",
+      "projects_other": "{{count}} projects",
+      "down": "Flexo MMS is not reachable at {{url}}.",
+      "downHint": "Start Docker Desktop, then start Flexo from the platform folder:"
+    },
+    "tiles": {
+      "parts": "Parts",
+      "partsHint": "Every part in the system structure",
+      "leaves": "Leaf parts",
+      "leavesHint": "Parts without sub-parts – these need a CAD model",
+      "attributes": "Values",
+      "attributesHint": "Attributes such as mass, power or length",
+      "requirements": "Requirements",
+      "requirementsHint": "What the system has to fulfil"
+    },
+    "tabs": {
+      "structure": "Structure",
+      "attributes": "All values",
+      "requirements": "Requirements",
+      "history": "History"
+    },
+    "tree": {
+      "title": "Part tree",
+      "hint": "Click a part to see its values.",
+      "empty": "The model contains no parts.",
+      "leaf": "leaf",
+      "expand": "Expand",
+      "collapse": "Collapse"
+    },
+    "details": {
+      "attributes": "Values",
+      "noAttributes": "This part has no values.",
+      "satisfies": "Satisfies",
+      "partOf": "Part of",
+      "contains": "Contains",
+      "leafHint": "Leaf part – should have its own CAD model."
+    },
+    "columns": {
+      "element": "Part",
+      "attribute": "Attribute",
+      "value": "Value (model)",
+      "si": "Value (SI)"
+    },
+    "attributes": {
+      "title": "All values",
+      "hint": "Every value in the model. “SI” is the value converted to base units, so it can be compared with CAD directly.",
+      "filter": "Filter by part or attribute …",
+      "none": "No value matches the filter."
+    },
+    "requirements": {
+      "none": "The model contains no requirements.",
+      "satisfiedBy": "Satisfied by",
+      "notSatisfied": "not satisfied by any part"
+    },
+    "history": {
+      "title": "Versions (commits)",
+      "hint": "Every change to the model is a new commit. Results always refer to one exact commit.",
+      "noDescription": "(no description)",
+      "shown": "shown"
+    }
+  },
   "errors": {
     "generic": "Something went wrong.",
     "backend_unreachable": "The backend is not reachable.",
@@ -315,6 +390,15 @@
       "form_unsupported": "This value cannot be edited here.",
       "unknown_property": "Unknown property.",
       "rejected": "FreeCAD rejected the value: {{error}}"
-    }
+    },
+    "sysml_unreachable": "Flexo MMS (SysML) is not reachable.",
+    "sysml_timeout": "Flexo MMS (SysML) did not answer in time.",
+    "sysml_not_found": "Not found in Flexo MMS.",
+    "sysml_project_not_found": "This SysML project does not exist.",
+    "sysml_ambiguous_project": "Several SysML projects have this name – use the project id.",
+    "sysml_unauthorized": "Flexo MMS rejected the login.",
+    "sysml_upstream_error": "Flexo MMS reported an error.",
+    "sysml_element_not_found": "This element does not exist in the model.",
+    "sysml_attribute_not_found": "This attribute does not exist in the model."
   }
 }

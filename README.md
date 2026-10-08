@@ -261,7 +261,8 @@ await self.ctx.sysml.diff("EBike Demo", old_commit, new_commit)                 
 
 Errors arrive as `SysmlError` (`code`, `status`, `message`, `detail`) — e.g. `sysml_unreachable`
 when Flexo isn't running, which is a normal state like a stopped bridge. The browser gets the
-same data under `/api/sysml/*` (see `/api/docs`). Setup of the repository and test data:
+same data under `/api/sysml/*` (see `/api/docs`); people see it on the **SysML Model** page
+(http://127.0.0.1:8000/sysml: part tree, values with SI units, requirements, commit history). Setup of the repository and test data:
 [`flexo/README.md`](flexo/README.md); command line: `cd backend && uv run python -m app.sysml --help`.
 
 - New projects are registered **explicitly** in `backend/app/projects/registry.py` (`MODULES`)
@@ -301,6 +302,8 @@ be reachable through the junction, because FreeCAD only sees `Mod/SysMLCadPlatfo
 | M8 Programmatic CAD interface for project modules | ✅ |
 | M9 Production build, setup from scratch | ✅ |
 | M10 SysML adapter: read/write the SysML v2 model via Flexo, `ctx.sysml`, `/api/sysml/*` | ✅ |
+| M11 SysML Model page in the UI (read-only view of the model) | ✅ |
 
 SysML v2 access lives in the backend (`backend/app/sysml/`), as plain HTTP to the SysML v2
-API -- the bridge is not touched. Not yet in the UI: a SysML view in the frontend.
+API -- the bridge is not touched. The UI shows it read-only on the SysML Model page
+(`frontend/src/features/sysml/`).
