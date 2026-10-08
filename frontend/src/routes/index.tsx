@@ -1,14 +1,22 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
-import { ArrowRight, Box, Loader2 } from "lucide-react"
+import { ArrowRight, Box, Loader2, X } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { describeError } from "@/features/cad/format"
 import { ProjectIcon } from "@/features/projects/ProjectIcon"
-import { PROJECT_ROUTES, projectDescription, projectsQuery, type ProjectInfo } from "@/features/projects/queries"
+import {
+  PROJECT_ROUTES,
+  deactivateProject,
+  projectDescription,
+  projectsQuery,
+  type ProjectInfo,
+} from "@/features/projects/queries"
 import { useOpenProject } from "@/features/projects/useOpenProject"
 import { useDocumentTitle } from "@/lib/useDocumentTitle"
 import { cn } from "@/lib/utils"
@@ -24,9 +32,23 @@ function Launcher() {
   useDocumentTitle()
   const query = useQuery(projectsQuery)
   const { open, pending } = useOpenProject()
+  const queryClient = useQueryClient()
+  const [closing, setClosing] = useState(false)
   const projects = query.data?.projects ?? []
   const active = projects.find((project) => project.active)
   const others = projects.filter((project) => !project.active)
+
+  const close = async (project: ProjectInfo) => {
+    setClosing(true)
+    try {
+      await deactivateProject(queryClient)
+      toast.success(t("projects.deactivated", { title: project.title }))
+    } catch (error) {
+      toast.error(describeError(error))
+    } finally {
+      setClosing(false)
+    }
+  }
 
   return (
     <div className="h-full overflow-y-auto">
@@ -55,12 +77,18 @@ function Launcher() {
                 </p>
                 <p className="text-sm text-muted-foreground">{projectDescription(active)}</p>
               </div>
-              {PROJECT_ROUTES[active.id] && (
-                <Button size="lg" onClick={() => void open(active.id)} disabled={pending !== null}>
-                  {pending === active.id ? <Loader2 className="animate-spin" /> : null}
-                  {t("launcher.continue")} <ArrowRight />
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <Button size="lg" variant="outline" onClick={() => void close(active)} disabled={closing || pending !== null}>
+                  {closing ? <Loader2 className="animate-spin" /> : <X />}
+                  {t("launcher.close")}
                 </Button>
-              )}
+                {PROJECT_ROUTES[active.id] && (
+                  <Button size="lg" onClick={() => void open(active.id)} disabled={closing || pending !== null}>
+                    {pending === active.id ? <Loader2 className="animate-spin" /> : null}
+                    {t("launcher.continue")} <ArrowRight />
+                  </Button>
+                )}
+              </div>
             </div>
           </section>
         )}
@@ -79,7 +107,7 @@ function Launcher() {
                   key={project.id}
                   project={project}
                   pending={pending === project.id}
-                  disabled={pending !== null}
+                  disabled={closing || pending !== null}
                   onOpen={() => void open(project.id)}
                 />
               ))}

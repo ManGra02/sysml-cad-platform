@@ -1,7 +1,7 @@
 # SysML-CAD Platform
 
 Shared foundation for two projects of the project group: **Bi-Directional
-Synchronization** and **Missing CAD Component Recommendation**.
+Synchronization** and **CAD Reuse Assistant**.
 
 **Guiding principle:** FreeCAD is only the *bridge* to the CAD model. The platform — UI,
 project registry, all domain logic — lives in its own Python process, which is driven by
@@ -199,6 +199,8 @@ returns exit code 0. A CI based on it would be permanently green.
 Each project is a Python package under `backend/app/projects/<id>/` plus a UI
 under `frontend/src/features/<id>/`. The start page `/` selects the active project; the
 choice applies to all tabs and is remembered by the backend (`~/.sysml-cad-platform/state.json`).
+"Close project" on the start page (`POST /api/projects/deactivate`) goes back to no active
+project: the start page shows the pure selection, and no module receives FreeCAD events.
 
 ```python
 class BdsModule(ProjectModule):

@@ -1,6 +1,6 @@
 """What a project module is and what it gets from the platform.
 
-A project (BDS, MCR, ...) is simply a Python package under
+A project (BDS, CRA, ...) is simply a Python package under
 ``app/projects/<id>/``. It inherits from ``ProjectModule`` and gets:
 
   * its own HTTP routes under ``/api/projects/<id>/*``     (register_routes)
@@ -360,7 +360,7 @@ class ProjectModule:
         """The project was selected (also on backend start, if it was active)."""
 
     async def on_deactivate(self):
-        """Another project was selected."""
+        """Another project was selected, or the project was closed."""
 
     async def on_cad_event(self, event):
         """A change from FreeCAD -- only while this project is active.

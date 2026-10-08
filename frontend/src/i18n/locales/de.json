@@ -39,6 +39,7 @@
     "activeTitle": "Aktives Projekt",
     "activeHint": "Dieses Projekt bekommt gerade die Änderungen aus FreeCAD – in allen offenen Tabs.",
     "continue": "Fortsetzen",
+    "close": "Projekt schließen",
     "switchTitle": "Projekt wechseln",
     "chooseTitle": "Woran arbeitest du?",
     "switchHint": "Ein Klick aktiviert das Projekt und öffnet es. {{title}} bekommt dann keine Änderungen mehr.",
@@ -50,6 +51,7 @@
   },
   "projects": {
     "activated": "Aktives Projekt: {{title}}",
+    "deactivated": "{{title}} geschlossen – kein Projekt bekommt Änderungen aus FreeCAD.",
     "currentlyActive": "Aktiv ist gerade <strong>{{title}}</strong> – diese Seite bekommt keine Änderungen aus FreeCAD.",
     "notActive": "<strong>{{title}}</strong> ist nicht aktiv – diese Seite bekommt keine Änderungen aus FreeCAD.",
     "goTo": "Zu {{id}}",
@@ -64,7 +66,7 @@
     "liveLabel": "Live-Ereignisse:",
     "descriptions": {
       "bds": "SysML-v2-Systemmodell und CAD-Modell in beide Richtungen synchron halten.",
-      "mcr": "Fehlende Komponenten im CAD-Modell erkennen und passende Bauteile vorschlagen."
+      "cra": "Fehlende Komponenten im CAD-Modell erkennen und vorhandene Bauteile zur Wiederverwendung vorschlagen."
     }
   },
   "documents": {

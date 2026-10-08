@@ -19,12 +19,12 @@ from fastapi import APIRouter
 from app import config
 from app.projects.base import CadClient, ProjectContext
 from app.projects.bds import BdsModule
-from app.projects.mcr import McrModule
+from app.projects.cra import CraModule
 
 log = logging.getLogger("platform.projects")
 
 #: The registered projects, in display order.
-MODULES = [BdsModule, McrModule]
+MODULES = [BdsModule, CraModule]
 
 STATE_FILE = "state.json"
 
@@ -102,6 +102,17 @@ class ProjectRegistry:
             self._write_state({"active": project_id})
             await self._call(project_id, "on_activate")
         self._publish({"type": "project.activated", "id": project_id, "previous": previous})
+
+    async def deactivate(self):
+        """Back to "no project": the start page shows the pure project selection."""
+        async with self._lock:
+            previous = self.active_id
+            if previous is None:
+                return
+            await self._call(previous, "on_deactivate")
+            self.active_id = None
+            self._write_state({"active": None})
+        self._publish({"type": "project.deactivated", "previous": previous})
 
     # -- Events from FreeCAD ----------------------------------------------
 

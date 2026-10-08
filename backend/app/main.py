@@ -103,6 +103,11 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None, sysml_s
             )
         return registry.describe()
 
+    @app.post("/api/projects/deactivate")
+    async def deactivate_project():
+        await registry.deactivate()
+        return registry.describe()
+
     registry.mount(app)  # the modules' /api/projects/<id>/*
 
     # -- SysML: the model from the SysML v2 repository -------------------

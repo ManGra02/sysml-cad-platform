@@ -13,7 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CadIndexRouteImport } from './routes/cad.index'
 import { Route as CadDocRouteImport } from './routes/cad.$doc'
 import { Route as ProjectsBdsRouteImport } from './routes/projects.bds'
-import { Route as ProjectsMcrRouteImport } from './routes/projects.mcr'
+import { Route as ProjectsCraRouteImport } from './routes/projects.cra'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -35,9 +35,9 @@ const ProjectsBdsRoute = ProjectsBdsRouteImport.update({
   path: '/projects/bds',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProjectsMcrRoute = ProjectsMcrRouteImport.update({
-  id: '/projects/mcr',
-  path: '/projects/mcr',
+const ProjectsCraRoute = ProjectsCraRouteImport.update({
+  id: '/projects/cra',
+  path: '/projects/cra',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -45,14 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cad/$doc': typeof CadDocRoute
   '/projects/bds': typeof ProjectsBdsRoute
-  '/projects/mcr': typeof ProjectsMcrRoute
+  '/projects/cra': typeof ProjectsCraRoute
   '/cad/': typeof CadIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cad/$doc': typeof CadDocRoute
   '/projects/bds': typeof ProjectsBdsRoute
-  '/projects/mcr': typeof ProjectsMcrRoute
+  '/projects/cra': typeof ProjectsCraRoute
   '/cad': typeof CadIndexRoute
 }
 export interface FileRoutesById {
@@ -60,23 +60,23 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/cad/$doc': typeof CadDocRoute
   '/projects/bds': typeof ProjectsBdsRoute
-  '/projects/mcr': typeof ProjectsMcrRoute
+  '/projects/cra': typeof ProjectsCraRoute
   '/cad/': typeof CadIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/cad/$doc' | '/projects/bds' | '/projects/mcr' | '/cad/'
+  fullPaths: '/' | '/cad/$doc' | '/projects/bds' | '/projects/cra' | '/cad/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/cad/$doc' | '/projects/bds' | '/projects/mcr' | '/cad'
+  to: '/' | '/cad/$doc' | '/projects/bds' | '/projects/cra' | '/cad'
   id:
-    '__root__' | '/' | '/cad/$doc' | '/projects/bds' | '/projects/mcr' | '/cad/'
+    '__root__' | '/' | '/cad/$doc' | '/projects/bds' | '/projects/cra' | '/cad/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CadDocRoute: typeof CadDocRoute
   ProjectsBdsRoute: typeof ProjectsBdsRoute
-  ProjectsMcrRoute: typeof ProjectsMcrRoute
+  ProjectsCraRoute: typeof ProjectsCraRoute
   CadIndexRoute: typeof CadIndexRoute
 }
 
@@ -110,11 +110,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsBdsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/projects/mcr': {
-      id: '/projects/mcr'
-      path: '/projects/mcr'
-      fullPath: '/projects/mcr'
-      preLoaderRoute: typeof ProjectsMcrRouteImport
+    '/projects/cra': {
+      id: '/projects/cra'
+      path: '/projects/cra'
+      fullPath: '/projects/cra'
+      preLoaderRoute: typeof ProjectsCraRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -124,7 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CadDocRoute: CadDocRoute,
   ProjectsBdsRoute: ProjectsBdsRoute,
-  ProjectsMcrRoute: ProjectsMcrRoute,
+  ProjectsCraRoute: ProjectsCraRoute,
   CadIndexRoute: CadIndexRoute,
 }
 export const routeTree = rootRouteImport

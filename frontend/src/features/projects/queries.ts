@@ -24,9 +24,9 @@ export type ProjectList = { active: string | null; projects: ProjectInfo[] }
  * Router's type safety is established at build time); the backend only
  * determines which projects exist and which one is active.
  */
-export const PROJECT_ROUTES: Partial<Record<string, "/projects/bds" | "/projects/mcr">> = {
+export const PROJECT_ROUTES: Partial<Record<string, "/projects/bds" | "/projects/cra">> = {
   bds: "/projects/bds",
-  mcr: "/projects/mcr",
+  cra: "/projects/cra",
 }
 
 /**
@@ -45,11 +45,18 @@ export const projectKeys = {
 export const projectsQuery = queryOptions({
   queryKey: projectKeys.list(),
   queryFn: () => api<ProjectList>("/api/projects"),
-  staleTime: Infinity, // changes arrive as "project.activated" via the WebSocket
+  staleTime: Infinity, // changes arrive as "project.activated"/"project.deactivated" via the WebSocket
 })
 
 export async function activateProject(queryClient: QueryClient, id: string) {
   const list = await api<ProjectList>("/api/projects/" + seg(id) + "/activate", { method: "POST" })
+  queryClient.setQueryData(projectKeys.list(), list)
+  return list
+}
+
+/** No project active any more -- the start page then shows the pure selection. */
+export async function deactivateProject(queryClient: QueryClient) {
+  const list = await api<ProjectList>("/api/projects/deactivate", { method: "POST" })
   queryClient.setQueryData(projectKeys.list(), list)
   return list
 }
@@ -68,7 +75,7 @@ export async function ensureKnown(queryClient: QueryClient, id: string) {
 
 /** Frames from the backend that concern projects. */
 export function handleProjectFrame(queryClient: QueryClient, frame: Frame) {
-  if (frame.type === "hello" || frame.type === "project.activated") {
+  if (frame.type === "hello" || frame.type === "project.activated" || frame.type === "project.deactivated") {
     void queryClient.invalidateQueries({ queryKey: projectKeys.list(), exact: true })
     return
   }
