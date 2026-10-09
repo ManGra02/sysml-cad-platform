@@ -71,7 +71,26 @@ def sysml_tools(ctx):
         return {"version": snap.version,
                 "attributes": [{k: asdict(a)[k] for k in keep} for a in snap.attributes_of(element_id)]}
 
-    return [_tool(fn) for fn in (sysml_projects, sysml_parts, sysml_requirements, sysml_attributes)]
+    async def sysml_neighbours(project: str, element: str) -> dict:
+        """Context of one SysML element (id or name, e.g. "motor"): its type and attributes,
+        parent and child parts, the parts it is connected to and via which interface (with
+        their attributes), the requirements it satisfies and those inherited from its parent
+        assemblies, and allocations. Use this before judging what a part has to fulfil."""
+        snap = await sysml.snapshot(project)
+        el = snap.element(element)
+        if el is None:
+            matches = snap.find(element, kind="part") or snap.find(element)
+            if len(matches) > 1:
+                return {"error": {"code": "ambiguous_element",
+                                  "message": "Several elements are called %r, use an id" % element,
+                                  "ids": [m.id for m in matches]}}
+            el = matches[0] if matches else None
+        if el is None:
+            return {"error": {"code": "element_not_found", "message": "No element %r in %s" % (element, project)}}
+        return snap.neighbours(el.id)
+
+    return [_tool(fn) for fn in (sysml_projects, sysml_parts, sysml_requirements, sysml_attributes,
+                                 sysml_neighbours)]
 
 
 def cad_tools(ctx, write=False):
