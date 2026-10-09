@@ -12,6 +12,9 @@ Overrides via environment variables:
   PLATFORM_DEV       "1" additionally allows the Vite dev server as an origin
   PLATFORM_STATE_DIR where the backend writes its small bit of state
                      (active project); default ~/.sysml-cad-platform
+
+Secrets such as OLLAMA_API_KEY may also live in backend/.env (gitignored,
+see backend/.env.example); a real environment variable always wins.
 """
 
 import os
@@ -85,3 +88,25 @@ def state_dir():
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+#: backend/.env -- local secrets and settings, never committed
+ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
+
+
+def read_env_file(path):
+    """KEY=VALUE lines (optional quotes) -> dict. Missing file -> {}."""
+    values = {}
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except OSError:
+        return values
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        values[key.strip()] = value
+    return values

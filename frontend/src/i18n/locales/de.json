@@ -253,6 +253,30 @@
       "contract_mismatch": "Verbunden, aber die Vertragsversionen weichen ab."
     }
   },
+  "ai": {
+    "title": "KI (Ollama Cloud)",
+    "short": "KI",
+    "status": "Status",
+    "provider": "Endpunkt",
+    "offered": "Angebot",
+    "modelCount_one": "{{count}} Modell",
+    "modelCount_other": "{{count}} Modelle",
+    "model": "Modell {{project}}",
+    "noModel": "nicht gesetzt",
+    "modelMissing": "Ollama bietet dieses Modell nicht an.",
+    "check": "Jetzt prüfen",
+    "state": {
+      "ok": "Bereit",
+      "model_missing": "Erreichbar, Modell fehlt",
+      "unreachable": "Nicht erreichbar",
+      "unconfigured": "Nicht konfiguriert"
+    },
+    "help": {
+      "model_missing": "Ein verfügbares Modell in backend/.env setzen (OLLAMA_MODEL_BDS, OLLAMA_MODEL_CRA).",
+      "unreachable": "Netzwerkverbindung und OLLAMA_API_KEY prüfen.",
+      "unconfigured": "OLLAMA_API_KEY in backend/.env setzen und das Backend neu starten."
+    }
+  },
   "sysml": {
     "pageTitle": "SysML-Modell",
     "title": "SysML-Modell",

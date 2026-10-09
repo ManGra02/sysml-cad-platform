@@ -162,7 +162,8 @@ cd backend && uv run python ../scripts/e2e/m5_acceptance.py
 cd backend && uv run python ../scripts/e2e/m8_acceptance.py
 
 # (Backend tests include the project registry: tests/backend/test_projects.py,
-#  and the SysML adapter against an in-memory Flexo: tests/backend/test_sysml.py)
+#  the SysML adapter against an in-memory Flexo: tests/backend/test_sysml.py,
+#  and the AI adapter against a fake Ollama: tests/backend/test_ai.py)
 
 # Frontend -- pure logic (tree, events, rotation, formats) and types
 cd frontend && pnpm test && pnpm typecheck
@@ -188,6 +189,7 @@ returns exit code 0. A CI based on it would be permanently green.
 | `bridge/cad_contract/` | Shared, dependency-free contract — imported by both Pythons. |
 | `backend/` | Platform backend (FastAPI), own venv. |
 | `backend/app/sysml/` | SysML adapter: SysML v2 API client, parser, common engineering model, `/api/sysml/*`. |
+| `backend/app/ai/` | AI adapter: Ollama Cloud, model per project, LangGraph agent and tools, `/api/ai/*`. |
 | `flexo/` | Docker setup of the SysML v2 repository (Flexo MMS). |
 | `data/examples/sysml/` | SysML v2 test models (e-bike demo, Flexo's own test model). |
 | `frontend/` | React + shadcn/ui, built into `backend/app/static/`. |
@@ -266,6 +268,43 @@ when Flexo isn't running, which is a normal state like a stopped bridge. The bro
 same data under `/api/sysml/*` (see `/api/docs`); people see it on the **SysML Model** page
 (http://127.0.0.1:8000/sysml: part tree, values with SI units, requirements, commit history). Setup of the repository and test data:
 [`flexo/README.md`](flexo/README.md); command line: `cd backend && uv run python -m app.sysml --help`.
+
+**AI and agents** — `self.ctx.ai`, an LLM on **Ollama Cloud** with the project's own model
+([LangChain](https://python.langchain.com/) / [LangGraph](https://langchain-ai.github.io/langgraph/)):
+
+```python
+from app.ai.agents import run
+from app.ai.tools import cad_tools, sysml_tools
+
+llm = self.ctx.ai.chat_model()                     # ChatOllama with this project's model
+await llm.ainvoke("...")                           # also: llm.with_structured_output(Schema), llm.astream(...)
+
+agent = self.ctx.ai.agent(sysml_tools(self.ctx) + cad_tools(self.ctx), prompt="You are ...")
+result = await run(agent, "Which leaf parts of EBike Demo have no CAD object?")
+result["answer"], result["steps"]                  # answer + which tools were called with what
+```
+
+Configuration lives in `backend/.env` (gitignored; copy `backend/.env.example`), a real
+environment variable wins. The key never reaches the browser.
+
+| Variable | Meaning |
+| --- | --- |
+| `OLLAMA_API_KEY` | key from https://ollama.com/settings/keys |
+| `OLLAMA_MODEL` | default model for all projects |
+| `OLLAMA_MODEL_BDS`, `OLLAMA_MODEL_CRA` | model per project (`OLLAMA_MODEL_<ID>`), overrides the default |
+| `OLLAMA_BASE_URL`, `OLLAMA_TIMEOUT_S`, `OLLAMA_STATUS_TTL_S` | optional: endpoint, LLM timeout, status cache |
+
+- `sysml_tools(ctx)` and `cad_tools(ctx)` are read-only; `cad_tools(ctx, write=True)` adds
+  property writes and recompute. Own tools: any `async def` with type hints and a docstring,
+  wrapped with `StructuredTool.from_function(coroutine=...)` or LangChain's `@tool`.
+- `app/ai/agents.py` spells the tool loop out as a LangGraph `StateGraph` — the template for
+  your own graphs (extra nodes, human approval before CAD writes, several agents).
+- Each module has an example agent in `projects/<id>/agent.py`, callable as
+  `POST /api/projects/<id>/agent {"message": "..."}` → `{model, answer, steps}`.
+- Errors arrive as `AiError` (`ai_not_configured`, `ai_no_model`, `ai_unauthorized`,
+  `ai_model_not_found`, ...). Without a key the platform runs as usual; the **AI** marker in
+  the header shows green (ready), yellow (a project's model is not offered), red (not
+  reachable / key rejected) or grey (no key), plus each project's model.
 
 - New projects are registered **explicitly** in `backend/app/projects/registry.py` (`MODULES`)
   and get a route `frontend/src/routes/projects.<id>.tsx` plus an

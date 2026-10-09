@@ -320,12 +320,17 @@ class ProjectContext:
 
     ``sysml`` is the platform's SysmlService (app/sysml/service.py), shared by all
     modules: ``snap = await self.ctx.sysml.snapshot("EBike Demo")``.
+
+    ``ai`` is this module's ProjectAi (app/ai/project.py), bound to the module's own
+    model (OLLAMA_MODEL_<ID>): ``llm = self.ctx.ai.chat_model()`` or
+    ``agent = self.ctx.ai.agent(sysml_tools(self.ctx), prompt="...")``.
     """
 
-    def __init__(self, module_id, cad, publish, sysml=None):
+    def __init__(self, module_id, cad, publish, sysml=None, ai=None):
         self.module_id = module_id
         self.cad = cad
         self.sysml = sysml
+        self.ai = ai
         self._publish = publish
         self.log = logging.getLogger("platform.projects." + module_id)
 

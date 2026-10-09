@@ -14,6 +14,8 @@ Responsibilities:
      project, their routes under /api/projects/<id>/* and their domain logic
   6. read and write the SysML v2 model (app/sysml/): /api/sysml/* for the
      browser, ctx.sysml for the modules
+  7. give the modules an LLM on Ollama Cloud (app/ai/): ctx.ai with each
+     project's own model, /api/ai/status for the browser
 """
 
 import contextlib
@@ -24,6 +26,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app import config
+from app.ai import AiService
+from app.ai import routes as ai_routes
 from app.bridge_client import BridgeClient, BridgeUnavailable
 from app.events import BrowserHub
 from app.projects.registry import ProjectRegistry, UnknownProject
@@ -37,9 +41,11 @@ from cad_contract.version import CONTRACT_VERSION
 FORWARDED_REQUEST_HEADERS = ("content-type", "x-request-id", "if-match")
 
 
-def create_app(bridge_client_factory=BridgeClient, project_modules=None, sysml_service=None):
+def create_app(bridge_client_factory=BridgeClient, project_modules=None, sysml_service=None,
+               ai_service=None):
     hub = BrowserHub()
     sysml = sysml_service or SysmlService()
+    ai = ai_service or AiService()
     registry = None
 
     def on_events(events):
@@ -47,11 +53,12 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None, sysml_s
         registry.on_events(events)  # only the active project receives them
 
     bridge = bridge_client_factory(on_events=on_events, on_status=hub.publish_status)
-    registry = ProjectRegistry(bridge, hub.publish, modules=project_modules, sysml=sysml)
+    registry = ProjectRegistry(bridge, hub.publish, modules=project_modules, sysml=sysml, ai=ai)
 
     @contextlib.asynccontextmanager
     async def lifespan(_app):
         await sysml.start()
+        await ai.start()
         await registry.start()
         await bridge.start()
         try:
@@ -59,6 +66,7 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None, sysml_s
         finally:
             await bridge.stop()
             await registry.stop()
+            await ai.stop()
             await sysml.stop()
 
     app = FastAPI(
@@ -72,6 +80,7 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None, sysml_s
     app.state.hub = hub
     app.state.registry = registry
     app.state.sysml = sysml
+    app.state.ai = ai
     # No CORSMiddleware -- rationale in security.py.
     app.add_middleware(LocalOnlyMiddleware)
 
@@ -113,6 +122,10 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None, sysml_s
     # -- SysML: the model from the SysML v2 repository -------------------
 
     sysml_routes.install(app, sysml)  # /api/sysml/*
+
+    # -- AI: Ollama Cloud -------------------------------------------------
+
+    ai_routes.install(app, ai)  # /api/ai/*
 
     # -- CAD: pass-through to the bridge ---------------------------------
 

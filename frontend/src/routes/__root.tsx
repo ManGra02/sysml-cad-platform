@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { AiStatus } from "@/features/ai/components/AiStatus"
 import { ConnectionStatus } from "@/features/cad/components/ConnectionStatus"
 import { describeError } from "@/features/cad/format"
 import { ProjectIcon } from "@/features/projects/ProjectIcon"
@@ -79,6 +80,7 @@ function RootLayout() {
           </Link>
         </nav>
         <div className="ml-auto flex items-center gap-1">
+          <AiStatus />
           <ConnectionStatus />
           <LanguageSwitcher />
           <ThemeToggle />

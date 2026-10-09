@@ -38,7 +38,7 @@ class UnknownProject(KeyError):
 
 
 class ProjectRegistry:
-    def __init__(self, bridge, publish, modules=None, state_dir=None, sysml=None):
+    def __init__(self, bridge, publish, modules=None, state_dir=None, sysml=None, ai=None):
         self._publish = publish
         self._state_path = os.path.join(str(state_dir or config.state_dir()), STATE_FILE)
         self.modules = {}
@@ -46,7 +46,8 @@ class ProjectRegistry:
             module = cls()
             if not module.id or module.id in self.modules:
                 raise ValueError("Project id missing or duplicate: %r" % module.id)
-            module.ctx = ProjectContext(module.id, CadClient(bridge, module.id), publish, sysml=sysml)
+            module.ctx = ProjectContext(module.id, CadClient(bridge, module.id), publish, sysml=sysml,
+                                        ai=ai.for_project(module.id) if ai is not None else None)
             self.modules[module.id] = module
         self.active_id = None
         self._queue = asyncio.Queue(maxsize=MAX_PENDING_BATCHES)

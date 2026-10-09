@@ -21,6 +21,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.config import read_env_file  # noqa: F401  (re-exported for app.sysml.__main__)
+
 #: flexo/ in the repository root: docker-compose.yml and its env files
 FLEXO_DIR = Path(__file__).resolve().parents[3] / "flexo"
 
@@ -43,21 +45,3 @@ class SysmlConfig:
             org=os.environ.get("FLEXO_SYSMLV2_ORG", cls.org),
         )
 
-
-def read_env_file(path):
-    """KEY=VALUE lines (optional quotes) -> dict. Missing file -> {}."""
-    values = {}
-    try:
-        text = Path(path).read_text(encoding="utf-8")
-    except OSError:
-        return values
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-            value = value[1:-1]
-        values[key.strip()] = value
-    return values

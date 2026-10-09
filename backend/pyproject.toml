@@ -10,6 +10,8 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "aiohttp>=3.9",
     "cad-contract",
+    "langgraph>=0.3",
+    "langchain-ollama>=0.3",
 ]
 
 [dependency-groups]

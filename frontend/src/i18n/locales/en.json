@@ -253,6 +253,30 @@
       "contract_mismatch": "Connected, but the contract versions differ."
     }
   },
+  "ai": {
+    "title": "AI (Ollama Cloud)",
+    "short": "AI",
+    "status": "Status",
+    "provider": "Endpoint",
+    "offered": "Offered",
+    "modelCount_one": "{{count}} model",
+    "modelCount_other": "{{count}} models",
+    "model": "Model {{project}}",
+    "noModel": "not set",
+    "modelMissing": "Ollama does not offer this model.",
+    "check": "Check now",
+    "state": {
+      "ok": "Ready",
+      "model_missing": "Reachable, model missing",
+      "unreachable": "Not reachable",
+      "unconfigured": "Not configured"
+    },
+    "help": {
+      "model_missing": "Set an available model in backend/.env (OLLAMA_MODEL_BDS, OLLAMA_MODEL_CRA).",
+      "unreachable": "Check the network connection and OLLAMA_API_KEY.",
+      "unconfigured": "Set OLLAMA_API_KEY in backend/.env and restart the backend."
+    }
+  },
   "sysml": {
     "pageTitle": "SysML model",
     "title": "SysML model",

@@ -15,8 +15,12 @@ node_modules/
 # Runtime: port and token of the running bridge, never commit
 bridge.json
 
+# Local secrets (OLLAMA_API_KEY, ...), template: backend/.env.example
+.env
+
 # Tools
 .ruff_cache/
 .mypy_cache/
+.playwright-mcp/
 .DS_Store
 Thumbs.db
