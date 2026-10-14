@@ -1,0 +1,14 @@
+# bidirectional-sync's addresses when the platform's `dev` runs in the HOST's
+# network (.devcontainer/linux-freecad/ at the repository root), loaded after
+# docker-compose.dev.yml. Service names do not resolve there; postgres and
+# sysml-api are published on the host instead (docker/docker-compose.yml:
+# 5432, 9000), so these are the addresses of the host -- as without a container.
+#
+# publish.py will warn that the Jupyter kernel publishes to sysml-api:9000 and
+# not to localhost:9000. Both are the same server here; the kernel runs in its
+# own container, on the Compose network.
+services:
+  dev:
+    environment:
+      SYSMLCAD_SYSML_API_URL: "http://localhost:9000"
+      PGHOST: "localhost"

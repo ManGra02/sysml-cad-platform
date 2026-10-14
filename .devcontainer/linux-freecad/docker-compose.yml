@@ -1,0 +1,43 @@
+# Linux only: `dev` in the HOST's network, so the backend in the container
+# reaches the FreeCAD bridge of a natively installed FreeCAD on this machine.
+#
+# Loaded after the platform's docker-compose.yml and the sub-projects'
+# overlays (devcontainer.json next to this file). Relative paths would resolve
+# against .devcontainer/, the first file's directory -- there are none here.
+#
+# Why each line, measured against backend/app/bridge_client.py and the bridge:
+#   network_mode: host  the bridge binds 127.0.0.1:8765 of the host and accepts
+#                       only loopback Host headers. In the host's network
+#                       namespace the container's 127.0.0.1 IS the host's, and
+#                       the backend's 127.0.0.1:8000 is the one the browser opens.
+#   pid: host           load_target() refuses a handshake whose FreeCAD PID is
+#                       not alive (os.kill(pid, 0)). In a private PID namespace
+#                       that PID does not exist, and every handshake would read
+#                       as "orphaned".
+#   FreeCAD user dir    holds the handshake file (port + token, new on every
+#                       bridge start). The DIRECTORY, read-only: the bridge
+#                       replaces the file atomically (os.replace), a mount of
+#                       the file itself would keep showing the old inode, i.e.
+#                       an old token.
+services:
+  dev:
+    network_mode: host
+    pid: host
+    volumes:
+      - type: bind
+        source: ${XDG_DATA_HOME:-${HOME}/.local/share}/FreeCAD
+        target: /freecad-user
+        read_only: true
+        bind:
+          # Never let Docker create it -- as root, in the user's home. If
+          # FreeCAD has never run on this machine, opening the container fails
+          # instead: start FreeCAD once.
+          create_host_path: false
+    environment:
+      # v1-1 = FreeCAD 1.1's versioned user directory, as in backend/app/config.py.
+      BRIDGE_HANDSHAKE: "/freecad-user/v1-1/sysml-cad-platform/bridge.json"
+      # Compose service names do not resolve in the host's network. Every
+      # service is published on the host's loopback instead -- these are the
+      # native addresses (flexo/docker-compose.yml).
+      SYSML_API_URL: "http://127.0.0.1:8083"
+      FLEXO_LAYER1_URL: "http://127.0.0.1:8080"

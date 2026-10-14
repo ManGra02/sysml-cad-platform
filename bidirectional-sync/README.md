@@ -153,6 +153,8 @@ services from the host.
 ```
 .devcontainer/                this project's part of the PLATFORM's devcontainer
 ├── docker-compose.dev.yml    overlay: includes docker/, extends dev (libs, Python 3.14)
+├── docker-compose.host-network.yml   addresses on the host's network (the
+│                             platform's Linux variant with native FreeCAD)
 └── post-create.sh            makes .venv/, called by the platform's post-create.sh
 docker/
 ├── docker-compose.yml        postgres, sysml-api, jupyter
