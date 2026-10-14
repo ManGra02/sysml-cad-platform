@@ -17,13 +17,16 @@ confirmed by a human before anything uses it.
 
 ## Quick start
 
-Everything runs in containers. Open the devcontainer first:
+Everything runs in containers -- in the **platform's** devcontainer: this
+project has no container of its own any more, it adds its part to the
+platform's (`.devcontainer/` here is an overlay, see Architecture). Open the
+repository ROOT, not this folder:
 
 ```bash
-code .        # then "Reopen in Container"
+code ..       # the sysml-cad-platform root, then "Reopen in Container"
 ```
 
-Then, **inside the devcontainer**:
+Then, **inside the devcontainer**, in `bidirectional-sync/`:
 
 ```bash
 make projects              # the SysML models this repo knows: one dir each
@@ -38,7 +41,8 @@ make step-fixtures  # regenerate fixtures/step/ after changing a CAD script
 ```
 
 None of these need the SysML server or Jupyter. Do **not** run `make venv`
-in the devcontainer — the virtualenv already ships in the image at `/opt/venv`.
+in the devcontainer — the container's `post-create.sh` has already made
+`.venv/` (Python 3.14 from the image), and the Makefile uses it.
 
 For the full stack, run this **on the host** (the devcontainer has no Docker access):
 
@@ -49,9 +53,9 @@ make api                  # SysML v2 API server; first build takes ~6 min
 make jupyter              # JupyterLab at http://localhost:8888/?token=sysmlcad
 ```
 
-`make api` runs `secret` and `vendor` for you, and opening the devcontainer
-creates `docker/.env` by itself (`initializeCommand` in `devcontainer.json`), so
-a fresh clone opens without any preparation.
+`make api` runs `secret` and `vendor` for you. The devcontainer itself needs
+neither, so a fresh clone opens without any preparation. All of these act on
+the devcontainer's Compose project (`sysml-cad-platform`), not on a separate one.
 
 The server is ready once `Listening for HTTP` appears in the log:
 
@@ -122,28 +126,34 @@ fails the run, and none of them takes the other verdicts down with it.
 
 ## Architecture
 
-Four containers, one Compose project, one network:
+One Compose project, `sysml-cad-platform`, one network: the platform's
+devcontainer (`dev` + Flexo MMS, `../.devcontainer/`) plus this project's
+overlay `.devcontainer/docker-compose.dev.yml`, which includes
+`docker/docker-compose.yml` and adds to `dev` what this project needs
+(OpenGL/X11 libraries for OCP, Python 3.14, its environment). This project's
+containers:
 
 | Container | Role | Port |
 |---|---|---|
-| `dev` | Devcontainer, Python 3.14, virtualenv at `/opt/venv` | — |
+| `dev` | The platform's devcontainer; this project's venv at `bidirectional-sync/.venv` (Python 3.14) | — |
 | `sysml2-postgres` | PostgreSQL 16, database `sysml2` | 5432 |
 | `sysml2-api` | SysML v2 API Services (hni-ase fork), Play/Hibernate | 9000 |
 | `sysml2-jupyter` | SysML v2 kernel, `%publish` | 8888 |
 
 **The rule everyone forgets:** container-to-container traffic uses the *service
 name* (`sysml-api:9000`, `postgres:5432`), never `localhost`.
-`src/sysmlcad/config.py` reads `SYSML_API_URL`; the Compose overlay sets it
-accordingly. The `ports:` entries exist only so your browser can reach the
+`src/sysmlcad/config.py` reads `SYSMLCAD_SYSML_API_URL` (then `SYSML_API_URL`);
+the Compose overlay sets it to `http://sysml-api:9000`. Its own name because in
+the platform's container `SYSML_API_URL` is the platform's Flexo -- another
+server with another API. The `ports:` entries exist only so your browser can reach the
 services from the host.
 
 ## Layout
 
 ```
-.devcontainer/
-├── devcontainer.json         references both Compose files
-├── docker-compose.dev.yml    overlay: adds the dev service
-└── Dockerfile                Python 3.14 (trixie) + OpenGL/X11 for OCP
+.devcontainer/                this project's part of the PLATFORM's devcontainer
+├── docker-compose.dev.yml    overlay: includes docker/, extends dev (libs, Python 3.14)
+└── post-create.sh            makes .venv/, called by the platform's post-create.sh
 docker/
 ├── docker-compose.yml        postgres, sysml-api, jupyter
 ├── jupyter.Dockerfile        conda, SysML kernel, standard library
@@ -177,7 +187,7 @@ fixtures/
 ├── ai_response.json          a constructed model response, for offline tests
 └── step/                     committed STEP fixtures for the step adapter
 src/sysmlcad/
-├── config.py                 SYSML_API_URL from the environment
+├── config.py                 SYSMLCAD_SYSML_API_URL from the environment
 ├── units.py                  exactly one pint registry
 ├── model.py                  Requirement, Verdict, RunContext, Run
 ├── sysml_client.py           REST client, all_elements() paginates
@@ -227,28 +237,20 @@ goal_spec.txt                 the target system's SRS v0.1
 ## docker/.env
 
 In production mode, Play refuses to start without a sufficiently long secret
-key. Opening the devcontainer generates one automatically — `initializeCommand`
-in `devcontainer.json` runs on the host before Compose and writes the file if it
-is missing. On the host, `make secret` does the same, or by hand:
+key. `make secret` (also run by `make api`) writes one, or by hand:
 
 ```bash
 echo "PLAY_SECRET=$(head -c 48 /dev/urandom | base64 | tr -d '\n')" > docker/.env
 grep -q '^\.env$' .gitignore || echo ".env" >> .gitignore
 ```
 
-**The location matters.** Compose looks for the env file in the directory of the
-*first* `-f` file, which is `docker/` — not in the project root. The Makefile
-could work around that with `--env-file`, but the VS Code Dev Containers
-extension builds its own `docker compose` command and has no way to pass that
-flag. With the file anywhere else, opening the devcontainer fails at
-`docker compose config` with:
-
-```
-required variable PLAY_SECRET is missing a value
-```
-
-That happens even though the devcontainer only starts `dev` and `postgres`:
-`compose config` interpolates the whole merged file, `sysml-api` included.
+**Only `sysml-api` reads it**, as `env_file` (optional), and checks it in its own
+start command. It used to be `${PLAY_SECRET:?}` in the Compose file, which
+Compose interpolates for the whole merged project -- so opening the
+devcontainer died on a fresh clone with `required variable PLAY_SECRET is
+missing a value`, although the devcontainer never starts `sysml-api`. Now the
+devcontainer opens without the file, and starting `sysml-api` without it fails
+at once with the same hint (`docker logs sysml2-api`).
 
 ## Known pitfalls
 
@@ -257,6 +259,7 @@ pitfalls". The three most common ones:
 
 **`localhost` vs. service name.** By far the most frequent mistake. Inside the
 devcontainer it is `sysml-api:9000`; on the host it is `localhost:9000`.
+And it is `SYSMLCAD_SYSML_API_URL` there -- `SYSML_API_URL` is the platform's.
 
 **SysML v2 syntax (release 0.60.1).** Imports require an explicit visibility
 (`private import ISQ::*;`), and `satisfy` needs a requirement *usage*, not a

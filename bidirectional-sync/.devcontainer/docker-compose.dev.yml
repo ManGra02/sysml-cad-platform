@@ -1,22 +1,40 @@
-# Overlay on docker/docker-compose.yml. Compose merges the two into ONE
-# project, which is what puts dev, postgres and sysml-api on the same network
-# and lets them reach each other by service name.
+# bidirectional-sync's part of the platform devcontainer.
+#
+# The container itself is the platform's (.devcontainer/ at the repository
+# root); this overlay is listed in its devcontainer.json after the platform's
+# docker-compose.yml. Compose merges both into ONE project, which puts dev,
+# Flexo, postgres and sysml-api on the same network.
+#
+# Everything bidirectional-sync needs that the platform does not stays here:
+# its services (docker/docker-compose.yml), its system libraries, its Python.
+#
+# CAUTION, paths: Compose resolves relative paths in every -f file against the
+# FIRST file's directory -- the platform's .devcontainer/ -- even this include.
+# The included file itself then keeps its paths relative to docker/.
+include:
+  - path: ../bidirectional-sync/docker/docker-compose.yml
+
 services:
   dev:
     build:
-      context: ..
-      dockerfile: .devcontainer/Dockerfile
-    volumes:
-      - ..:/workspaces/sysml-cad-poc:cached
-    command: sleep infinity
+      args:
+        # OCP (the OpenCascade bindings behind build123d) links hard against
+        # libGL.so.1, libGLX.so.0 and libX11 -- even when no window is ever
+        # opened; without them even "import build123d" fails. libgl1 (libglvnd)
+        # is enough: this is only about resolving symbols at load time, not
+        # about rendering. postgresql-client for psql against `postgres`.
+        EXTRA_APT_PACKAGES: "libgl1 libx11-6 libxau6 libxdmcp6 libxext6 libxrender1 postgresql-client"
+        # cadquery-ocp-novtk ships cp314 wheels as manylinux_2_31; trixie
+        # carries glibc 2.41 -- they match. build123d allows >=3.10,<3.15.
+        EXTRA_PYTHON_VERSIONS: "3.14"
     environment:
-      # Service name, NOT localhost -- see README.
-      SYSML_API_URL: "http://sysml-api:9000"
+      # Service name, NOT localhost -- see README. Its own variable: in this
+      # container SYSML_API_URL is the platform's (Flexo), a different server.
+      SYSMLCAD_SYSML_API_URL: "http://sysml-api:9000"
       PGHOST: "postgres"
       PGDATABASE: "sysml2"
       PGUSER: "postgres"
       PGPASSWORD: "mysecretpassword"
-      PYTHONPATH: "/workspaces/sysml-cad-poc/src:/workspaces/sysml-cad-poc/cad"
     depends_on:
       postgres:
         condition: service_healthy

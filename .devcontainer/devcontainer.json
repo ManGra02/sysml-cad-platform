@@ -1,0 +1,57 @@
+{
+  "name": "sysml-cad-platform",
+
+  // ONE Compose project: the platform's file FIRST -- Compose resolves every
+  // relative path, in every file, against the first file's directory -- then
+  // one overlay per sub-project. An overlay brings the sub-project's own
+  // services and its part of `dev`; nothing of it is repeated here.
+  "dockerComposeFile": [
+    "docker-compose.yml",
+    "../bidirectional-sync/.devcontainer/docker-compose.dev.yml"
+  ],
+  "service": "dev",
+  // Only dev; Compose starts what it depends on (Flexo, and postgres via the
+  // bidirectional-sync overlay). sysml-api and jupyter start on demand
+  // (bidirectional-sync: `make api`, `make jupyter`, on the host).
+  "runServices": ["dev"],
+  "workspaceFolder": "/workspaces/sysml-cad-platform",
+  "remoteUser": "vscode",
+  "shutdownAction": "stopCompose",
+
+  "features": {
+    // Node 22 LTS and the pnpm of frontend/package.json ("packageManager").
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22",
+      "pnpmVersion": "10.34.5"
+    }
+  },
+
+  // Exactly these numbers on the host, or not at all: the backend accepts only
+  // Origin/Host 127.0.0.1|localhost:8000 (and :5173 with --dev), and Vite's
+  // port is strict. A silently remapped port would fail every request with 403.
+  "forwardPorts": [8000, 5173],
+  "portsAttributes": {
+    "8000": { "label": "Platform (backend + built UI)", "requireLocalPort": true },
+    "5173": { "label": "Vite dev server", "requireLocalPort": true }
+  },
+
+  // Backend + frontend dependencies, then every sub-project's own hook
+  // (<sub-project>/.devcontainer/post-create.sh).
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "redhat.vscode-yaml",
+        "Anthropic.claude-code",
+        // bidirectional-sync: shows build123d / STEP geometry
+        "bernhard-42.ocp-cad-viewer"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/backend/.venv/bin/python"
+      }
+    }
+  }
+}

@@ -4,8 +4,10 @@ PIP    := $(shell test -x .venv/bin/pip    && echo .venv/bin/pip    || echo pip)
 PYTEST := $(shell test -x .venv/bin/pytest && echo .venv/bin/pytest || echo pytest)
 export PYTHONPATH := src:cad
 
-# In the devcontainer the Compose overlay sets SYSML_API_URL to http://sysml-api:9000
-API_URL := $(or $(SYSML_API_URL),http://localhost:9000)
+# In the devcontainer the Compose overlay sets SYSMLCAD_SYSML_API_URL to
+# http://sysml-api:9000 (SYSML_API_URL there is the platform's Flexo) -- the
+# same order as src/sysmlcad/config.py.
+API_URL := $(or $(SYSMLCAD_SYSML_API_URL),$(SYSML_API_URL),http://localhost:9000)
 
 # Which project -- one SysML model and its mapping under projects/<name>/. Every
 # verification, gate, catalogue and proposal command works on exactly one.
@@ -15,13 +17,13 @@ API_URL := $(or $(SYSML_API_URL),http://localhost:9000)
 PROJECT ?= motor_housing
 P := --project $(PROJECT)
 
-# Compose looks for the env file in the directory of the FIRST -f file (docker/),
-# not in the project root. That is why the file lives at docker/.env: the VS Code
-# Dev Containers extension builds its own compose command and cannot pass
-# --env-file, so it only ever finds the secret at that default location.
-# The flag here is redundant but keeps the Makefile working if the -f order changes.
-COMPOSE := docker compose --env-file docker/.env \
-             -f docker/docker-compose.yml \
+# The SAME Compose project as the platform's devcontainer (sysml-cad-platform):
+# its file first, then this project's overlay, exactly as devcontainer.json
+# lists them. Another project would collide with the devcontainer's containers
+# on their fixed container_name (sysml2-postgres, ...). docker/.env needs no
+# --env-file: sysml-api reads it itself (env_file in docker/docker-compose.yml).
+COMPOSE := docker compose \
+             -f ../.devcontainer/docker-compose.yml \
              -f .devcontainer/docker-compose.dev.yml
 
 .PHONY: help venv secret vendor up api jupyter down logs api-docs \
@@ -132,8 +134,9 @@ clean:
 	rm -rf out/*.step out/*.xml out/*.json .pytest_cache
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +
 
-# ONLY for working without the devcontainer. Inside the devcontainer the
-# virtualenv already ships in the image at /opt/venv -- do NOT run this there.
+# ONLY for working without the devcontainer. Inside the devcontainer
+# .devcontainer/post-create.sh has already made .venv/ (Python 3.14 from the
+# image) -- do NOT run this there.
 venv:
 	python3 -m venv .venv && $(PIP) install -U pip && $(PIP) install -r requirements.txt
 
@@ -163,8 +166,8 @@ jupyter:
 	$(COMPOSE) up -d --build jupyter
 	@echo "JupyterLab: http://localhost:8888/?token=sysmlcad"
 
-# CAUTION: starts EVERYTHING including dev and jupyter. Not needed in the
-# devcontainer workflow -- 'make api' is enough there.
+# CAUTION: starts EVERYTHING including dev, jupyter and the platform's Flexo.
+# Not needed in the devcontainer workflow -- 'make api' is enough there.
 up: secret vendor
 	$(COMPOSE) up -d --build
 

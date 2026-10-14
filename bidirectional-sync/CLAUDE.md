@@ -105,23 +105,32 @@ before it can reach a verdict.
 
 ## Architecture
 
-Four containers, one Compose project (`sysml-cad-poc`), one network:
+This project lives in `bidirectional-sync/` of **sysml-cad-platform** (merged
+2026-10-14, history kept) and has no devcontainer of its own: it runs in the
+platform's (`../.devcontainer/`). One Compose project (`sysml-cad-platform`),
+one network -- the platform's `dev` + Flexo MMS, plus this project's containers:
 
 | Container | Role | Port |
 |---|---|---|
-| `dev` | Devcontainer, Python 3.14, virtualenv at `/opt/venv` | — |
+| `dev` | The platform's devcontainer; this project's venv at `bidirectional-sync/.venv`, Python 3.14 | — |
 | `sysml2-postgres` | PostgreSQL 16, database `sysml2` | 5432 |
 | `sysml2-api` | SysML v2 API Services (Play/Scala/Hibernate) | 9000 |
 | `sysml2-jupyter` | SysML v2 kernel, `%publish` into the repository | 8888 |
 | `freecad` | **not yet here** -- headless FreeCAD worker, delivered by a colleague; contract in `docs/freecad_worker_protocol.md` | 8765, network only |
 
-Compose files: `docker/docker-compose.yml` + `.devcontainer/docker-compose.dev.yml`
-(an overlay that adds `dev`). The two are always loaded together.
+Compose files: the platform's `../.devcontainer/docker-compose.yml` FIRST, then
+this project's overlay `.devcontainer/docker-compose.dev.yml`, which includes
+`docker/docker-compose.yml` and extends `dev` (apt libraries and Python 3.14 as
+build args, environment, `depends_on: postgres`). Always loaded together, in
+that order -- the platform's devcontainer.json does it, and so does `$(COMPOSE)`
+in the Makefile.
 
 **Networking rule:** between containers, address services by service name
 (`sysml-api:9000`, `postgres:5432`). `localhost` works only from the host.
-`src/sysmlcad/config.py` reads `SYSML_API_URL`; the overlay sets it to
-`http://sysml-api:9000`.
+`src/sysmlcad/config.py` reads `SYSMLCAD_SYSML_API_URL`, then `SYSML_API_URL`;
+the overlay sets the first to `http://sysml-api:9000`. **Never set
+`SYSML_API_URL` for this project in the devcontainer**: there it is the
+platform's Flexo (`sysmlv2-service:8080`), a different server and API.
 
 ## Commands — and where to run them
 
@@ -166,20 +175,20 @@ make api        # build/start sysml-api (runs secret + vendor first)
 make jupyter    # Jupyter container, http://localhost:8888/?token=sysmlcad
 make logs
 make down
-make up         # CAUTION: starts EVERYTHING including dev and jupyter. Not
+make up         # CAUTION: starts EVERYTHING including dev, jupyter, Flexo. Not
                 # needed in the devcontainer workflow -- `make api` is enough.
 ```
-NEVER run `make venv` in the devcontainer — the virtualenv already exists in the
-image at `/opt/venv`.
+NEVER run `make venv` in the devcontainer — `.devcontainer/post-create.sh`
+(called by the platform's) has already made `.venv/` on the image's Python 3.14.
 
-Opening the devcontainer no longer needs `make secret` first: `initializeCommand`
-in `devcontainer.json` runs on the host before Compose and writes a fresh
-`PLAY_SECRET` into `docker/.env` when the file is missing.
+Opening the devcontainer does not need `docker/.env`: only `sysml-api` reads it
+(see the Devcontainer pitfalls).
 
 ## File tree
 
 ```
-.devcontainer/     devcontainer.json, docker-compose.dev.yml, Dockerfile
+.devcontainer/     docker-compose.dev.yml (overlay on the PLATFORM's devcontainer),
+                   post-create.sh (makes .venv/)
 docker/            docker-compose.yml, jupyter.Dockerfile, .env (gitignored),
                    .env.example
                    (no api-services.Dockerfile any more -- the fork ships one)
@@ -341,28 +350,36 @@ first:
   `Listening for HTTP` appears in the log and `curl localhost:9000/projects`
   returns 200.
 
-**Devcontainer**
-- Base image `mcr.microsoft.com/devcontainers/python:3.14-trixie`.
+**Devcontainer** (the platform's since 2026-10-14; this project contributes an overlay)
+- Image: the platform's `../.devcontainer/Dockerfile` (`devcontainers/base:trixie`,
+  uv). This project adds its needs as build args in its overlay, never by
+  editing the platform's Dockerfile: `EXTRA_APT_PACKAGES`, `EXTRA_PYTHON_VERSIONS`.
 - OCP links hard against `libGL.so.1`, `libGLX`, `libX11` — even headless.
   apt: `libgl1 libx11-6 libxau6 libxdmcp6 libxext6 libxrender1`.
-  No Mesa needed; this is only about symbol resolution.
-- The virtualenv lives at `/opt/venv`, outside the bind mount (cadquery-ocp is large).
-- `ENV PATH` is not enough: VS Code probes through a login shell, and the default
-  shell is **zsh**. PATH is therefore also set in `/etc/profile.d/10-venv.sh`,
-  `.bashrc`, `.zshrc`, and in `remoteEnv` in devcontainer.json.
-- `forwardPorts` was **removed** — otherwise VS Code occupies host port 9000 and
-  `sysml2-api` cannot bind.
-- The Compose env file lives at `docker/.env`, **not** in the project root.
-  Compose resolves it against the directory of the FIRST `-f` file, and the Dev
-  Containers extension builds its own compose command with no way to pass
-  `--env-file`. Anywhere else, opening the devcontainer dies at
-  `docker compose config` with `required variable PLAY_SECRET is missing a value`
-  — even though `runServices` is only `dev` + `postgres`, because `config`
-  interpolates the whole merged file, `sysml-api` included.
-- That failure is now prevented on a fresh clone: `initializeCommand` in
-  `devcontainer.json` runs **on the host, before Compose**, and writes a random
-  `PLAY_SECRET` into `docker/.env` if the file does not exist. `make secret`
-  does the same thing by hand.
+  No Mesa needed; this is only about symbol resolution. The
+  `Fontconfig error: Cannot load default config file` on import is harmless.
+- The virtualenv is `.venv/` here, made by `.devcontainer/post-create.sh` with
+  uv on the image's Python 3.14; the Makefile prefers `.venv/bin/python` on its
+  own. (It used to be `/opt/venv` in this project's own image, with PATH set in
+  four places; all of that is gone.)
+- **Compose resolves relative paths in every `-f` file against the FIRST
+  file's directory** -- the platform's `.devcontainer/`. That is why the
+  overlay's `include:` reads `../bidirectional-sync/docker/docker-compose.yml`.
+  The included file keeps its own paths relative to `docker/`.
+- **Same Compose project for the Makefile and the devcontainer.** `$(COMPOSE)`
+  loads the platform's file first, so `make api` starts `sysml-api` in the
+  devcontainer's project. A second project would collide on the fixed
+  `container_name`s (`sysml2-postgres`, ...). Leftover containers of the old
+  standalone project `sysml-cad-poc` collide the same way: `docker rm` them once.
+- **`PLAY_SECRET` is checked by `sysml-api`, not by Compose.** It used to be
+  `${PLAY_SECRET:?}` in the command; Compose interpolates the whole merged
+  project, so opening the devcontainer died on a fresh clone although it never
+  starts `sysml-api` -- patched with a host-side `initializeCommand` in `sh`,
+  which fails on Windows hosts. Now `docker/.env` is an optional `env_file` of
+  `sysml-api`, and its `sh -c` command checks `$${PLAY_SECRET:?...}` (`$$` = a
+  literal `$` for the container's shell, `exec` keeps the launcher PID 1).
+- `forwardPorts` lists only the platform's 8000 and 5173 — never 9000, or VS Code
+  occupies host port 9000 and `sysml2-api` cannot bind.
 - Python 3.14: `ezdxf` has no cp314 wheels and runs pure-Python. That affects DXF
   only, not STEP. `lib3mf` DeprecationWarnings are expected and harmless.
 - **build123d 0.11:** `export_step(part, path)` is a MODULE FUNCTION, not a method

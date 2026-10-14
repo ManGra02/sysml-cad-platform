@@ -32,6 +32,15 @@ services:
       SYSML_JDBC_URL: "jdbc:postgresql://postgres:5432/sysml2"
       SYSML_JDBC_USER: "postgres"
       SYSML_JDBC_PASSWORD: "mysecretpassword"
+    # PLAY_SECRET comes from docker/.env into the CONTAINER, and is checked
+    # there, not by Compose. It used to be `${PLAY_SECRET:?}` in the command,
+    # which Compose interpolates for the WHOLE merged file -- so opening the
+    # platform devcontainer died on a fresh clone even though it never starts
+    # sysml-api. required: false keeps that file optional for everyone else;
+    # whoever starts sysml-api without it gets the same message, at start.
+    env_file:
+      - path: .env
+        required: false
     # Overrides the fork's CMD: its start line does not account for Play's
     # AllowedHostsFilter, which otherwise rejects "Host: sysml-api:9000" with 400.
     #
@@ -39,13 +48,19 @@ services:
     # the container's filesystem. After an unclean stop the file survives, and
     # the next start of the SAME container dies at once with "This application
     # is already running" (exit 255). A container has one process anyway.
+    #
+    # `$$` is a literal `$` for the container's shell; `exec` keeps the
+    # launcher as PID 1, so it still receives the stop signal.
     command:
-      - /app/start-sysml
-      - -Dhttp.address=0.0.0.0
-      - -Dhttp.port=9000
-      - -Dpidfile.path=/dev/null
-      - -Dplay.filters.hosts.allowed.0=.
-      - -Dplay.http.secret.key=${PLAY_SECRET:?set it in docker/.env -- run 'make secret'}
+      - sh
+      - -c
+      - >-
+        exec /app/start-sysml
+        -Dhttp.address=0.0.0.0
+        -Dhttp.port=9000
+        -Dpidfile.path=/dev/null
+        -Dplay.filters.hosts.allowed.0=.
+        "-Dplay.http.secret.key=$${PLAY_SECRET:?set it in docker/.env -- run 'make secret'}"
     volumes:
       - ivy2:/root/.ivy2
       - sbt:/root/.sbt

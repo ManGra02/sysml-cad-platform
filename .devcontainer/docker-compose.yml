@@ -1,0 +1,35 @@
+# The platform's devcontainer as ONE Compose project: `dev` plus Flexo MMS,
+# exactly the services the native setup runs (flexo/docker-compose.yml).
+# Sub-projects add their own services and their part of `dev` in an overlay
+# that devcontainer.json lists after this file.
+#
+# `include`, not a second -f file: with -f, every relative path is resolved
+# against the FIRST file's directory, which would break flexo/'s ./env and
+# ./mount. An included file keeps its paths relative to itself.
+name: sysml-cad-platform
+
+include:
+  - path: ../flexo/docker-compose.yml
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/sysml-cad-platform:cached
+      - uv-cache:/home/vscode/.cache/uv
+      - pnpm-store:/home/vscode/.local/share/pnpm
+    command: sleep infinity
+    environment:
+      # Service names, NOT 127.0.0.1: inside the Compose network Flexo is a
+      # different host. The container port is 8080 (8083 is only the host side).
+      SYSML_API_URL: "http://sysmlv2-service:8080"
+      FLEXO_LAYER1_URL: "http://layer1-service:8080"
+    depends_on:
+      sysmlv2-service:
+        condition: service_started
+
+volumes:
+  uv-cache:
+  pnpm-store:

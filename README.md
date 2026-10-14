@@ -99,6 +99,33 @@ backend, which must run with `--dev` for this (allows the `:5173` origin). Manua
 | UI | built, rebuilt when needed | live, hot reload |
 | Backend code | restart required | reloads itself |
 
+### Devcontainer
+
+Alternative to the native setup for everything that does not need FreeCAD: open the
+repository in VS Code, "Reopen in Container". One Compose project
+(`sysml-cad-platform`) starts `dev` and **Flexo** (`flexo/docker-compose.yml`, included
+unchanged); `post-create.sh` runs `uv sync` and `pnpm install`, then each sub-project's own
+`<sub-project>/.devcontainer/post-create.sh`. Inside, the usual commands apply
+(`bash scripts/dev.sh`, `cd backend && uv run pytest`, ...); VS Code forwards 8000 and
+5173 to the host under exactly these numbers -- the Origin/Host check expects them.
+
+- **FreeCAD stays on the host, and the bridge is not reachable from the container.**
+  It binds `127.0.0.1` of the host and accepts only loopback Host headers, and the backend
+  needs its handshake file (and its PID) from the host. The status shows
+  "FreeCAD bridge not started" -- a normal state; tests use the simulated bridge. For work
+  against a running FreeCAD, start the backend natively (`scripts/dev.sh`).
+- **Flexo by service name:** `SYSML_API_URL=http://sysmlv2-service:8080` is set in the
+  container. Its database is in memory, as natively: after each start run
+  `cd backend && uv run python -m app.sysml setup-org` (and `seed-demo`).
+- **A sub-project brings its own part** as a Compose overlay listed in `devcontainer.json`
+  (its services, `build.args` `EXTRA_APT_PACKAGES` / `EXTRA_PYTHON_VERSIONS` for the image)
+  and a `post-create.sh`. bidirectional-sync does this: postgres starts with the
+  container, its venv is `bidirectional-sync/.venv` (Python 3.14), details in
+  [bidirectional-sync/README.md](bidirectional-sync/README.md).
+- Do not run Flexo natively (`docker compose -f flexo/...`) at the same time: same
+  container names. And keep one checkout per environment -- the container's
+  `backend/.venv` and `node_modules` are Linux builds.
+
 ### Editing in the browser
 
 - Input is applied when you **leave the field or press Enter**; **Esc** discards it.
@@ -194,6 +221,8 @@ returns exit code 0. A CI based on it would be permanently green.
 | `data/examples/sysml/` | SysML v2 test models (e-bike demo, Flexo's own test model). |
 | `frontend/` | React + shadcn/ui, built into `backend/app/static/`. |
 | `scripts/` | Linking, diagnostics, dev startup. |
+| `.devcontainer/` | Devcontainer: `dev` + Flexo as one Compose project; sub-projects add overlays. |
+| `bidirectional-sync/` | Sub-project: SysML v2 ↔ CAD verification (formerly the standalone PoC, history kept). Own toolchain (Python 3.14, build123d) and services (SysML v2 API Services, Jupyter); see its README. |
 | `tests/` | `bridge/` (FreeCAD's Python), `backend/` (against a mock), `contract/`. |
 
 ### Where your own logic goes: project modules

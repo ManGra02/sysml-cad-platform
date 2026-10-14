@@ -29,8 +29,8 @@ So the worker can stay small.
 |---|---|
 | Compose service | `freecad` in `docker/docker-compose.yml` (same project and network as `sysml-api`) |
 | Listens on | `0.0.0.0:8765` inside the network. **No host port** (see the port-9000 note in CLAUDE.md) |
-| Client setting | `SYSMLCAD_FREECAD_URL=http://freecad:8765` in `.devcontainer/docker-compose.dev.yml` |
-| Repository mount | the repository root at **the same path as in dev**: `/workspaces/sysml-cad-poc`. All `file` values are repository-relative and must resolve identically on both sides |
+| Client setting | `SYSMLCAD_FREECAD_URL=http://freecad:8765` in `.devcontainer/docker-compose.dev.yml` (this project's overlay on the platform devcontainer) |
+| Repository mount | the repository root at **the same path as in dev**: `/workspaces/sysml-cad-platform/bidirectional-sync` (the platform devcontainer). All `file` values are relative to `bidirectional-sync/` and must resolve identically on both sides |
 | Concurrency | FreeCAD is not thread-safe: one request at a time (`http.server.HTTPServer`, not the threading variant) |
 | Timeout | the client waits 120 s by default (`SYSMLCAD_FREECAD_TIMEOUT`) |
 
