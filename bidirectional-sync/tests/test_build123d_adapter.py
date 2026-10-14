@@ -1,0 +1,268 @@
+"""The build123d adapter, and the hole that `module#Component` closes.
+
+Until components were addressable, an assembly script could only be measured as
+a whole. A component had to go through the STEP export instead -- which carries
+no material, so its mass needed `density_g_per_cm3` written into
+`mapping.yaml`.
+
+That is the failure these tests exist for, and it is worth stating precisely
+because it passes every gate: a density is a *fact about the part*, and
+`mapping.yaml` holds the *correspondence between two models*. Putting it there
+made the mapping a third source of truth that neither model owns. Change the
+material in the script and the check keeps using the old density -- reporting a
+confident, wrong mass that nothing catches, because the dimension is right, the
+measurement is possible, the entry is unique and the magnitude is plausible.
+
+`test_a_component_inherits_the_script_material` is the one that would fail if
+somebody reintroduced the override.
+"""
+
+import pytest
+
+from sysmlcad.adapters import Unsupported
+from sysmlcad.adapters.build123d_adapter import Build123dAdapter, _snake
+from sysmlcad.adapters.step_adapter import StepAdapter
+from sysmlcad.units import ureg
+
+
+@pytest.fixture
+def adapter():
+    return Build123dAdapter()
+
+
+# --------------------------------------------------------------------------
+# Addressing
+# --------------------------------------------------------------------------
+
+def test_a_whole_module_is_still_addressed_by_name(adapter):
+    """The plain form keeps working: `build()` is the assembly."""
+    assert adapter.measure("gearbox", "bbox_size", {"axis": "Z"}) == 46.0 * ureg.mm
+
+
+def test_a_component_is_addressed_after_the_hash(adapter):
+    """`gearbox#Housing` reaches `build_housing()`. The assembly is 46 mm tall
+    because the cover sits on top; the housing alone is 40."""
+    assert adapter.measure("gearbox#Housing", "bbox_size", {"axis": "Z"}) == 40.0 * ureg.mm
+    assert adapter.measure("gearbox#Cover", "bbox_size", {"axis": "Z"}) == 6.0 * ureg.mm
+
+
+def test_the_component_name_is_read_case_insensitively(adapter):
+    """`#Housing` and `#housing` are the same component. The builder convention
+    is `build_<snake_case>`, and a mapping should not fail on capitalisation."""
+    upper = adapter.measure("gearbox#Housing", "volume")
+    lower = adapter.measure("gearbox#housing", "volume")
+    assert upper == lower
+
+
+def test_snake_case_handles_the_conventions_in_use():
+    assert _snake("Housing") == "housing"
+    assert _snake("GearRing") == "gear_ring"
+    assert _snake("Gear Ring") == "gear_ring"
+
+
+def test_an_unknown_component_names_what_exists(adapter):
+    """A refusal that lists the alternatives, because the component names are
+    the addresses and there is no other way to learn them."""
+    with pytest.raises(Unsupported) as excinfo:
+        adapter.measure("gearbox#Flywheel", "volume")
+
+    message = str(excinfo.value)
+    assert "Flywheel" in message
+    assert "build_flywheel" in message
+    assert "Housing" in message and "Cover" in message
+
+
+def test_a_module_without_build_is_refused(adapter):
+    with pytest.raises(Unsupported, match="has no build"):
+        adapter.measure("export_fixtures", "volume")
+
+
+# --------------------------------------------------------------------------
+# A malformed mapping entry is a gap, never a crash
+# --------------------------------------------------------------------------
+
+def test_a_bad_axis_is_refused(adapter):
+    """It used to escape as an AttributeError from deep inside build123d, which
+    `verify.run()` does not catch -- one typo in `mapping.yaml` lost the run."""
+    with pytest.raises(Unsupported, match="axis"):
+        adapter.measure("motor_housing", "bbox_size", {"axis": "Q"})
+
+
+def test_an_unexpected_argument_is_refused(adapter):
+    with pytest.raises(Unsupported, match="axsi"):
+        adapter.measure("motor_housing", "bbox_size", {"axis": "X", "axsi": "Y"})
+    with pytest.raises(Unsupported, match="axis"):
+        adapter.measure("motor_housing", "volume", {"axis": "X"})
+
+
+def test_a_density_override_must_be_a_positive_number(adapter):
+    """Zero would make every mass requirement pass at 0 kg."""
+    for bad in (0, -2.7, "2.7"):
+        with pytest.raises(Unsupported, match="density"):
+            adapter.measure("motor_housing", "mass", {"density_g_per_cm3": bad})
+
+
+# --------------------------------------------------------------------------
+# The point of the exercise
+# --------------------------------------------------------------------------
+
+def test_a_component_inherits_the_script_material(adapter):
+    """The reason `#` exists.
+
+    The component's mass comes from the material the script declares, so no
+    density is written into the mapping -- and nothing goes stale when the
+    material changes.
+    """
+    material = adapter.material("gearbox#Housing")
+
+    assert material is not None
+    assert material.name == "AlSi10Mg"
+    assert material.density == 2.70 * ureg.g / ureg.cm**3
+    # And the mass is computable with no arguments at all.
+    assert adapter.measure("gearbox#Housing", "mass").units == ureg.kg
+
+
+def test_changing_the_material_changes_the_mass(adapter, monkeypatch):
+    """The property the override destroyed. With the density in the script, a
+    material change propagates; frozen in the mapping, it would not."""
+    import gearbox
+
+    aluminium = Build123dAdapter().measure("gearbox#Housing", "mass")
+    monkeypatch.setattr(gearbox, "DENSITY_G_PER_CM3", 1.36)
+    plastic = Build123dAdapter().measure("gearbox#Housing", "mass")
+
+    assert plastic < aluminium
+    assert plastic.magnitude == pytest.approx(aluminium.magnitude * 1.36 / 2.70, rel=1e-9)
+
+
+def test_the_committed_mapping_carries_no_density(adapter):
+    """A density in `mapping.yaml` is a fact about a part in the file that holds
+    the correspondence between two models. There is now a route that does not
+    need one, so there should be none left."""
+    from sysmlcad.mapping import load_mapping
+    from sysmlcad.project import list_projects, load_project
+
+    for name in list_projects():
+        for entry in load_mapping(load_project(name).mapping_path).attributes:
+            assert "density_g_per_cm3" not in (entry.args or {}), (
+                f"{name}: {entry.sysml_part}.{entry.attribute} freezes a density in the mapping"
+            )
+
+
+# --------------------------------------------------------------------------
+# Consistency with the other adapter, and with itself
+# --------------------------------------------------------------------------
+
+def test_both_adapters_measure_the_same_component():
+    """Script and STEP export agree on a component, exactly as they do on a
+    whole part. The routes differ in what they know about material, not in what
+    they measure."""
+    script = Build123dAdapter()
+    step = StepAdapter()
+
+    for method, args in [
+        ("volume", {}), ("bbox_size", {"axis": "X"}), ("face_count", {}),
+        ("cylinder_radius", {}),
+    ]:
+        from_script = script.measure("gearbox#Housing", method, args)
+        from_file = step.measure("fixtures/step/gearbox.step#Housing", method, args)
+        assert from_script.magnitude == pytest.approx(from_file.magnitude, rel=1e-9), method
+
+
+def test_the_components_add_up_to_the_assembly(adapter):
+    """A weak check on the addressing: if `#Housing` silently returned the whole
+    assembly, this would not hold."""
+    housing = adapter.measure("gearbox#Housing", "volume")
+    cover = adapter.measure("gearbox#Cover", "volume")
+    assembly = adapter.measure("gearbox", "volume")
+
+    assert (housing + cover).magnitude == pytest.approx(assembly.magnitude, rel=1e-9)
+
+
+def test_state_id_is_per_module_not_per_component(adapter):
+    """Two components of one script share a design state. Hashing the source
+    once per reference would claim otherwise -- and would change the digest
+    recorded in every past run for no reason."""
+    adapter.measure("gearbox#Housing", "volume")
+    one = adapter.state_id()
+    adapter.measure("gearbox#Cover", "volume")
+
+    assert adapter.state_id() == one
+
+
+def test_the_reference_digest_is_unchanged():
+    """The motor housing's `cad state` appears in the documented reference run.
+    Component addressing must not have moved it."""
+    assert Build123dAdapter(["motor_housing"]).state_id() == "bdaee4cff5d3ddfa"
+
+
+# --------------------------------------------------------------------------
+# Catalogue
+# --------------------------------------------------------------------------
+
+def test_the_catalogue_offers_the_components(adapter):
+    references = {t.reference for t in adapter.catalog(["gearbox"])}
+
+    assert "gearbox" in references
+    assert "gearbox#Housing" in references
+    assert "gearbox#Cover" in references
+
+
+def test_a_component_target_offers_mass(adapter):
+    """Because the script declares a material. This is what makes the mapping
+    proposable without inventing a density."""
+    housing = next(t for t in adapter.catalog(["gearbox"]) if t.reference == "gearbox#Housing")
+
+    assert "mass" in housing.methods
+    assert housing.kind == "part"
+    assert "AlSi10Mg" in housing.note
+
+
+def test_the_bore_is_measured_on_each_component(adapter):
+    """The interface dimension, from the geometry each builder made -- not from
+    `BORE_RADIUS_MM`, which says what was meant rather than what was built."""
+    for obj in ("gearbox#Housing", "gearbox#Cover"):
+        assert adapter.measure(obj, "cylinder_radius", {"kind": "hole"}) == 8.0 * ureg.mm
+
+
+def test_a_typo_in_cylinder_radius_args_is_unsupported(adapter):
+    with pytest.raises(Unsupported):
+        adapter.measure("gearbox#Housing", "cylinder_radius", {"knid": "hole"})
+
+
+# --------------------------------------------------------------------------
+# `parameter`: the stated dimension, read rather than measured
+# --------------------------------------------------------------------------
+
+def test_a_named_parameter_is_read_with_its_unit(adapter):
+    """`LENGTH_MM` comes back as millimetres, not as a bare 118.0 -- the
+    dimension gate has to be able to hold it against a LengthValue."""
+    assert adapter.measure("motor_housing", "parameter", {"name": "LENGTH_MM"}) == 118.0 * ureg.mm
+
+
+def test_a_component_reads_its_module_parameters(adapter):
+    """Module-level: the interface dimension both parts of the gearbox build
+    from is reachable from either of them."""
+    assert adapter.measure("gearbox#Cover", "parameter", {"name": "BORE_RADIUS_MM"}) == 8.0 * ureg.mm
+
+
+def test_a_missing_parameter_is_a_gap_not_a_zero(adapter):
+    with pytest.raises(Unsupported, match="no numeric parameter 'WIDTH'"):
+        adapter.measure("motor_housing", "parameter", {"name": "WIDTH"})
+
+
+def test_a_text_constant_is_not_a_parameter(adapter):
+    """`MATERIAL = "AlSi10Mg"` is a name, not a quantity."""
+    with pytest.raises(Unsupported):
+        adapter.measure("motor_housing", "parameter", {"name": "MATERIAL"})
+
+
+def test_parameter_without_a_name_is_refused(adapter):
+    with pytest.raises(Unsupported, match="parameter"):
+        adapter.measure("motor_housing", "parameter", {})
+
+
+def test_the_catalogue_offers_parameter_where_there_are_parameters(adapter):
+    target = next(t for t in adapter.catalog(["motor_housing"]) if t.reference == "motor_housing")
+    assert "parameter" in target.methods
+    assert "LENGTH_MM" in target.parameters

@@ -1,0 +1,13 @@
+# One project = one SysML model and the mapping that ties it to CAD.
+# See projects/motor_housing/project.yaml for the reasoning; it is the same.
+#
+# The first FreeCAD export. cube_freecad.step lives here because it belongs to
+# this model and to no other. The model is models/box2.sysml with only the
+# package renamed -- same part `box2`, same three requirements.
+name: cube_freecad
+sysml_project: CubeFreecad
+
+# No `axes:` -- FreeCAD uses the default convention. Measured on this file:
+# the stated 100/200/300 came out as X 100, Y 200, Z 300, i.e. length X,
+# width Y, height Z (project.DEFAULT_AXES). Chili3D's box2, with the same
+# numbers, came out as Y 100, Z 200, X 300.

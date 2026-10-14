@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+out/*.step
+out/*.xml
+vendor/SysML-v2-API-Services/
+.pytest_cache/
+.env
+
+# Compose env files: real secrets, never committed.
+docker/.env
+
+# Jupyter editor artefacts, never source.
+.ipynb_checkpoints/
+
+# Scratch dump written by `make capture` / `python -m sysmlcad.explore`; the
+# capture itself is projects/<name>/elements.json.
+out/elements.json

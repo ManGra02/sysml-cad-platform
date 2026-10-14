@@ -1,0 +1,66 @@
+# Mapping, schema v2 -- see projects/motor_housing/mapping.yaml for the
+# reasoning behind the shape. One mapping per project.
+version: 2
+
+# --- which CAD object is which SysML part -----------------------------------
+# The STEP file holds one unnamed solid (the exporter wrote the product name
+# "Open CASCADE STEP translator 8.0 1"), so the whole file is the object and
+# no `#node` is needed. The file carries no material: `mass` would be a gap,
+# which is why the model asks for no mass.
+parts:
+  - sysml_part: box1
+    adapter: step
+    cad_object: projects/box1/Box1.step
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-26"
+
+# --- which measurement stands for which attribute ---------------------------
+# Length, width and height follow this project's axis convention, set in
+# project.yaml under `axes:` -- Chili3D's: length Y, width Z, height X. The axes
+# come from how the CAD system orients a box (measured on two exports), NOT
+# from which extent happens to match a requirement's number: that would make
+# every check pass by construction, whatever the part looks like.
+#
+# An earlier version of this file used X, Y, Z and reported MaxLength as
+# VIOLATED (500 > 300) -- correct under that convention, and the reason the
+# convention became configurable. If `axes:` changes again, `make gates` marks
+# every entry below that no longer agrees with it.
+attributes:
+  - sysml_part: box1
+    attribute: length
+    requirement: MaxLength
+    method: bbox_size
+    args:
+      axis: Y
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-26"
+    note: "Length = bounding box along Y: Chili3D's box Length, per the axis
+           convention in project.yaml."
+
+  - sysml_part: box1
+    attribute: width
+    requirement: MaxWidth
+    method: bbox_size
+    args:
+      axis: Z
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-26"
+
+  - sysml_part: box1
+    attribute: height
+    requirement: MaxHeight
+    method: bbox_size
+    args:
+      axis: X
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: hardcoded
+    confirmed_at: "2026-09-26"

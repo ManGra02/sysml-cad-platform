@@ -1,0 +1,53 @@
+# The hand-mapped answer key: which CAD measurement a SysML attribute really is.
+#
+# Its only job is to give a proposer a number. Without it, "the AI suggests good
+# mappings" is an impression; with it, it is a hit rate that a stdlib string
+# matcher can be held up against.
+#
+# THREE THINGS TO UNDERSTAND BEFORE READING THE SCORE
+#
+# 1. AN ANSWER MAY BE RIGHT IN MORE THAN ONE WAY. The same part is measurable
+#    through the build123d script and through its STEP export, and the two give
+#    identical verdicts -- that is the adapter seam working, not a mistake to
+#    penalise. So each entry lists every accepted answer, preferred one first.
+#
+# 2. SOMETIMES THE RIGHT ANSWER IS NOTHING. `boreRadius` is a real attribute of
+#    a real part, and no measurement in the vocabulary can express it: a bounding
+#    box cannot, and the parameter that does know it lives in a script that
+#    cannot address a single component. An entry with an empty `accept:` scores
+#    a hit when the proposer stays silent, and a false positive when it does not.
+#    A proposer that fills every gap with something plausible is worse than one
+#    that leaves gaps, because a human has to check all of them either way.
+#
+# 3. TWO PARTS HAVE THE SAME SHAPE IN X AND Y. Housing and Cover are both
+#    90 x 60, so length and width alone cannot tell them apart -- only the name
+#    can. That is the ambiguity this set exists to measure.
+#
+# One answer key per project. The proposer is scored against this model's
+# attributes only -- a second model's parts are not distractors here, because
+# a run never sees two projects at once.
+version: 1
+
+gold:
+  # --- MotorHousing: one part, the original reference -----------------------
+  - sysml_part: motorHousing
+    attribute: length
+    note: >-
+      The named parameter LENGTH_MM states the length; the bounding box along X
+      measures the shape. Both are right for this script, which builds its
+      geometry from the parameter -- the parameter first, because it stays the
+      length when the part is rotated and the bounding box does not. The
+      bounding-box answers pin the axis, not just the object.
+    accept:
+      - {adapter: build123d, cad_object: motor_housing, method: parameter, args: {name: LENGTH_MM}}
+      - {adapter: build123d, cad_object: motor_housing, method: bbox_size, args: {axis: X}}
+      - {adapter: step, cad_object: fixtures/step/motor_housing.step, method: bbox_size, args: {axis: X}}
+
+  - sysml_part: motorHousing
+    attribute: mass
+    note: >-
+      Homogeneous AlSi10Mg. The script declares the density; the STEP export
+      does not carry one, so the catalogue does not offer `mass` on it at all.
+    accept:
+      - {adapter: build123d, cad_object: motor_housing, method: mass, args: {}}
+

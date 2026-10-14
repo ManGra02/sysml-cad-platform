@@ -1,0 +1,173 @@
+# Mapping proposals -- MACHINE-WRITTEN. Do not hand-edit; edit mapping.yaml.
+#
+# Nothing in this file takes part in a verification run. A proposal reaches
+# mapping.yaml only through `python -m sysmlcad.confirm <id>`, which re-runs the
+# gates first and records who confirmed it and when (SRS FREQ-5).
+#
+# Rejections are kept rather than deleted: a pair somebody has already turned
+# down is worth remembering the next time a proposer suggests it.
+version: 1
+proposals:
+- id: p-01
+  sysml_part: cover
+  attribute: boreRadius
+  adapter: build123d
+  cad_object: gearbox#Cover
+  method: cylinder_radius
+  args:
+    kind: hole
+  requirement: ''
+  direction: cad_owns
+  confidence: 1.0
+  rationale: identity match 1.00 between 'Gearbox::cover' and 'gearbox#Cover'; parameter BORE_RADIUS_MM
+    accounted for by cover.boreRadius (1.00); the name says bore, so only a hole counts
+  proposed_by: baseline:difflib
+  proposed_at: '2026-10-02T11:31:17+00:00'
+  provenance: {}
+  status: proposed
+  decided_by: ''
+  decided_at: ''
+  reason: ''
+- id: p-02
+  sysml_part: cover
+  attribute: mass
+  adapter: build123d
+  cad_object: gearbox#Cover
+  method: mass
+  args: {}
+  requirement: ''
+  direction: cad_owns
+  confidence: 1.0
+  rationale: identity match 1.00 between 'Gearbox::cover' and 'gearbox#Cover'; the mass measurement
+    is named after the attribute
+  proposed_by: baseline:difflib
+  proposed_at: '2026-10-02T11:31:17+00:00'
+  provenance: {}
+  status: proposed
+  decided_by: ''
+  decided_at: ''
+  reason: ''
+- id: p-03
+  sysml_part: housing
+  attribute: width
+  adapter: build123d
+  cad_object: gearbox#Housing
+  method: bbox_size
+  args:
+    axis: Y
+  requirement: ''
+  direction: cad_owns
+  confidence: 1.0
+  rationale: identity match 1.00 between 'Gearbox::housing' and 'gearbox#Housing'; parameter
+    HOUSING_WIDTH_MM accounted for by housing.width (1.00); width taken along Y by the project's
+    axis convention, not from the model
+  proposed_by: baseline:difflib
+  proposed_at: '2026-10-02T11:31:17+00:00'
+  provenance: {}
+  status: proposed
+  decided_by: ''
+  decided_at: ''
+  reason: ''
+- id: p-04
+  sysml_part: housing
+  attribute: height
+  adapter: build123d
+  cad_object: gearbox#Housing
+  method: bbox_size
+  args:
+    axis: Z
+  requirement: ''
+  direction: cad_owns
+  confidence: 1.0
+  rationale: identity match 1.00 between 'Gearbox::housing' and 'gearbox#Housing'; parameter
+    HOUSING_HEIGHT_MM accounted for by housing.height (1.00); height taken along Z by the
+    project's axis convention, not from the model
+  proposed_by: baseline:difflib
+  proposed_at: '2026-10-02T11:31:17+00:00'
+  provenance: {}
+  status: proposed
+  decided_by: ''
+  decided_at: ''
+  reason: ''
+- id: p-05
+  sysml_part: housing
+  attribute: boreRadius
+  adapter: build123d
+  cad_object: gearbox#Housing
+  method: cylinder_radius
+  args:
+    kind: hole
+  requirement: ''
+  direction: cad_owns
+  confidence: 1.0
+  rationale: identity match 1.00 between 'Gearbox::housing' and 'gearbox#Housing'; parameter
+    BORE_RADIUS_MM accounted for by housing.boreRadius (1.00); the name says bore, so only
+    a hole counts
+  proposed_by: baseline:difflib
+  proposed_at: '2026-10-02T11:31:17+00:00'
+  provenance: {}
+  status: proposed
+  decided_by: ''
+  decided_at: ''
+  reason: ''
+- id: p-06
+  sysml_part: housing
+  attribute: mass
+  adapter: build123d
+  cad_object: gearbox#Housing
+  method: mass
+  args: {}
+  requirement: ''
+  direction: cad_owns
+  confidence: 1.0
+  rationale: identity match 1.00 between 'Gearbox::housing' and 'gearbox#Housing'; the mass
+    measurement is named after the attribute
+  proposed_by: baseline:difflib
+  proposed_at: '2026-10-02T11:31:17+00:00'
+  provenance: {}
+  status: proposed
+  decided_by: ''
+  decided_at: ''
+  reason: ''
+- id: p-07
+  sysml_part: cover
+  attribute: length
+  adapter: build123d
+  cad_object: gearbox#Cover
+  method: bbox_size
+  args:
+    axis: X
+  requirement: ''
+  direction: cad_owns
+  confidence: 0.875
+  rationale: identity match 1.00 between 'Gearbox::cover' and 'gearbox#Cover'; parameter COVER_THICKNESS_MM
+    accounted for by cover.length (0.50); length taken along X by the project's axis convention,
+    not from the model
+  proposed_by: baseline:difflib
+  proposed_at: '2026-10-02T11:31:17+00:00'
+  provenance: {}
+  status: proposed
+  decided_by: ''
+  decided_at: ''
+  reason: ''
+- id: p-08
+  sysml_part: cover
+  attribute: width
+  adapter: build123d
+  cad_object: gearbox#Cover
+  method: bbox_size
+  args:
+    axis: Y
+  requirement: ''
+  direction: cad_owns
+  confidence: 0.875
+  rationale: identity match 1.00 between 'Gearbox::cover' and 'gearbox#Cover'; parameter COVER_THICKNESS_MM
+    accounted for by cover.width (0.50); width taken along Y by the project's axis convention,
+    not from the model
+  proposed_by: baseline:difflib
+  proposed_at: '2026-10-02T11:31:17+00:00'
+  provenance: {}
+  status: proposed
+  decided_by: ''
+  decided_at: ''
+  reason: ''

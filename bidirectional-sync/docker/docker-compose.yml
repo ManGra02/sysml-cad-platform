@@ -1,0 +1,75 @@
+name: sysml-cad-poc
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: sysml2-postgres
+    environment:
+      POSTGRES_DB: sysml2
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sysml2"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  sysml-api:
+    build:
+      context: ../vendor/SysML-v2-API-Services
+      dockerfile: Dockerfile
+    container_name: sysml2-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "9000:9000"
+    environment:
+      SYSML_JDBC_URL: "jdbc:postgresql://postgres:5432/sysml2"
+      SYSML_JDBC_USER: "postgres"
+      SYSML_JDBC_PASSWORD: "mysecretpassword"
+    # Overrides the fork's CMD: its start line does not account for Play's
+    # AllowedHostsFilter, which otherwise rejects "Host: sysml-api:9000" with 400.
+    #
+    # pidfile.path=/dev/null: in production mode Play writes RUNNING_PID into
+    # the container's filesystem. After an unclean stop the file survives, and
+    # the next start of the SAME container dies at once with "This application
+    # is already running" (exit 255). A container has one process anyway.
+    command:
+      - /app/start-sysml
+      - -Dhttp.address=0.0.0.0
+      - -Dhttp.port=9000
+      - -Dpidfile.path=/dev/null
+      - -Dplay.filters.hosts.allowed.0=.
+      - -Dplay.http.secret.key=${PLAY_SECRET:?set it in docker/.env -- run 'make secret'}
+    volumes:
+      - ivy2:/root/.ivy2
+      - sbt:/root/.sbt
+      - coursier:/root/.cache/coursier
+
+  jupyter:
+    build:
+      context: ..
+      dockerfile: docker/jupyter.Dockerfile
+    container_name: sysml2-jupyter
+    depends_on:
+      - sysml-api
+    ports:
+      - "8888:8888"
+    environment:
+      # Target of the %publish magic. Service name, not localhost.
+      ISYSML_API_BASE_PATH: "http://sysml-api:9000"
+      JUPYTER_TOKEN: "sysmlcad"
+    volumes:
+      - ../models:/work/models
+      - ../notebooks:/work/notebooks
+
+volumes:
+  pgdata:
+  ivy2:
+  sbt:
+  coursier:

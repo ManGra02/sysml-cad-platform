@@ -1,0 +1,15 @@
+# One project = one SysML model and the mapping that ties it to CAD.
+# See projects/motor_housing/project.yaml for the reasoning; it is the same.
+#
+# The second Chili3D export. Box2.step lives here because it belongs to this
+# model and to no other.
+name: box2
+sysml_project: Box2
+
+# Chili3D writes a box's Length along Y, Width along Z and Height along X --
+# see projects/box1/project.yaml, where this was first measured. This model is
+# the second measurement: 100/200/300 in Chili3D came out as Y 100, Z 200, X 300.
+axes:
+  length: Y
+  width: Z
+  height: X

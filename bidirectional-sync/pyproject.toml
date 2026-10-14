@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sysmlcad"
+version = "0.2.0"
+description = "Verify SysML v2 requirements against CAD geometry"
+requires-python = ">=3.12"
+dependencies = [
+    "build123d==0.11.1",
+    "pint==0.25.3",
+    "httpx==0.28.1",
+    "PyYAML==6.0.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.4"]
+# The AI proposer only. Deliberately not a hard dependency: CI verifies geometry
+# against requirements and must never need an API key to go green, and the
+# baseline proposer in propose.py uses nothing but the standard library.
+# Any server speaking the OpenAI chat protocol: OpenAI, Azure, vLLM, LM Studio,
+# Groq, OpenRouter, Ollama's compatible endpoint. One SDK, many models.
+openai = ["openai>=1.60.0"]
+
+[project.scripts]
+sysmlcad-verify = "sysmlcad.verify:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+# `cad` is on the path as well as `src`: the CAD scripts are addressed by
+# module name from the mapping, so they must be importable.
+pythonpath = ["src", "cad"]
+testpaths = ["tests"]
+addopts = "-v --junitxml=out/verification.xml"

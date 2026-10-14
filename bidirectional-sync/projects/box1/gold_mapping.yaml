@@ -1,0 +1,24 @@
+# The answer key for scoring proposers on this model. See
+# projects/gearbox/gold_mapping.yaml for what an entry means.
+#
+# One object, three extents -- the accepted answers follow the project's axis
+# convention (project.yaml `axes:`, Chili3D's: length Y, width Z, height X). A
+# proposer cannot know how a part is meant to lie; it is handed the convention
+# in the catalogue, and this set measures whether it applies it.
+version: 1
+
+gold:
+  - sysml_part: box1
+    attribute: length
+    accept:
+      - {adapter: step, cad_object: "projects/box1/Box1.step", method: bbox_size, args: {axis: Y}}
+
+  - sysml_part: box1
+    attribute: width
+    accept:
+      - {adapter: step, cad_object: "projects/box1/Box1.step", method: bbox_size, args: {axis: Z}}
+
+  - sysml_part: box1
+    attribute: height
+    accept:
+      - {adapter: step, cad_object: "projects/box1/Box1.step", method: bbox_size, args: {axis: X}}

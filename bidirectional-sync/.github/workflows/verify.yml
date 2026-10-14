@@ -1,0 +1,51 @@
+name: SysML-CAD verification
+
+on:
+  push:
+    paths:
+      - "cad/**"
+      # One directory per model: mapping, capture, gold set. A changed mapping
+      # can change a verdict, so it has to trigger the run as much as a
+      # changed CAD script does.
+      - "projects/**"
+      - "fixtures/**"
+      - "src/**"
+      - "tests/**"
+      - "requirements.txt"
+      - "pyproject.toml"
+      - ".github/workflows/verify.yml"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # Match the devcontainer. build123d/cadquery-ocp ship cp314 wheels
+          # for linux; ezdxf does not and falls back to pure Python, which
+          # affects DXF only, not the STEP path this project uses.
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements.txt
+      # Runs against each project's CAPTURE, deliberately: CI must be able to
+      # go green without a live SysML API server -- and without the optional AI
+      # SDKs, which is what this step proves. Tests that need them skip.
+      - name: Verify (base dependencies only)
+        run: PYTHONPATH=src:cad pytest
+      # The same AI tests again, now with the SDKs present, so their request-
+      # building and error handling are covered too. No key is needed: every
+      # one of them replays a recorded response or uses a stub client.
+      - name: Install the optional AI SDK
+        run: pip install "openai>=1.60.0"
+      - name: AI proposers (with SDKs, no key)
+        run: PYTHONPATH=src:cad pytest tests/test_propose_ai.py tests/test_propose_openai.py --junitxml=out/ai-proposers.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-report
+          path: |
+            out/verification.xml
+            out/ai-proposers.xml

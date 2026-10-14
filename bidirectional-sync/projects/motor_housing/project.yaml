@@ -1,0 +1,16 @@
+# One project = one SysML model and the mapping that ties it to CAD.
+#
+# SRS FREQ-3: "the mapping is stored with the project". Everything in this
+# directory belongs to exactly one system model: its mapping, an offline
+# capture of its elements, the answer key for scoring proposers, and the
+# proposals waiting for a human. Nothing here is shared with another project,
+# and no run ever reads two projects at once -- so two models that both have
+# a `Housing` never meet.
+name: motor_housing
+
+# The Package name in the model, and the project name on the SysML server.
+# `make verify-api` finds the server project BY THIS NAME, never by "the most
+# recently published one". On load, the capture's package is checked against
+# it: a mis-filed elements.json fails loudly instead of verifying the wrong
+# model.
+sysml_project: MotorHousing
