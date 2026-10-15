@@ -3,10 +3,6 @@
 # docker-compose.dev.yml. Service names do not resolve there; postgres and
 # sysml-api are published on the host instead (docker/docker-compose.yml:
 # 5432, 9000), so these are the addresses of the host -- as without a container.
-#
-# publish.py will warn that the Jupyter kernel publishes to sysml-api:9000 and
-# not to localhost:9000. Both are the same server here; the kernel runs in its
-# own container, on the Compose network.
 services:
   dev:
     environment:
@@ -14,3 +10,7 @@ services:
       PGHOST: "localhost"
       # publish.py's default is the service name http://jupyter:8888.
       SYSMLCAD_JUPYTER_URL: "http://localhost:8888"
+      # ...but the KERNEL still runs on the Compose network and publishes to
+      # sysml-api:9000 -- the same server as localhost:9000 above, by its
+      # other name. publish.py checks the kernel's target against this.
+      SYSMLCAD_KERNEL_API_URL: "http://sysml-api:9000"

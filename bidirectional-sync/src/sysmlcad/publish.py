@@ -8,13 +8,13 @@ container (`make jupyter` on the host first), over Jupyter's REST and websocket
 API. The last cell is the `%publish`, so the model lands on the API server the
 kernel is configured for -- which must be this project's, not the public
 community server. The kernel prints its target as `API base path: ...`, and
-this module checks it against `SYSML_API_URL` and says so loudly when they
+this module checks it against `KERNEL_API_URL` and says so loudly when they
 differ. A publish cannot be recalled; the check is there so it is at least
 noticed at once.
 
 Then capture it for offline runs: `make capture PROJECT=<name>`.
 
-`websockets` is needed and is not in requirements.txt: CI never publishes.
+`websockets` is needed; it is in requirements.txt for that reason only.
 """
 
 from __future__ import annotations
@@ -35,6 +35,13 @@ from .config import SYSML_API_URL
 JUPYTER_URL = os.environ.get("SYSMLCAD_JUPYTER_URL", "http://jupyter:8888")
 JUPYTER_TOKEN = os.environ.get("SYSMLCAD_JUPYTER_TOKEN", "sysmlcad")
 KERNEL = "sysml"
+
+#: Where the kernel must publish, as the KERNEL names it -- from inside the
+#: Jupyter container. The same as SYSML_API_URL while this side shares the
+#: Compose network; on the host's network (the platform's Linux devcontainer)
+#: this side reaches the server as localhost:9000 and the kernel as
+#: sysml-api:9000 -- one server, two names, so the overlay states the kernel's.
+KERNEL_API_URL = os.environ.get("SYSMLCAD_KERNEL_API_URL") or SYSML_API_URL
 
 
 def _request(code: str, session: str) -> dict:
@@ -126,9 +133,9 @@ def publish(notebook: Path) -> int:
             client.delete(f"/api/kernels/{kernel_id}")
 
     target = re.search(r"API base path:\s*(\S+)", output)
-    if target and target.group(1).rstrip("/") != SYSML_API_URL.rstrip("/"):
+    if target and target.group(1).rstrip("/") != KERNEL_API_URL.rstrip("/"):
         print(f"\nWARNING: the kernel published to {target.group(1)}, not to "
-              f"{SYSML_API_URL}. Check kernel.json in the Jupyter image.", file=sys.stderr)
+              f"{KERNEL_API_URL}. Check kernel.json in the Jupyter image.", file=sys.stderr)
         return 1
     return 0 if ok else 1
 

@@ -386,10 +386,16 @@ first:
   backend reaches the native FreeCAD bridge. Service names do not resolve there,
   so this project ships a second overlay, `.devcontainer/docker-compose.host-network.yml`,
   loaded after `docker-compose.dev.yml`: `SYSMLCAD_SYSML_API_URL=http://localhost:9000`,
-  `PGHOST=localhost` (both published on the host). An address that depends on the
-  network goes into BOTH files, never into one alone. `publish.py`'s warning that
-  the kernel publishes to `sysml-api:9000` is expected in that mode -- the same
-  server, seen from the Jupyter container.
+  `PGHOST=localhost`, `SYSMLCAD_JUPYTER_URL=http://localhost:8888` (all published
+  on the host). An address that depends on the network goes into BOTH files,
+  never into one alone.
+- **The kernel names the server differently in that mode.** It runs in the
+  Jupyter container and publishes to `sysml-api:9000`; dev sees the same server
+  as `localhost:9000`. `publish.py` compares the kernel's `API base path` with
+  `SYSMLCAD_KERNEL_API_URL` (default: `SYSML_API_URL`), which the host-network
+  overlay sets to `http://sysml-api:9000`. Without it every publish ended in
+  exit 1 although it had published to the right server. Do not drop the check
+  instead: it is what catches a kernel publishing to the public server.
 - Python 3.14: `ezdxf` has no cp314 wheels and runs pure-Python. That affects DXF
   only, not STEP. `lib3mf` DeprecationWarnings are expected and harmless.
 - **build123d 0.11:** `export_step(part, path)` is a MODULE FUNCTION, not a method
