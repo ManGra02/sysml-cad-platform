@@ -12,3 +12,5 @@ services:
     environment:
       SYSMLCAD_SYSML_API_URL: "http://localhost:9000"
       PGHOST: "localhost"
+      # publish.py's default is the service name http://jupyter:8888.
+      SYSMLCAD_JUPYTER_URL: "http://localhost:8888"

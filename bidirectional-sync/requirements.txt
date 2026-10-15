@@ -3,3 +3,6 @@ pint==0.25.3
 httpx==0.28.1
 PyYAML==6.0.2
 pytest==8.3.4
+# `make publish` only: talks to the Jupyter kernel over a websocket
+# (src/sysmlcad/publish.py). Nothing else imports it.
+websockets==17.2
