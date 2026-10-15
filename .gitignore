@@ -24,3 +24,6 @@ bridge.json
 .playwright-mcp/
 .DS_Store
 Thumbs.db
+
+
+.pnpm-store
