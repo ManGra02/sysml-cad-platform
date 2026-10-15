@@ -3,12 +3,21 @@
 No key and no network: fake_ollama.FakeOllama answers /api/tags and a scripted /api/chat.
 """
 
+import json
+from types import SimpleNamespace
+
 import pytest
 import pytest_asyncio
 
 from app.ai import AiConfig, AiError, AiService
+from app.ai.agents import run
 from app.ai.service import model_available
+from app.ai.tools import sysml_tools
+from app.sysml.config import SysmlConfig
+from app.sysml.demo import load_sample
+from app.sysml.service import SysmlService
 from conftest import free_port, running_backend, wait_for
+from fake_flexo import FakeFlexo
 from fake_ollama import FakeOllama, answer, tool_call
 
 
@@ -150,3 +159,56 @@ async def test_agent_unbekanntes_modell(handshake, ollama):
     async with running_backend(ai_service=service) as backend:
         code, body = await backend.post("/api/projects/bds/agent", json={"message": "hi"})
     assert code == 502 and body["error"]["code"] == "ai_model_not_found"
+
+
+# -- Writing tools ------------------------------------------------------
+
+
+def test_sysml_tools_ohne_write_sind_nur_lesend():
+    ctx = SimpleNamespace(sysml=None)
+    assert "sysml_set_attribute_value" not in {t.name for t in sysml_tools(ctx)}
+    assert "sysml_set_attribute_value" in {t.name for t in sysml_tools(ctx, write=True)}
+
+
+@pytest_asyncio.fixture
+async def ebike():
+    """Flexo stand-in with the e-bike demo -> (SysmlService, motor mass attribute id)."""
+    flexo = FakeFlexo()
+    service = SysmlService(SysmlConfig(api_url=await flexo.start(), timeout_s=5))
+    project = await service.client.create_project("EBike Demo")
+    await service.client.post_commit(project["@id"], load_sample("ebike")["change"], description="seed")
+    snap = await service.snapshot("EBike Demo")
+    motor = snap.find("motor", kind="part")[0]
+    mass = next(a for a in snap.attributes_of(motor.id) if a.name == "mass")
+    yield service, mass.id
+    await service.stop()
+    await flexo.stop()
+
+
+async def test_agent_schreibt_sysml_attribut(ollama, ebike):
+    service, mass_id = ebike
+    ollama.replies = [
+        tool_call("sysml_set_attribute_value", project="EBike Demo", attribute_id=mass_id,
+                  value=11200, unit="g", description="Agent: mass from CAD"),
+        answer("Masse auf 11.2 kg gesetzt."),
+    ]
+    ctx = SimpleNamespace(sysml=service)
+    agent = AiService(config_for(ollama)).for_project("bds").agent(sysml_tools(ctx, write=True))
+    result = await run(agent, "Setze die Motormasse auf 11200 g")
+
+    written = json.loads(result["steps"][0]["result"])
+    snap = await service.snapshot("EBike Demo")
+    assert snap.version == written["commit"] and written["description"] == "Agent: mass from CAD"
+    assert (snap.attribute(mass_id).value, snap.attribute(mass_id).unit) == (11.2, "kg")
+
+
+async def test_agent_sieht_schreibfehler_und_laeuft_weiter(ollama, ebike):
+    service, _ = ebike
+    ollama.replies = [tool_call("sysml_set_attribute_value", project="EBike Demo", attribute_id="nope", value=1),
+                      answer("Attribut nicht gefunden.")]
+    agent = AiService(config_for(ollama)).for_project("bds").agent(
+        sysml_tools(SimpleNamespace(sysml=service), write=True))
+    result = await run(agent, "Setze nope auf 1")
+    assert "sysml_attribute_not_found" in result["steps"][0]["result"]
+    assert result["answer"] == "Attribut nicht gefunden."
+

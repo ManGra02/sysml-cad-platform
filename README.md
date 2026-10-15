@@ -294,8 +294,9 @@ environment variable wins. The key never reaches the browser.
 | `OLLAMA_MODEL_BDS`, `OLLAMA_MODEL_CRA` | model per project (`OLLAMA_MODEL_<ID>`), overrides the default |
 | `OLLAMA_BASE_URL`, `OLLAMA_TIMEOUT_S`, `OLLAMA_STATUS_TTL_S` | optional: endpoint, LLM timeout, status cache |
 
-- `sysml_tools(ctx)` and `cad_tools(ctx)` are read-only; `cad_tools(ctx, write=True)` adds
-  property writes and recompute. Own tools: any `async def` with type hints and a docstring,
+- `sysml_tools(ctx)` and `cad_tools(ctx)` are read-only. `write=True` adds writing tools:
+  `sysml_tools(ctx, write=True)` sets attribute values (each one a new commit),
+  `cad_tools(ctx, write=True)` sets properties and recomputes. The example agents stay read-only. Own tools: any `async def` with type hints and a docstring,
   wrapped with `StructuredTool.from_function(coroutine=...)` or LangChain's `@tool`.
 - `app/ai/agents.py` spells the tool loop out as a LangGraph `StateGraph` — the template for
   your own graphs (extra nodes, human approval before CAD writes, several agents).

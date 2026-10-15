@@ -1,6 +1,7 @@
 """Ready-made agent tools over the platform's services, bound to one ProjectContext.
 
     tools = sysml_tools(self.ctx) + cad_tools(self.ctx)          # read-only
+    tools = sysml_tools(self.ctx, write=True)                    # + attribute values (new commit)
     tools = cad_tools(self.ctx, write=True)                      # + property writes, recompute
 
 Each tool returns compact JSON (the model's context is small and costs time).
@@ -41,7 +42,7 @@ def _element(e):
             "parentId": e.parent_id}
 
 
-def sysml_tools(ctx):
+def sysml_tools(ctx, write=False):
     sysml = ctx.sysml
 
     async def sysml_projects() -> list:
@@ -71,7 +72,21 @@ def sysml_tools(ctx):
         return {"version": snap.version,
                 "attributes": [{k: asdict(a)[k] for k in keep} for a in snap.attributes_of(element_id)]}
 
-    return [_tool(fn) for fn in (sysml_projects, sysml_parts, sysml_requirements, sysml_attributes)]
+    tools = [sysml_projects, sysml_parts, sysml_requirements, sysml_attributes]
+
+    if write:
+        async def sysml_set_attribute_value(project: str, attribute_id: str, value: float,
+                                            unit: str | None = None, description: str | None = None) -> dict:
+            """Set the numeric value of an existing SysML attribute (attribute id from sysml_attributes)
+            -> a new commit on the default branch. A different unit is converted to the modelled one
+            (e.g. 11200 g -> 11.2 kg). Only attributes with a literal value can be set."""
+            commit = await sysml.write_attribute_value(project, attribute_id, value, unit=unit,
+                                                       description=description)
+            return {"commit": commit.get("@id"), "description": commit.get("description")}
+
+        tools.append(sysml_set_attribute_value)
+
+    return [_tool(fn) for fn in tools]
 
 
 def cad_tools(ctx, write=False):
