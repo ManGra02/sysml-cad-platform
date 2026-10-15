@@ -101,6 +101,79 @@ class ModelSnapshot:
         parents = {e.parent_id for e in self.parts()}
         return [p for p in self.parts() if p.id not in parents]
 
+    def neighbours(self, element_id: str) -> dict[str, Any] | None:
+        """The context of one element: everything a part has to fit, read from the model.
+
+        A part cannot be judged on its own (a motor mount depends on the motor and the
+        chassis it connects), so this collects, with values in model unit and SI:
+          * the element itself, its type (definition) and its attributes
+          * its parent and its child parts
+          * the parts it is connected to (connection / interface usages) and via what
+          * the requirements it satisfies, and those of its ancestors (e.g. a mass
+            budget of the drive unit also limits the motor inside it)
+          * allocations from/to it
+        Returns None for an unknown id.
+        """
+        el = self.element(element_id)
+        if el is None:
+            return None
+
+        def brief(e: ModelElement) -> dict[str, Any]:
+            types = [t.name for t in (self.element(i) for i in e.type_ids) if t]
+            return {"id": e.id, "name": e.name, "kind": e.kind, "type": types[0] if types else None}
+
+        def values(e: ModelElement) -> list[dict[str, Any]]:
+            return [{"name": a.name, "value": a.value, "unit": a.unit, "value_si": a.value_si,
+                     "unit_si": a.unit_si} for a in self.attributes_of(e.id)]
+
+        def with_values(e: ModelElement) -> dict[str, Any]:
+            return {**brief(e), "attributes": values(e)}
+
+        def requirement(r: ModelElement) -> dict[str, Any]:
+            return {"id": r.id, "name": r.name, "req_id": r.extra.get("req_id"), "text": r.extra.get("text")}
+
+        def satisfied_by(part_id: str) -> list[ModelElement]:
+            out = [self.element(r.target_id) for r in self.relations
+                   if r.kind == "satisfies" and r.source_id == part_id]
+            return [r for r in out if r is not None]
+
+        connected = []
+        for r in self.relations:
+            if r.kind != "connects" or element_id not in (r.source_id, r.target_id):
+                continue
+            other = self.element(r.target_id if r.source_id == element_id else r.source_id)
+            via = self.element(r.id) if r.id else None
+            if other is not None:
+                connected.append({**with_values(other), "via": via.name if via else None,
+                                  "via_kind": via.kind if via else None})
+
+        ancestors_reqs = []
+        seen = {element_id}
+        parent = self.element(el.parent_id) if el.parent_id else None
+        while parent is not None and parent.id not in seen:
+            seen.add(parent.id)
+            ancestors_reqs += [{**requirement(r), "from": parent.name} for r in satisfied_by(parent.id)]
+            parent = self.element(parent.parent_id) if parent.parent_id else None
+
+        allocations = []
+        for r in self.relations:
+            if r.kind == "allocates" and element_id in (r.source_id, r.target_id):
+                other = self.element(r.target_id if r.source_id == element_id else r.source_id)
+                if other is not None:
+                    allocations.append({**brief(other), "direction": "to" if r.source_id == element_id else "from"})
+
+        parent_el = self.element(el.parent_id) if el.parent_id else None
+        return {
+            "version": self.version,
+            "element": with_values(el),
+            "parent": with_values(parent_el) if parent_el else None,
+            "children": [brief(c) for c in self.children(el.id) if c.kind == "part"],
+            "connected": connected,
+            "requirements": [requirement(r) for r in satisfied_by(el.id)],
+            "inherited_requirements": ancestors_reqs,
+            "allocations": allocations,
+        }
+
     def stats(self) -> dict[str, int]:
         out: dict[str, int] = {}
         for e in self.elements:
