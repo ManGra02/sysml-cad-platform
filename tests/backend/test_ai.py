@@ -8,15 +8,16 @@ from types import SimpleNamespace
 
 import pytest
 import pytest_asyncio
+from pydantic import BaseModel
 
 from app.ai import AiConfig, AiError, AiService
 from app.ai.agents import run
 from app.ai.service import model_available
-from app.ai.tools import sysml_tools
+from app.ai.tools import calc_tools, progress_tool, sysml_tools
 from app.sysml.config import SysmlConfig
 from app.sysml.demo import load_sample
 from app.sysml.service import SysmlService
-from conftest import free_port, running_backend, wait_for
+from conftest import BrowserClient, free_port, running_backend, wait_for
 from fake_flexo import FakeFlexo
 from fake_ollama import FakeOllama, answer, tool_call
 
@@ -136,16 +137,20 @@ async def test_api_status_und_ctx_ai(handshake, ollama):
 
 
 async def test_agent_ruft_tools_mit_eigenem_modell(bridge, ollama):
-    ollama.replies = [tool_call("cad_documents"), answer("Ein Dokument: Doc")]
+    missing = {"parts": [{"sysml_id": "p1", "name": "motor", "reason": "no CAD object"}]}
+    ollama.replies = [tool_call("cad_documents"), answer("Ein Dokument: Doc"), answer(json.dumps(missing))]
     async with running_backend(ai_service=AiService(config_for(ollama))) as backend:
         await wait_for(lambda: backend.state.bridge.state == "ok")
         code, body = await backend.post("/api/projects/cra/agent", json={"message": "Welche Dokumente?"})
     assert code == 200, body
     assert body["model"] == "gpt-oss:20b" and body["answer"] == "Ein Dokument: Doc"
     assert body["steps"][0]["tool"] == "cad_documents" and '"Doc"' in body["steps"][0]["result"]
-    assert [c["model"] for c in ollama.chats] == ["gpt-oss:20b"] * 2
+    assert body["result"] == missing                       # CRA's structured MissingParts
+    assert [c["model"] for c in ollama.chats] == ["gpt-oss:20b"] * 3
     assert ollama.chats[0]["messages"][0]["role"] == "system"
-    assert {t["function"]["name"] for t in ollama.chats[0]["tools"]} >= {"sysml_parts", "cad_tree"}
+    assert {t["function"]["name"] for t in ollama.chats[0]["tools"]} >= {
+        "sysml_parts", "sysml_find", "sysml_diff", "cad_tree", "calculate", "report_progress"}
+    assert "format" in ollama.chats[2]                     # the structured step asks for a JSON schema
 
 
 async def test_agent_ohne_key(handshake):
@@ -211,4 +216,95 @@ async def test_agent_sieht_schreibfehler_und_laeuft_weiter(ollama, ebike):
     result = await run(agent, "Setze nope auf 1")
     assert "sysml_attribute_not_found" in result["steps"][0]["result"]
     assert result["answer"] == "Attribut nicht gefunden."
+
+
+# -- More read tools, arithmetic, progress, structured result ---------------
+
+
+async def call(tools, tool_name, **args):
+    """Run one tool directly (as the ToolNode would) -> parsed JSON result."""
+    return json.loads(await next(t for t in tools if t.name == tool_name).ainvoke(args))
+
+
+@pytest.mark.parametrize("expression, result", [
+    ("(2.4 + 3.1) * 4", 22.0), ("0.1 + 0.2", 0.3), ("sqrt(16) / 2", 2.0), ("max(3, 7, 5)", 7),
+    ("sum([1, 2, 3])", 6), ("-2 ** 2", -4), ("17 // 5 + 17 % 5", 5), ("round(2.345, 2)", 2.35),
+])
+async def test_calculate(expression, result):
+    assert (await call(calc_tools(), "calculate", expression=expression))["result"] == result
+
+
+@pytest.mark.parametrize("expression", [
+    "__import__('os')", "a + 1", "(1).real", "2 ** 10000", "(9 ** 100) ** 100", "open('x')", "1 +", "'a' * 3",
+])
+async def test_calculate_verweigert(expression):
+    assert "error" in await call(calc_tools(), "calculate", expression=expression)
+
+
+async def test_convert_units():
+    tools = calc_tools()
+    assert await call(tools, "convert_units", value=11200, from_unit="g", to_unit="kg") == {"value": 11.2, "unit": "kg"}
+    assert "error" in await call(tools, "convert_units", value=1, from_unit="kg", to_unit="m")
+
+
+async def test_report_progress_geht_an_den_browser():
+    frames = []
+    ctx = SimpleNamespace(publish=lambda kind, payload=None: frames.append((kind, payload)))
+    assert await call([progress_tool(ctx)], "report_progress", message="Lese den CAD-Baum") == {"reported": True}
+    assert frames == [("agent.progress", {"message": "Lese den CAD-Baum"})]
+
+
+async def test_report_progress_im_backend(handshake):
+    """Real ProjectContext: the frame is <module id>.agent.progress."""
+    async with running_backend(ai_service=AiService(AiConfig())) as backend:
+        browser = await BrowserClient(backend.url).connect()
+        ctx = backend.state.registry.modules["cra"].ctx
+        await call([progress_tool(ctx)], "report_progress", message="Suche Teile")
+        await wait_for(lambda: any(f.get("type") == "cra.agent.progress" for f in browser.frames))
+        await browser.close()
+    frame = next(f for f in browser.frames if f.get("type") == "cra.agent.progress")
+    assert frame["data"] == {"message": "Suche Teile"}
+
+
+async def test_sysml_find(ebike):
+    service, mass_id = ebike
+    tools = sysml_tools(SimpleNamespace(sysml=service))
+    found = await call(tools, "sysml_find", project="EBike Demo", name="Motor", kind="part")
+    assert [h["name"] for h in found["hits"]] == ["motor"] and found["truncated"] is False
+    assert (await call(tools, "sysml_find", project="EBike Demo", name="nothing"))["hits"] == []
+
+
+async def test_sysml_history_und_diff(ebike):
+    service, mass_id = ebike
+    await service.write_attribute_value("EBike Demo", mass_id, 11200, unit="g", description="mass from CAD")
+    tools = sysml_tools(SimpleNamespace(sysml=service))
+    history = (await call(tools, "sysml_history", project="EBike Demo"))["commits"]
+    assert [c["description"] for c in history] == ["mass from CAD", "seed"]          # newest first
+    assert len((await call(tools, "sysml_history", project="EBike Demo", limit=1))["commits"]) == 1
+
+    diff = await call(tools, "sysml_diff", project="EBike Demo",
+                      base_commit=history[1]["id"], compare_commit=history[0]["id"])
+    assert diff["summary"]["attributes_changed"] == 1
+    [changed] = diff["attributes_changed"]
+    assert (changed["owner"], changed["name"], changed["to"]) == ("motor", "mass", "11.2 [kg]")
+    assert changed["from"] != changed["to"]
+    assert diff["elements_added"] == [] and diff["elements_removed"] == []
+
+
+async def test_strukturiertes_ergebnis(ollama):
+    class Verdict(BaseModel):
+        ok: bool
+        count: int
+
+    ollama.replies = [answer("Alles gut."), answer('{"ok": true, "count": 3}')]
+    agent = AiService(config_for(ollama)).for_project("bds").agent([], response_format=Verdict)
+    result = await run(agent, "Prüfe")
+    assert result["answer"] == "Alles gut." and result["result"] == {"ok": True, "count": 3}
+    assert ollama.chats[1]["format"]["properties"].keys() >= {"ok", "count"}
+
+
+async def test_ohne_response_format_kein_result(ollama):
+    ollama.replies = [answer("Hallo")]
+    result = await run(AiService(config_for(ollama)).for_project("bds").agent([]), "Hi")
+    assert "result" not in result and len(ollama.chats) == 1
 

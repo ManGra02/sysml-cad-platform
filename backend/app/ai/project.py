@@ -6,6 +6,9 @@
     agent = self.ctx.ai.agent(tools, prompt="You are ...")   # a compiled LangGraph graph
     result = await run(agent, "question")                 # app.ai.agents.run
 
+    agent = self.ctx.ai.agent(tools, response_format=Findings)   # Findings: a Pydantic model
+    (await run(agent, "question"))["result"]                      # -> Findings as a dict
+
 Anything LangChain/LangGraph can do with a chat model works with chat_model(),
 e.g. your own StateGraph, structured output (llm.with_structured_output(Schema))
 or streaming (llm.astream(...)).
@@ -49,8 +52,10 @@ class ProjectAi:
             **kwargs,
         )
 
-    def agent(self, tools, prompt=None, model=None, **kwargs):
-        """A tool-calling agent (LangGraph) on the project's model -- see agents.react_agent."""
+    def agent(self, tools, prompt=None, model=None, response_format=None, **kwargs):
+        """A tool-calling agent (LangGraph) on the project's model -- see agents.react_agent.
+        ``response_format`` (a Pydantic model) adds a structured result to run()."""
         from app.ai.agents import react_agent
 
-        return react_agent(self.chat_model(model=model, **kwargs), tools, prompt=prompt)
+        return react_agent(self.chat_model(model=model, **kwargs), tools, prompt=prompt,
+                           response_format=response_format)

@@ -1,5 +1,6 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import { redirect } from "@tanstack/react-router"
+import { toast } from "sonner"
 
 import i18n from "@/i18n"
 import { api, seg } from "@/lib/api"
@@ -84,5 +85,11 @@ export function handleProjectFrame(queryClient: QueryClient, frame: Frame) {
   const list = queryClient.getQueryData<ProjectList>(projectKeys.list())
   if (list?.projects.some((project) => project.id === prefix)) {
     void queryClient.invalidateQueries({ queryKey: projectKeys.module(prefix) })
+  }
+  // An agent's report_progress tool (backend/app/ai/tools.py): one toast per project that keeps
+  // being replaced, so a long run does not pile up messages.
+  const message = (frame.data as { message?: unknown } | undefined)?.message
+  if (frame.type === `${prefix}.agent.progress` && typeof message === "string") {
+    toast.info(message, { id: `${prefix}.agent.progress`, description: prefix.toUpperCase() })
   }
 }

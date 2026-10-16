@@ -294,14 +294,26 @@ environment variable wins. The key never reaches the browser.
 | `OLLAMA_MODEL_BDS`, `OLLAMA_MODEL_CRA` | model per project (`OLLAMA_MODEL_<ID>`), overrides the default |
 | `OLLAMA_BASE_URL`, `OLLAMA_TIMEOUT_S`, `OLLAMA_STATUS_TTL_S` | optional: endpoint, LLM timeout, status cache |
 
-- `sysml_tools(ctx)` and `cad_tools(ctx)` are read-only. `write=True` adds writing tools:
-  `sysml_tools(ctx, write=True)` sets attribute values (each one a new commit),
-  `cad_tools(ctx, write=True)` sets properties and recomputes. The example agents stay read-only. Own tools: any `async def` with type hints and a docstring,
-  wrapped with `StructuredTool.from_function(coroutine=...)` or LangChain's `@tool`.
+- Ready-made tools (`app/ai/tools.py`):
+
+  | Factory | Tools |
+  | --- | --- |
+  | `sysml_tools(ctx)` | `sysml_projects`, `sysml_parts`, `sysml_requirements`, `sysml_attributes`, `sysml_neighbours` (context of one part), `sysml_find` (by name), `sysml_history` (latest commits), `sysml_diff` (what changed between two commits) |
+  | `cad_tools(ctx)` | `cad_documents`, `cad_tree`, `cad_object`, `cad_cells` |
+  | `calc_tools()` | `calculate` (safe arithmetic, no `eval`), `convert_units` — models get numbers wrong, these don't |
+  | `progress_tool(ctx)` | `report_progress` → WebSocket frame `<id>.agent.progress`, shown as a toast in the UI |
+
+  All of these are read-only. `write=True` adds writing tools: `sysml_tools(ctx, write=True)` sets
+  attribute values (each one a new commit), `cad_tools(ctx, write=True)` sets properties and
+  recomputes. The example agents stay read-only. Own tools: any `async def` with type hints and a
+  docstring, wrapped with `StructuredTool.from_function(coroutine=...)` or LangChain's `@tool`.
+- **Structured result:** `self.ctx.ai.agent(tools, response_format=Schema)` (a Pydantic model) —
+  after the tool loop the model fills in the schema, `run()` returns it as `result` next to `answer`.
 - `app/ai/agents.py` spells the tool loop out as a LangGraph `StateGraph` — the template for
   your own graphs (extra nodes, human approval before CAD writes, several agents).
 - Each module has an example agent in `projects/<id>/agent.py`, callable as
-  `POST /api/projects/<id>/agent {"message": "..."}` → `{model, answer, steps}`.
+  `POST /api/projects/<id>/agent {"message": "..."}` → `{model, answer, steps}`; CRA's also
+  returns `result` (`MissingParts`: the SysML parts without a CAD counterpart).
 - Errors arrive as `AiError` (`ai_not_configured`, `ai_no_model`, `ai_unauthorized`,
   `ai_model_not_found`, ...). Without a key the platform runs as usual; the **AI** marker in
   the header shows green (ready), yellow (a project's model is not offered), red (not
