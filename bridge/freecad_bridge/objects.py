@@ -34,6 +34,11 @@ INTERNAL_TYPE_IDS = frozenset(
 )
 
 
+#: Containers and links carry no Shape property of their own; Part.getShape
+#: assembles theirs (children resp. the linked object, placements applied).
+COMPOSITE_TYPE_IDS = frozenset(["App::Part", "App::Link", "Assembly::AssemblyObject"])
+
+
 class ObjectNotFound(BridgeError):
     code = "object_not_found"
     http_status = 404
@@ -112,9 +117,20 @@ def describe_geometry(obj):
 
     Caution: Shape.Mass is NOT the physical mass but the
     GProps mass at density 1. It is also missing on Part.Compound, as is
-    CenterOfMass. Physical mass = density x Volume, see materials.py.
+    CenterOfMass. Physical mass = density x Volume, with the density from
+    ``material`` -- computed by whoever reads this, not here.
+
+    ``tightBoundBox`` is optimalBoundingBox(): Shape.BoundBox is not tight on
+    curved faces (a cylinder's box can be millimetres too large), which matters
+    as soon as a length requirement is checked against it.
+
+    ``cylinders`` lists every cylindrical face with its radius, axis line and
+    side of the material; grouping faces into features and deciding which one
+    a requirement means is left to the caller.
     """
     shape = getattr(obj, "Shape", None)
+    if shape is None and getattr(obj, "TypeId", "") in COMPOSITE_TYPE_IDS:
+        shape = _composite_shape(obj)
     if shape is None:
         return None
 
@@ -142,6 +158,25 @@ def describe_geometry(obj):
 
     _collect(info, "boundBox", bounding_box)
 
+    def tight_bounding_box():
+        box = shape.optimalBoundingBox(False, False)
+        return {
+            "min": [box.XMin, box.YMin, box.ZMin],
+            "max": [box.XMax, box.YMax, box.ZMax],
+            "lengths": [box.XLength, box.YLength, box.ZLength],
+        }
+
+    _collect(info, "tightBoundBox", tight_bounding_box)
+
+    def cylinders():
+        found, truncated = _cylinders(shape)
+        if truncated:
+            info["cylindersTruncated"] = True
+        return found
+
+    _collect(info, "cylinders", cylinders)
+    _collect(info, "material", lambda: _material(obj))
+
     # On Part.Compound, CenterOfMass and Mass are missing entirely -- not an
     # error but a property of the type.
     _collect(info, "centerOfMass", lambda: list(shape.CenterOfMass))
@@ -166,6 +201,83 @@ def _collect(target, key, getter):
         target[key] = getter()
     except Exception:
         pass
+
+
+def _composite_shape(obj):
+    try:
+        import Part
+
+        return Part.getShape(obj)
+    except Exception:
+        return None
+
+
+#: A part with knurling or a thread can carry thousands of cylindrical faces.
+MAX_CYLINDERS = 500
+
+
+def _cylinders(shape):
+    """Every cylindrical face: radius, axis line, and which side the material is on.
+
+    ``kind`` is ``hole`` when the face normal at the parameter mid-point points
+    towards the axis (material outside the surface, a bore), else ``boss``
+    (a shaft, a fillet). normalAt respects the face orientation; the
+    orientation flag alone does not say this.
+    """
+    import Part
+
+    found = []
+    for face in shape.Faces:
+        surface = face.Surface
+        if not isinstance(surface, Part.Cylinder):
+            continue
+        if len(found) >= MAX_CYLINDERS:
+            return found, True
+        u0, u1, v0, v1 = face.ParameterRange
+        u, v = (u0 + u1) / 2.0, (v0 + v1) / 2.0
+        point = face.valueAt(u, v)
+        axis = surface.Axis
+        center = surface.Center
+        offset = point - center
+        radial = offset - axis * offset.dot(axis)
+        found.append({
+            "radius": surface.Radius,
+            "kind": "hole" if face.normalAt(u, v).dot(radial) < 0 else "boss",
+            "center": [center.x, center.y, center.z],
+            "axis": [axis.x, axis.y, axis.z],
+        })
+    return found, False
+
+
+def _material(obj):
+    """The assigned material (FreeCAD >= 1.0: ShapeMaterial) with its density, or None.
+
+    ``default`` marks FreeCAD's placeholder material that every new shape
+    carries -- a density from it is not something the designer stated.
+
+    The density comes from the ``PhysicalProperties`` dict, never from
+    getPhysicalValue()/hasPhysicalProperty(): those mark the object Touched
+    (FreeCAD 1.1), so a mere read would make it "not recomputed".
+    """
+    material = getattr(obj, "ShapeMaterial", None)
+    if material is None:
+        return None
+    name = getattr(material, "Name", "") or ""
+    density = None
+    try:
+        value = (material.PhysicalProperties or {}).get("Density")
+        if isinstance(value, str) and value:
+            value = FreeCAD.Units.Quantity(value)
+        if isinstance(value, FreeCAD.Units.Quantity) and value.Value > 0:
+            density = properties._encode_quantity(value)
+    except Exception:
+        density = None
+    return {
+        "name": name,
+        "uuid": getattr(material, "UUID", None),
+        "density": density,
+        "default": name in ("", "Default"),
+    }
 
 
 @main_thread_only

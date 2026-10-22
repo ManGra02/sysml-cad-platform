@@ -350,6 +350,304 @@
       "shown": "angezeigt"
     }
   },
+  "bds": {
+    "common": {
+      "cancel": "Abbrechen"
+    },
+    "tabs": {
+      "overview": "Übersicht",
+      "catalog": "Katalog",
+      "proposals": "Vorschläge",
+      "mapping": "Mapping",
+      "verify": "Verifikation",
+      "sync": "Sync"
+    },
+    "verdict": {
+      "compliant": "erfüllt",
+      "within_tolerance": "in Toleranz",
+      "violated": "verletzt"
+    },
+    "gates": {
+      "names": {
+        "existence": "Existenz",
+        "dimension": "Dimension",
+        "uniqueness": "Eindeutigkeit",
+        "plausibility": "Plausibilität"
+      },
+      "verdict": {
+        "valid": "gültig",
+        "unknown": "unklar",
+        "invalid": "ungültig"
+      }
+    },
+    "list": {
+      "title": "Bi-Directional Synchronization",
+      "hint": "Ein Workspace verbindet ein SysML-Projekt aus Flexo mit einem FreeCAD-Dokument. Das Mapping sagt, welche Messung welches Attribut belegt.",
+      "new": "Neuer Workspace",
+      "empty": "Noch kein Workspace.",
+      "emptyModels": "BDS liest Requirements aus dem vollen SysML-v2-Metamodell. Beispielmodelle: <code>data/examples/sysml/bds/</code> (laden mit <code>python -m app.sysml load-file</code>).",
+      "storage": "Workspaces sind Dateien unter <code>data/bds/…/</code> – das Mapping gehört ins Git.",
+      "notVerified": "noch nicht geprüft",
+      "violated_one": "{{count}} verletzt",
+      "violated_other": "{{count}} verletzt",
+      "satisfied": "{{ok}} / {{total}} erfüllt",
+      "sysml": "SysML-Projekt",
+      "freecad": "FreeCAD",
+      "open": "offen",
+      "notOpen": "nicht geöffnet",
+      "mapping": "Mapping",
+      "mappingBroken": "mapping.yaml lässt sich nicht laden",
+      "mappingCounts": "{{parts}} Parts · {{attributes}} Attribute bestätigt",
+      "mappingEmpty": "leer",
+      "pending_one": "{{count}} Vorschlag offen",
+      "pending_other": "{{count}} Vorschläge offen",
+      "gaps_one": "{{count}} Lücke",
+      "gaps_other": "{{count}} Lücken",
+      "checkedAt": "geprüft {{when}}"
+    },
+    "dialog": {
+      "newTitle": "Neuer Workspace",
+      "editTitle": "Einstellungen von {{name}}",
+      "description": "Verbindet ein SysML-Projekt mit einem in FreeCAD geöffneten Dokument.",
+      "name": "Name",
+      "nameRule": "Buchstaben, Ziffern, _, - und . – er wird ein Ordnername.",
+      "sysmlProject": "SysML-Projekt (Flexo)",
+      "choose": "Auswählen …",
+      "flexoDown": "Flexo ist nicht erreichbar",
+      "cadDocument": "FreeCAD-Dokument",
+      "noDocument": "– noch keins –",
+      "documentHint": "Die gerade in FreeCAD geöffneten Dokumente.",
+      "bridgeDown": "FreeCAD-Brücke nicht verbunden – das Dokument lässt sich später setzen.",
+      "advanced": "Erweitert: Achsen & Grenzwert-Sheet",
+      "axes": "Achsen-Konvention",
+      "axesFreecad": "FreeCAD-Standard (Länge X, Breite Y, Höhe Z)",
+      "axesChili3d": "Chili3D (Länge Y, Breite Z, Höhe X)",
+      "axesCustom": "Eigene (aus workspace.yaml)",
+      "sheet": "Grenzwert-Sheet",
+      "sheetHint": "Requirement-Grenzwerte werden in das Spreadsheet \"{{sheet}}\" geschrieben – nutzbar als ={{sheet}}.MaxLength.",
+      "create": "Anlegen",
+      "save": "Speichern",
+      "created": "Workspace {{name}} angelegt",
+      "saved": "Workspace {{name}} gespeichert"
+    },
+    "workspace": {
+      "notFound": "Es gibt keinen Workspace \"{{name}}\".",
+      "toList": "Alle Workspaces",
+      "breadcrumb": "Pfad",
+      "noDocument": "kein FreeCAD-Dokument",
+      "version": "Modellstand",
+      "head": "Head des Default-Branches",
+      "settings": "Einstellungen"
+    },
+    "overview": {
+      "requirements": "Requirements im Modell",
+      "allExtracted": "alle gelesen",
+      "notExtracted_one": "{{count}} nicht lesbar",
+      "notExtracted_other": "{{count}} nicht lesbar",
+      "mapping": "Attribute gemappt",
+      "mappingHint": "{{parts}} Parts bestätigt",
+      "lastRun": "Letzte Verifikation",
+      "lastRunHint": "{{violated}} verletzt · {{gaps}} nicht geprüft · {{when}}",
+      "neverRun": "noch nicht geprüft",
+      "stale": "veraltet",
+      "pending": "Offene Vorschläge",
+      "nextSteps": "Nächste Schritte",
+      "allDone": "Nichts zu tun – alles gemappt, geprüft und erfüllt.",
+      "steps": {
+        "openDocument": "FreeCAD-Dokument \"{{document}}\" öffnen – ohne es lässt sich nichts messen.",
+        "propose": "Noch nichts gemappt: Vorschläge erzeugen.",
+        "review_one": "{{count}} Vorschlag wartet auf eine Entscheidung.",
+        "review_other": "{{count}} Vorschläge warten auf eine Entscheidung.",
+        "verify": "Das Mapping hat Einträge, wurde aber nie geprüft.",
+        "fix_one": "{{count}} Requirement ist verletzt oder nicht geprüft.",
+        "fix_other": "{{count}} Requirements sind verletzt oder nicht geprüft.",
+        "sync": "Grenzwerte nach FreeCAD schreiben (zuerst Trockenlauf)."
+      },
+      "connections": "Verbindungen",
+      "flexo": "Flexo · Projekt \"{{project}}\"",
+      "document": "FreeCAD · {{document}} offen",
+      "documentClosed": "FreeCAD · {{document}} nicht geöffnet",
+      "noDocument": "FreeCAD · kein Dokument gesetzt",
+      "ai": "KI · {{model}}",
+      "settings": "Achsen: Länge {{length}} · Breite {{width}} · Höhe {{height}} · Grenzwert-Sheet \"{{sheet}}\""
+    },
+    "catalog": {
+      "hint": "Was es auf beiden Seiten gibt – genau das sieht auch ein Vorschlags-Generator. Klick auf eine CAD-Referenz markiert das Objekt in FreeCAD.",
+      "openOnly": "nur nicht gemappte",
+      "filter": "Filtern …",
+      "notExtracted_one": "{{count}} Requirement ist nicht lesbar (es ist in jeder Verifikation eine Lücke):",
+      "notExtracted_other": "{{count}} Requirements sind nicht lesbar (sie sind in jeder Verifikation Lücken):",
+      "sysmlTitle": "SysML · {{project}} · {{count}} Parts",
+      "cadTitle": "FreeCAD · {{document}} · {{count}} Objekte",
+      "noParts": "Das Modell hat keine Part-Usages, die BDS lesen kann.",
+      "noTargets": "Keine messbaren Objekte – ist das Dokument in FreeCAD geöffnet?",
+      "inside": "in {{container}}",
+      "unknownDimension": "Dimension unbekannt",
+      "confirmedNoRequirement": "gemappt, ohne Requirement",
+      "proposed": "Vorschlag {{id}}",
+      "state": {
+        "open": "offen",
+        "disabled": "deaktiviert"
+      },
+      "kind": {
+        "part": "Teil",
+        "assembly": "Baugruppe"
+      },
+      "notMeasurable": "nicht messbar",
+      "parameters": "Parameter",
+      "axes": "Achsen-Konvention dieses Workspace: Länge {{length}} · Breite {{width}} · Höhe {{height}} – änderbar unter Einstellungen."
+    },
+    "proposals": {
+      "newTitle": "Neue Vorschläge",
+      "proposer": "Generator",
+      "difflib": "difflib (offline)",
+      "ai": "KI · {{model}}",
+      "aiUnavailable": "Kein KI-Modell für BDS konfiguriert (OLLAMA_API_KEY und OLLAMA_MODEL_BDS in backend/.env)",
+      "top": "pro Attribut",
+      "dryRun": "nur ansehen, nicht speichern",
+      "generate": "Vorschläge erzeugen",
+      "generating": "Erzeuge …",
+      "generated_one": "{{count}} neuer Vorschlag gespeichert",
+      "generated_other": "{{count}} neue Vorschläge gespeichert",
+      "generatedDry_one": "{{count}} Kandidat (nicht gespeichert)",
+      "generatedDry_other": "{{count}} Kandidaten (nicht gespeichert)",
+      "lastRun": "Letzter Lauf ({{proposer}}): {{candidates}} Kandidaten · {{stored}} neu gespeichert · {{rejected}} von Gates abgelehnt · {{dropped}} vor den Gates verworfen",
+      "droppedByModel": "vor den Gates verworfen",
+      "filter": "Status",
+      "status": {
+        "proposed": "Offen",
+        "confirmed": "Bestätigt",
+        "rejected": "Abgelehnt"
+      },
+      "nonePending": "Keine offenen Vorschläge. Oben neue erzeugen.",
+      "none": "Keine.",
+      "byAi": "KI · {{model}}",
+      "byDifflib": "difflib",
+      "provenance": "Modell {{model}} · Prompt {{prompt_digest}}",
+      "confidence": "Konfidenz",
+      "checkedBy": "Geprüft über",
+      "noRequirement": "– ohne Requirement –",
+      "noRequirementHint": "Ohne Requirement nutzt keine Verifikation diesen Eintrag.",
+      "suggested": "aus dem Modell vorausgewählt",
+      "reject": "Ablehnen",
+      "confirm": "Bestätigen",
+      "blocked": "Ein Gate sagt, die Zuordnung ist falsch – ablehnen oder die Part-Zuordnung korrigieren.",
+      "confirmed": "{{id}} bestätigt und ins Mapping geschrieben",
+      "partNotConfirmed": "Der Part-Eintrag von {{part}} ist nicht bestätigt – die Verifikation ignoriert das Attribut, bis er es ist.",
+      "decided": {
+        "proposed": "offen",
+        "confirmed": "bestätigt {{when}}",
+        "rejected": "abgelehnt {{when}}"
+      },
+      "rejectTitle": "Vorschlag {{id}} ablehnen",
+      "rejectHint": "Abgelehnte Vorschläge bleiben gespeichert und werden nicht erneut vorgeschlagen.",
+      "reason": "Grund (optional)",
+      "rejected": "{{id}} abgelehnt"
+    },
+    "mapping": {
+      "hint": "Prüft die ZUORDNUNG, nicht das Design: Ein korrekt gemapptes, zu langes Teil ist hier grün und in der Verifikation rot.",
+      "file": "data/bds/{{name}}/mapping.yaml · Stand {{digest}} · von Hand editierbar",
+      "recheck": "Gates neu prüfen",
+      "empty": "Das Mapping ist leer.",
+      "toProposals": "Vorschläge erzeugen",
+      "columns": {
+        "attribute": "Attribut",
+        "cadObject": "CAD-Objekt",
+        "measurement": "Messung",
+        "requirement": "Requirement",
+        "measured": "Gemessen",
+        "gates": "Gates",
+        "origin": "Herkunft"
+      },
+      "details": "Gate-Details",
+      "noRequirement": "keins – wird nie genutzt",
+      "manual": "von Hand",
+      "parts": "Part-Zuordnungen",
+      "partStatus": {
+        "proposed": "nur vorgeschlagen",
+        "confirmed": "bestätigt",
+        "disabled": "deaktiviert"
+      },
+      "unused": "Kein Attribut-Eintrag nutzt: {{parts}}"
+    },
+    "verify": {
+      "hint": "Requirements gegen die Geometrie in FreeCAD, über das bestätigte Mapping. Eine Lücke ist nie ein Bestehen.",
+      "run": "Prüfen",
+      "again": "Neu prüfen",
+      "running": "Prüfe …",
+      "none": "Noch nicht geprüft.",
+      "stale": {
+        "commit": "Veraltet: Das SysML-Modell hat einen neueren Stand als dieses Ergebnis.",
+        "cad": "Veraltet: Das FreeCAD-Dokument wurde nach dieser Prüfung geändert."
+      },
+      "notChecked": "nicht geprüft",
+      "columns": {
+        "requirement": "Requirement",
+        "attribute": "Part.Attribut",
+        "measured": "Gemessen vs. Grenzwert",
+        "deviation": "Abweichung",
+        "status": "Status"
+      },
+      "tolerance": "Toleranz {{tolerance}}",
+      "showInFreecad": "In FreeCAD zeigen",
+      "openExplorer": "Im CAD-Explorer öffnen",
+      "gapsTitle_one": "Nicht geprüft ({{count}})",
+      "gapsTitle_other": "Nicht geprüft ({{count}})",
+      "gapsHint": "– eine Lücke ist nie ein Bestehen",
+      "gapActions": {
+        "proposals": "Vorschläge prüfen",
+        "propose": "Vorschläge erzeugen",
+        "recompute": "In FreeCAD neu berechnen",
+        "model": "Katalog zeigen",
+        "gates": "Gates zeigen",
+        "link": "Mapping zeigen"
+      },
+      "gapHints": {
+        "proposals": "Den Vorschlag im Tab Vorschläge bestätigen.",
+        "propose": "Den Part im Tab Vorschläge zuordnen.",
+        "recompute": "Das Dokument in FreeCAD neu berechnen.",
+        "openDocument": "Das Dokument in FreeCAD öffnen.",
+        "material": "In FreeCAD ein Material mit Dichte zuweisen.",
+        "model": "Das Requirement ist im SysML-Modell nicht lesbar.",
+        "gates": "Der Mapping-Eintrag ist fehlerhaft – siehe Tab Mapping.",
+        "link": "Das Requirement im Eintrag in mapping.yaml ergänzen."
+      },
+      "recomputed": "{{document}} neu berechnet",
+      "provenance": "Nachweis: SysML-Commit {{commit}} · FreeCAD-Stand {{cad}} · Mapping {{mapping}} · {{when}}"
+    },
+    "sync": {
+      "title": "Grenzwerte nach FreeCAD",
+      "hint": "SysML besitzt die Grenzwerte, CAD die Istwerte. Geschrieben wird nur in das Sheet <strong>\"{{sheet}}\"</strong> – nutzbar in Ausdrücken als <code>={{sheet}}.MaxLength</code>. Geometrie wird nie verändert.",
+      "refresh": "Trockenlauf aktualisieren",
+      "nothing": "Nichts zu schreiben: Kein bestätigter Eintrag verbindet ein Requirement mit einem FreeCAD-Dokument.",
+      "notWritable": "nicht geschrieben",
+      "changes_one": "{{count}} Änderung",
+      "changes_other": "{{count}} Änderungen",
+      "upToDate": "Das Sheet \"{{sheet}}\" ist aktuell.",
+      "columns": {
+        "alias": "Alias",
+        "now": "Jetzt in FreeCAD",
+        "becomes": "Wird"
+      },
+      "new": "neu",
+      "heldBack_one": "Zurückgehalten ({{count}}):",
+      "heldBack_other": "Zurückgehalten ({{count}}):",
+      "skipped_one": "Übersprungen ({{count}}):",
+      "skipped_other": "Übersprungen ({{count}}):",
+      "applyHint": "Ein Undo-Schritt in FreeCAD · protokolliert in sync_log.jsonl",
+      "apply_one": "{{count}} Änderung anwenden …",
+      "apply_other": "{{count}} Änderungen anwenden …",
+      "confirmTitle_one": "{{count}} Grenzwert in \"{{document}}\" schreiben?",
+      "confirmTitle_other": "{{count}} Grenzwerte in \"{{document}}\" schreiben?",
+      "confirmText": "Das Sheet \"{{sheet}}\" wird angelegt oder aktualisiert – ein Undo-Schritt in FreeCAD. Die Geometrie bleibt unverändert; das Dokument wird geändert, aber nicht gespeichert.",
+      "write": "Schreiben",
+      "applied_one": "{{count}} Grenzwert geschrieben",
+      "applied_other": "{{count}} Grenzwerte geschrieben",
+      "undoHint": "Rückgängig in FreeCAD mit Strg+Z",
+      "failed_one": "{{count}} Dokument konnte nicht geschrieben werden",
+      "failed_other": "{{count}} Dokumente konnten nicht geschrieben werden"
+    }
+  },
   "errors": {
     "generic": "Das hat nicht geklappt.",
     "backend_unreachable": "Das Backend ist nicht erreichbar.",
@@ -425,6 +723,19 @@
     "sysml_unauthorized": "Flexo MMS hat die Anmeldung abgelehnt.",
     "sysml_upstream_error": "Flexo MMS hat einen Fehler gemeldet.",
     "sysml_element_not_found": "Dieses Element gibt es im Modell nicht.",
-    "sysml_attribute_not_found": "Dieses Attribut gibt es im Modell nicht."
+    "sysml_attribute_not_found": "Dieses Attribut gibt es im Modell nicht.",
+    "bds_workspace_not_found": "Diesen BDS-Workspace gibt es nicht.",
+    "bds_invalid_name": "Ungültiger Workspace-Name: nur Buchstaben, Ziffern, _, - und .",
+    "bds_invalid_workspace": "Die Workspace-Einstellungen sind unvollständig (SysML-Projekt fehlt).",
+    "bds_invalid_axes": "Ungültige Achsen-Konvention: Länge, Breite und Höhe brauchen drei verschiedene Achsen.",
+    "bds_invalid_sheet": "Ungültiger Name für das Grenzwert-Sheet: ein einfacher Name wie SysML.",
+    "bds_unknown_proposer": "Unbekannter Generator.",
+    "bds_proposal_not_found": "Diesen Vorschlag gibt es nicht (mehr).",
+    "bds_proposal_decided": "Über diesen Vorschlag wurde schon entschieden.",
+    "bds_gate_failed": "Nicht bestätigt: Ein Gate sagt, die Zuordnung ist falsch.",
+    "bds_unknown_requirement": "Das Modell hat dieses Requirement für diesen Part nicht.",
+    "bds_mapping_write_failed": "mapping.yaml ließ sich nicht wie gewollt schreiben – das Original wurde wiederhergestellt.",
+    "bds_no_gold": "Dieser Workspace hat kein Gold-Set.",
+    "bds_no_run": "Noch nicht geprüft."
   }
 }
