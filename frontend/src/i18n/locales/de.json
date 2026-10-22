@@ -348,6 +348,14 @@
       "hint": "Jede Änderung am Modell ist ein neuer Commit. Ergebnisse beziehen sich immer auf genau einen Commit.",
       "noDescription": "(keine Beschreibung)",
       "shown": "angezeigt"
+    },
+    "import": {
+      "button": ".sysml importieren",
+      "running": "Importiere …",
+      "done": "Importiert als Projekt „{{name}}“",
+      "failed": "Import fehlgeschlagen",
+      "unavailable": "Der SysML-Kernel läuft nicht. Starte ihn mit: docker compose -f flexo/docker-compose.yml --profile import up -d",
+      "orImport": "… oder importiere eine .sysml-Datei (legt ein neues Projekt an):"
     }
   },
   "bds": {

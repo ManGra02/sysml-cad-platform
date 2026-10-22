@@ -5,6 +5,7 @@
     uv run python -m app.sysml setup-org             # once per fresh Flexo database
     uv run python -m app.sysml seed-demo             # e-bike demo  (--model parts-tree)
     uv run python -m app.sysml tree "EBike Demo"
+    uv run python -m app.sysml import-sysml model.sysml  # .sysml text -> new project (needs the kernel)
     uv run python -m app.sysml --help
 
 Talks to SYSML_API_URL (default http://127.0.0.1:8083), see app/sysml/config.py.
@@ -54,6 +55,9 @@ def build_parser():
     s = sub.add_parser("seed-demo", help="create a project and commit a demo model")
     s.add_argument("--model", choices=["ebike", "parts-tree"], default="ebike")
     s.add_argument("--name", help="project name (default depends on the model)")
+    s = sub.add_parser("import-sysml", help="parse a .sysml file with the SysML kernel and publish it as a new project")
+    s.add_argument("file")
+    s.add_argument("--name", help="project name (default: the name of the top-level package)")
     s = sub.add_parser("load-file", help="commit a JSON file (commit payload or element list) into a project")
     s.add_argument("project")
     s.add_argument("file")
@@ -134,6 +138,17 @@ async def run(a, config):
             commit = await client.post_commit(pid, changes, description=message)
             print("committed %d elements -> commit %s" % (len(changes), commit.get("@id")))
             return 0
+        if a.cmd == "import-sysml":
+            try:
+                result = await service.import_sysml(Path(a.file).read_text(encoding="utf-8"), project_name=a.name)
+            except SysmlError as exc:
+                if isinstance(exc.detail, dict) and exc.detail.get("output"):
+                    print(exc.detail["output"], file=sys.stderr)
+                raise
+            print(result["output"])
+            print("imported %s -> project %s  (%s), commit %s"
+                  % (result["package"], result["projectId"], result["projectName"], result["commitId"]))
+            return 0
         if a.cmd == "commits":
             _table([[c["id"], c["created"], c["description"]] for c in await service.commits(a.project)],
                    ["id", "created", "description"])
@@ -194,6 +209,9 @@ def main(argv=None):
         print("SysML error [%s]: %s" % (exc.code, exc.message), file=sys.stderr)
         if exc.code == "sysml_unreachable":
             print("-> is Flexo running?  docker compose -f flexo/docker-compose.yml up -d", file=sys.stderr)
+        elif exc.code == "sysml_kernel_unreachable":
+            print("-> is the SysML kernel running?  docker compose -f flexo/docker-compose.yml --profile import up -d",
+                  file=sys.stderr)
         elif exc.code == "sysml_upstream_error" and "orgs" in str(exc.detail):
             print("-> fresh database?  uv run python -m app.sysml setup-org", file=sys.stderr)
         return 2

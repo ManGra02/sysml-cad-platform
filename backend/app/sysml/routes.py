@@ -8,9 +8,10 @@ from dataclasses import asdict
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse, PlainTextResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.sysml.client import SysmlError
+from app.sysml.importer import MAX_TEXT
 
 
 class SetValue(BaseModel):
@@ -18,6 +19,12 @@ class SetValue(BaseModel):
     unit: str | None = None
     branch: str | None = None
     description: str | None = None
+
+
+class ImportSysml(BaseModel):
+    text: str = Field(max_length=MAX_TEXT)
+    filename: str | None = None
+    name: str | None = None
 
 
 async def _sysml_error(_request, exc):
@@ -109,5 +116,10 @@ def build_router(service):
         """Write a new value for an attribute -> a new commit in the repository."""
         return await service.write_attribute_value(project, attribute_id, body.value, unit=body.unit,
                                                    branch_id=body.branch, description=body.description)
+
+    @router.post("/import")
+    async def import_sysml(body: ImportSysml):
+        """A .sysml file (as text) -> a NEW project. Needs the SysML kernel (``importAvailable`` in /status)."""
+        return await service.import_sysml(body.text, project_name=body.name)
 
     return router

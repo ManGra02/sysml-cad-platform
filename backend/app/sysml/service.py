@@ -19,6 +19,7 @@ from app.sysml import units
 from app.sysml.client import FlexoClient, SysmlError
 from app.sysml.config import SysmlConfig
 from app.sysml.diff import diff_snapshots
+from app.sysml.importer import import_sysml, kernel_available
 from app.sysml.parser import normalise_elements, parse_elements
 
 #: Parsed snapshots kept in memory (least recently used ones are dropped)
@@ -41,11 +42,16 @@ class SysmlService:
     # -- Status -----------------------------------------------------------
 
     async def status(self):
+        """``importAvailable``: is the SysML kernel there that parses .sysml files?"""
+        importable = asyncio.create_task(kernel_available(self.config))   # asked alongside Flexo
         try:
             projects = await self.client.list_projects()
         except SysmlError as exc:
-            return {"url": self.config.api_url, "reachable": False, "code": exc.code, "message": exc.message}
-        return {"url": self.config.api_url, "reachable": True, "projects": len(projects)}
+            importable.cancel()
+            return {"url": self.config.api_url, "reachable": False, "code": exc.code, "message": exc.message,
+                    "importAvailable": False}
+        return {"url": self.config.api_url, "reachable": True, "projects": len(projects),
+                "importAvailable": await importable}
 
     # -- Projects and versions -------------------------------------------
 
@@ -130,6 +136,10 @@ class SysmlService:
                               await self.snapshot(project, commit_id=compare_commit))
 
     # -- Writing ----------------------------------------------------------
+
+    async def import_sysml(self, text, project_name=None):
+        """A .sysml text -> a NEW project (parsed and published by the SysML kernel, importer.py)."""
+        return await import_sysml(text, self.config, self.client, project_name=project_name)
 
     async def commit_changes(self, project, changes, description="", branch_id=None):
         pid = await self.resolve_project_id(project)

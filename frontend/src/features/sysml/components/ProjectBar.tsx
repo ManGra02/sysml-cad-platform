@@ -1,4 +1,5 @@
 import { GitCommitHorizontal, RefreshCw } from "lucide-react"
+import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -15,10 +16,12 @@ type Props = {
   version?: string
   reloading: boolean
   onReload: () => void
+  /** Extra actions next to the reload button (the .sysml import). */
+  actions?: ReactNode
 }
 
-/** Project picker, the version being shown and the reload button. */
-export function ProjectBar({ projects, project, onProjectChange, version, reloading, onReload }: Props) {
+/** Project picker, the version being shown, the reload button and further actions. */
+export function ProjectBar({ projects, project, onProjectChange, version, reloading, onReload, actions }: Props) {
   const { t } = useTranslation()
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -41,10 +44,13 @@ export function ProjectBar({ projects, project, onProjectChange, version, reload
           {t("sysml.version", { id: version.slice(0, 8) })}
         </span>
       )}
-      <Button variant="ghost" size="sm" className="ml-auto" onClick={onReload} disabled={reloading}>
-        <RefreshCw className={cn(reloading && "animate-spin")} />
-        {t("sysml.reload")}
-      </Button>
+      <div className="ml-auto flex items-center gap-2">
+        {actions}
+        <Button variant="ghost" size="sm" onClick={onReload} disabled={reloading}>
+          <RefreshCw className={cn(reloading && "animate-spin")} />
+          {t("sysml.reload")}
+        </Button>
+      </div>
     </div>
   )
 }
