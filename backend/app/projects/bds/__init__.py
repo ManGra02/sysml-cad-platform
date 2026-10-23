@@ -13,8 +13,7 @@ Rules that hold everywhere: the AI only proposes, it never evaluates; only confi
 mapping entries take part in a run; SysML owns limits, CAD owns actual values; a gap
 is never a pass.
 
-Routes under /api/projects/bds (no UI yet). The example agent (agent.py) stays at
-POST /api/projects/bds/agent.
+Routes under /api/projects/bds.
 """
 
 import functools
@@ -22,11 +21,10 @@ import functools
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app.ai.routes import AgentRequest
 from app.projects.bds import confirm as confirm_mod
 from app.projects.bds import limits, verify
 from app.projects.bds.adapters import AdapterPool
-from app.projects.bds.bridge_adapter import BridgeAdapter
+from app.projects.bds.freecad_snapshot import FreeCADSnapshot
 from app.projects.bds.catalog import build_catalog
 from app.projects.bds.extract import by_key, extract
 from app.projects.bds.gates import check_mapping, check_proposal, unused_parts
@@ -105,9 +103,9 @@ class Session:
         self.by_key = by_key(self.requirements)
         self.mapping = load_mapping(self.workspace.mapping_path)
         documents = [self.workspace.cad_document] + [
-            p.cad_object.split("#", 1)[0] for p in self.mapping.parts.values() if p.adapter == BridgeAdapter.name]
-        self.adapter = await BridgeAdapter.load(ctx.cad, documents, self.workspace.limits_sheet)
-        self.pool = AdapterPool({BridgeAdapter.name: self.adapter})
+            p.cad_object.split("#", 1)[0] for p in self.mapping.parts.values() if p.adapter == FreeCADSnapshot.name]
+        self.adapter = await FreeCADSnapshot.load(ctx.cad, documents, self.workspace.limits_sheet)
+        self.pool = AdapterPool({FreeCADSnapshot.name: self.adapter})
         self.catalog = build_catalog(self.elements, self.adapter, self.workspace.axes,
                                      source="flexo:%s@%s" % (pid, cid))
         return self
@@ -131,15 +129,6 @@ class BdsModule(StubModule):
 
     def register_routes(self, router):
         super().register_routes(router)
-
-        @router.post("/agent")
-        async def agent(body: AgentRequest):
-            """Ask the example agent (agent.py) -> {model, answer, steps}."""
-            # Imported on first use: LangChain/LangGraph take seconds to import.
-            from app.ai.agents import run
-            from app.projects.bds.agent import build_agent
-
-            return await run(build_agent(self.ctx), body.message, model=self.ctx.ai.model)
 
         # -- Workspaces ---------------------------------------------------
 

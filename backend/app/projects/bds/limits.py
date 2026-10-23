@@ -8,7 +8,7 @@ that for them.
 
 It never writes a value that drives geometry (entries with ``direction: sysml_owns``
 are reported, not written), never writes into a sheet it does not own (the marker in
-A1, see bridge_adapter), and never writes without being asked: the default is the
+A1, see freecad_limits), and never writes without being asked: the default is the
 dry run.
 """
 

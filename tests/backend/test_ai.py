@@ -155,14 +155,14 @@ async def test_agent_ruft_tools_mit_eigenem_modell(bridge, ollama):
 
 async def test_agent_ohne_key(handshake):
     async with running_backend(ai_service=AiService(AiConfig(default_model="m"))) as backend:
-        code, body = await backend.post("/api/projects/bds/agent", json={"message": "hi"})
+        code, body = await backend.post("/api/projects/cra/agent", json={"message": "hi"})
     assert code == 503 and body["error"]["code"] == "ai_not_configured"
 
 
 async def test_agent_unbekanntes_modell(handshake, ollama):
-    service = AiService(config_for(ollama, default_model="gone:1b"))
+    service = AiService(config_for(ollama, models={"cra": "gone:1b"}))
     async with running_backend(ai_service=service) as backend:
-        code, body = await backend.post("/api/projects/bds/agent", json={"message": "hi"})
+        code, body = await backend.post("/api/projects/cra/agent", json={"message": "hi"})
     assert code == 502 and body["error"]["code"] == "ai_model_not_found"
 
 

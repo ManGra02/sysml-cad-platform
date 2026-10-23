@@ -55,7 +55,7 @@ export function attributeState(mapping: Mapping | undefined, proposals: Proposal
 export type GapAction = "proposals" | "propose" | "link" | "recompute" | "openDocument" | "material" | "model" | "gates"
 
 /**
- * What to do about a gap -- read from the backend's sentence (verify.py, bridge_adapter.py).
+ * What to do about a gap -- read from the backend's sentence (verify.py, freecad_snapshot.py).
  * Unknown wording gets no button rather than a wrong one.
  */
 export function gapAction(gap: string): GapAction | undefined {

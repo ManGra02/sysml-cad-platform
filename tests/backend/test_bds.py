@@ -20,12 +20,8 @@ from app.ai import AiConfig, AiService
 from app.projects.bds import confirm as confirm_mod
 from app.projects.bds import limits, verify
 from app.projects.bds.adapters import AdapterPool, Unsupported
-from app.projects.bds.bridge_adapter import (
-    MARKER,
-    BridgeAdapter,
-    decode_quantity,
-    freecad_text,
-)
+from app.projects.bds.freecad_limits import MARKER, freecad_text
+from app.projects.bds.freecad_snapshot import FreeCADSnapshot, decode_quantity
 from app.projects.bds.catalog import build_catalog
 from app.projects.bds.extract import by_key, extract
 from app.projects.bds.gates import check_mapping, check_proposal
@@ -108,7 +104,7 @@ def workspace_dir(tmp_path, monkeypatch):
 
 async def gearbox_session(cad=None, mapping_text=GEARBOX_MAPPING):
     cad = cad or FakeCad(gearbox())
-    adapter = await BridgeAdapter.load(cad, ["Gearbox"])
+    adapter = await FreeCADSnapshot.load(cad, ["Gearbox"])
     model = elements("gearbox")
     requirements, skipped = extract(model)
     return {
@@ -182,7 +178,7 @@ def test_falsche_dimension_ist_kein_urteil():
 # -- CAD through the bridge ----------------------------------------------------
 
 async def test_katalog_der_cad_seite():
-    adapter = await BridgeAdapter.load(FakeCad(gearbox()), ["Gearbox"])
+    adapter = await FreeCADSnapshot.load(FakeCad(gearbox()), ["Gearbox"])
     targets = {t.reference: t for t in adapter.catalog()}
     # One root (the App::Part) -> addressed by the document name; features and
     # sketches are consumed by their bodies and not listed.
@@ -199,7 +195,7 @@ async def test_katalog_der_cad_seite():
 
 
 async def test_messungen():
-    adapter = await BridgeAdapter.load(FakeCad(gearbox()), ["Gearbox"])
+    adapter = await FreeCADSnapshot.load(FakeCad(gearbox()), ["Gearbox"])
     assert adapter.measure("Gearbox#Body", "bbox_size", {"axis": "X"}) == 90 * ureg.mm   # tight box
     assert adapter.measure("Gearbox#Housing", "bbox_size", {"axis": "z"}) == 40 * ureg.mm  # by label
     assert adapter.measure("Gearbox#Body", "face_count") == 11 * ureg.dimensionless
@@ -213,7 +209,7 @@ async def test_messungen():
 
 
 async def test_mehrdeutiges_und_unmessbares_wird_zur_luecke():
-    adapter = await BridgeAdapter.load(FakeCad(gearbox(), cube()), ["Gearbox", "Cube", "Closed"])
+    adapter = await FreeCADSnapshot.load(FakeCad(gearbox(), cube()), ["Gearbox", "Cube", "Closed"])
     with pytest.raises(Unsupported, match="2 cylindrical features"):
         adapter.measure("Gearbox#Body", "cylinder_radius")          # the bore and a fillet
     with pytest.raises(Unsupported, match="no material"):
@@ -234,7 +230,7 @@ async def test_body_ohne_form_faellt_aus_der_baugruppe():
     doc.add("Body002", "PartDesign::Body", "Empty", properties=[prop("Shape", None, status="derived")],
             geometry={"null": True, "shapeType": None})
     doc.objects["Part"]["children"].append("Body002")
-    adapter = await BridgeAdapter.load(FakeCad(doc), ["Gearbox"])
+    adapter = await FreeCADSnapshot.load(FakeCad(doc), ["Gearbox"])
     assert "Gearbox#Body002" not in {t.reference for t in adapter.catalog()}
     assert adapter.measure("Gearbox", "mass").magnitude > 0
 
@@ -242,7 +238,7 @@ async def test_body_ohne_form_faellt_aus_der_baugruppe():
 async def test_veraltete_form_wird_nicht_gemessen():
     doc = gearbox()
     doc.objects["Body"]["state"] = ["Touched"]
-    adapter = await BridgeAdapter.load(FakeCad(doc), ["Gearbox"])
+    adapter = await FreeCADSnapshot.load(FakeCad(doc), ["Gearbox"])
     with pytest.raises(Unsupported, match="recompute"):
         adapter.measure("Gearbox#Body", "volume")
 
@@ -477,7 +473,7 @@ def test_workspaces(workspace_dir):
 
 
 async def test_material_mit_dichte_macht_masse_messbar():
-    adapter = await BridgeAdapter.load(FakeCad(cube(material=ALUMINIUM)), ["Cube"])
+    adapter = await FreeCADSnapshot.load(FakeCad(cube(material=ALUMINIUM)), ["Cube"])
     assert "mass" in adapter.catalog()[0].methods
     assert math.isclose(adapter.measure("Cube", "mass").to("kg").magnitude, 100 * 200 * 300 * 2.7e-6)
 

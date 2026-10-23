@@ -1,7 +1,7 @@
 """The CAD side, behind one seam: what an adapter offers and what it may answer.
 
 Everything above this module speaks adapters and pint quantities -- never the bridge
-directly. Today there is one adapter (bridge_adapter.BridgeAdapter, FreeCAD through
+directly. Today there is one adapter (freecad_snapshot.FreeCADSnapshot, FreeCAD through
 the platform's bridge); the seam is what lets another CAD source join later without
 touching gates, verification or proposers.
 

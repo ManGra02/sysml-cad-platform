@@ -313,9 +313,9 @@ environment variable wins. The key never reaches the browser.
   after the tool loop the model fills in the schema, `run()` returns it as `result` next to `answer`.
 - `app/ai/agents.py` spells the tool loop out as a LangGraph `StateGraph` — the template for
   your own graphs (extra nodes, human approval before CAD writes, several agents).
-- Each module has an example agent in `projects/<id>/agent.py`, callable as
-  `POST /api/projects/<id>/agent {"message": "..."}` → `{model, answer, steps}`; CRA's also
-  returns `result` (`MissingParts`: the SysML parts without a CAD counterpart).
+- CRA has an example agent in `projects/cra/agent.py`, callable as
+  `POST /api/projects/cra/agent {"message": "..."}` → `{model, answer, steps, result}`
+  (`result` is `MissingParts`: the SysML parts without a CAD counterpart).
 - Errors arrive as `AiError` (`ai_not_configured`, `ai_no_model`, `ai_unauthorized`,
   `ai_model_not_found`, ...). Without a key the platform runs as usual; the **AI** marker in
   the header shows green (ready), yellow (a project's model is not offered), red (not
