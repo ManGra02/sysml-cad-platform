@@ -28,3 +28,7 @@ Thumbs.db
 # BDS: per-workspace write log and last verification (the mappings are design intent and belong in git)
 data/bds/*/sync_log.jsonl
 data/bds/*/last_run.json
+
+
+.pnpm-store
+oldbranch

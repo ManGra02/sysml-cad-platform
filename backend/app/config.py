@@ -34,6 +34,7 @@ HANDSHAKE_RELATIVE = Path("sysml-cad-platform") / "bridge.json"
 CONNECT_TIMEOUT_S = 1.0
 READ_TIMEOUT_S = 5.0
 WRITE_TIMEOUT_S = 35.0     # the bridge itself gives up after 30 s
+GEOMETRY_TIMEOUT_S = 35.0  # GET with include=geometry: the bridge allows 30 s, like a write
 RECOMPUTE_TIMEOUT_S = 65.0
 
 

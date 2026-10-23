@@ -29,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import math
 
+from app import config
 from app.projects.base import CadError, seg
 from app.projects.bds.adapters import (
     METHODS,
@@ -210,7 +211,7 @@ async def _read_document(cad, doc, limits_sheet):
     if document.objects:
         names = ",".join(document.objects)
         geometry = await cad.get("/documents/%s/objects" % seg(doc), names=names,
-                                 include="geometry", fields="Label")
+                                 include="geometry", fields="Label", timeout=config.GEOMETRY_TIMEOUT_S)
         for item in geometry.get("objects") or []:
             if item.get("name") in document.objects:
                 document.objects[item["name"]].geometry = item.get("geometry")

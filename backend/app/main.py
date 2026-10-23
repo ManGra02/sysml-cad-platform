@@ -144,7 +144,8 @@ def create_app(bridge_client_factory=BridgeClient, project_modules=None, sysml_s
         body = await request.body() if request.method != "GET" else None
 
         if request.method == "GET":
-            timeout = config.READ_TIMEOUT_S
+            geometry = "geometry" in request.query_params.get("include", "").split(",")
+            timeout = config.GEOMETRY_TIMEOUT_S if geometry else config.READ_TIMEOUT_S
         elif target.endswith("/recompute"):
             timeout = config.RECOMPUTE_TIMEOUT_S
         else:

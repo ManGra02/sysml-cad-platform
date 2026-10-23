@@ -186,6 +186,19 @@ def test_satisfy_link_resolves_the_real_subject():
     assert reqs[0].subject_id == "part-motorHousing"
 
 
+def test_a_derived_link_to_a_library_part_is_not_the_subject():
+    """`%publish -d` (the platform's .sysml import) adds derived properties: the
+    satisfy's ReferenceUsage then also points at the standard library's anonymous
+    PartUsage (`member`, `feature`, `usage`, ...), one hop away. Nearest-match
+    search took that one, and a plain `satisfy c by gearBox` got an empty subject."""
+    graph = _graph("MaxLength", 120, "mm") + _satisfy("MaxLength", "gearBox")
+    satref = next(e for e in graph if e["@id"] == "maxlength-satref")
+    satref["usage"] = [{"@id": "lib-part"}]
+    graph.append({"@id": "lib-part", "@type": "PartUsage", "isLibraryElement": True})
+    reqs = elements_to_requirements(graph)
+    assert [(r.subject, r.subject_id) for r in reqs] == [("gearBox", "part-gearBox")]
+
+
 def test_subject_falls_back_when_no_satisfy_link_exists():
     reqs = elements_to_requirements(_graph("MaxLength", 120, "mm"))
     assert reqs[0].subject == "housing"

@@ -1,0 +1,236 @@
+# Mapping, schema v2 -- see the BDS section of the README.
+# Entries arrive through POST .../proposals/{id}/confirm; editing by hand is fine.
+#
+# Written by hand (Claude, 2026-10-23) for data/examples/sysml/GearBox_2477N33_2.sysml.
+# CAD objects: the Names FreeCAD gives the 15 bodies of
+# "2477N33_Metric Right-Angle Gear Box.STEP" (as recorded in GearBox_2477N33.sysml);
+# radii, kinds and axes: the STEP file's cylindrical faces, read per solid.
+version: 2
+
+parts:
+
+  - sysml_part: housing
+    adapter: freecad
+    cad_object: GearBox_2477N33#Part__Feature010
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'STEP solid Cut-Extrude32, 497 faces.'
+
+  - sysml_part: inputShaft
+    adapter: freecad
+    cad_object: GearBox_2477N33#Part__Feature008
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'STEP solid Cut-Extrude12, axis Z.'
+
+  - sysml_part: outputShaft
+    adapter: freecad
+    cad_object: GearBox_2477N33#Part__Feature009
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'STEP solid Cut-Extrude13, axis X.'
+
+  - sysml_part: inputRetainer1
+    adapter: freecad
+    cad_object: GearBox_2477N33#Part__Feature
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'Half-ring on the input (Z) side.'
+
+  - sysml_part: inputRetainer2
+    adapter: freecad
+    cad_object: GearBox_2477N33#Part__Feature001
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'Half-ring on the input (Z) side.'
+
+  - sysml_part: outputRetainer1
+    adapter: freecad
+    cad_object: GearBox_2477N33#Part__Feature002
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'Half-ring on the output (X) side.'
+
+  - sysml_part: outputRetainer2
+    adapter: freecad
+    cad_object: GearBox_2477N33#Part__Feature007
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'Half-ring on the output (X) side.'
+
+  - sysml_part: gearBox
+    adapter: freecad
+    cad_object: GearBox_2477N33#_2477N33_Metric_Right_Angle_Gear_Box
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'The App::Part the STEP import creates (label "...Gear Box015"), holding all 15
+      bodies; its mass is the sum of theirs.'
+
+attributes:
+
+  - sysml_part: housing
+    attribute: length
+    requirement: MaxHousingLength
+    method: bbox_size
+    args:
+      axis: X
+    direction: cad_owns
+    tolerance: 0.01 mm
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'Nominal 40 mm = the limit; the tolerance absorbs float noise of the tight box.'
+
+  - sysml_part: housing
+    attribute: width
+    requirement: MaxHousingWidth
+    method: bbox_size
+    args:
+      axis: Y
+    direction: cad_owns
+    tolerance: 0.01 mm
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'Nominal 25 mm = the limit.'
+
+  - sysml_part: housing
+    attribute: height
+    requirement: MaxHousingHeight
+    method: bbox_size
+    args:
+      axis: Z
+    direction: cad_owns
+    tolerance: 0.01 mm
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'Nominal 40 mm = the limit.'
+
+  - sysml_part: inputShaft
+    attribute: shaftRadius
+    requirement: MinShaftRadius
+    method: cylinder_radius
+    args:
+      kind: boss
+      axis: Z
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'Expected GAP: two boss cylinders on Z (journal r 2.5, clip groove r 2.373).'
+
+  - sysml_part: inputShaft
+    attribute: shaftRadius
+    requirement: MaxShaftRadius
+    method: cylinder_radius
+    args:
+      kind: boss
+      axis: Z
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'Expected GAP, as MinShaftRadius.'
+
+  - sysml_part: outputShaft
+    attribute: shaftRadius
+    requirement: MinShaftRadius
+    method: cylinder_radius
+    args:
+      kind: boss
+      axis: X
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'The only boss cylinder on X: the r 2.5 journal.'
+
+  - sysml_part: outputShaft
+    attribute: shaftRadius
+    requirement: MaxShaftRadius
+    method: cylinder_radius
+    args:
+      kind: boss
+      axis: X
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+
+  - sysml_part: inputRetainer1
+    attribute: outerRadius
+    requirement: MaxRetainerOuterRadius
+    method: cylinder_radius
+    args:
+      kind: boss
+      axis: Z
+    direction: cad_owns
+    tolerance: 0.01 mm
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'Outer radius 8.0 = the limit (Ø16 counterbore).'
+
+  - sysml_part: inputRetainer2
+    attribute: outerRadius
+    requirement: MaxRetainerOuterRadius
+    method: cylinder_radius
+    args:
+      kind: boss
+      axis: Z
+    direction: cad_owns
+    tolerance: 0.01 mm
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+
+  - sysml_part: outputRetainer1
+    attribute: outerRadius
+    requirement: MaxRetainerOuterRadius
+    method: cylinder_radius
+    args:
+      kind: boss
+      axis: X
+    direction: cad_owns
+    tolerance: 0.01 mm
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+
+  - sysml_part: outputRetainer2
+    attribute: outerRadius
+    requirement: MaxRetainerOuterRadius
+    method: cylinder_radius
+    args:
+      kind: boss
+      axis: X
+    direction: cad_owns
+    tolerance: 0.01 mm
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+
+  - sysml_part: gearBox
+    attribute: mass
+    requirement: MaxTotalMass
+    method: mass
+    args: {}
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: claude
+    confirmed_at: '2026-10-23'
+    note: 'Needs a material on every body: Aluminium for the housing, Steel for the rest.'

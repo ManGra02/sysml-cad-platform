@@ -99,6 +99,52 @@ backend, which must run with `--dev` for this (allows the `:5173` origin). Manua
 | UI | built, rebuilt when needed | live, hot reload |
 | Backend code | restart required | reloads itself |
 
+### Devcontainer
+
+Alternative to the native setup: open the repository in VS Code, "Reopen in Container".
+One Compose project (`sysml-cad-platform`) starts `dev` and **Flexo**
+(`flexo/docker-compose.yml`, included unchanged); `post-create.sh` runs `uv sync` and
+`pnpm install`. Inside, the usual commands apply (`bash scripts/dev.sh`,
+`cd backend && uv run pytest`, ...).
+
+- **Two configurations**; "Reopen in Container" asks which one. Both are the same
+  Compose project, so only one runs at a time.
+
+  | | `sysml-cad-platform` (default) | `sysml-cad-platform (Linux, native FreeCAD)` |
+  | --- | --- | --- |
+  | Files | `.devcontainer/devcontainer.json` | `.devcontainer/linux-freecad/` |
+  | Host | Linux, Windows, macOS | Linux only |
+  | FreeCAD bridge | not reachable -- status "FreeCAD bridge not started" (a normal state; tests use the simulated bridge) | the native FreeCAD on this machine |
+  | Network | Compose network, services by name, VS Code forwards 8000/5173 | the host's: `127.0.0.1` everywhere, as without a container; no forwarding |
+
+- **The Linux variant** puts `dev` into the host's network and PID namespace and mounts
+  FreeCAD's user directory read-only, for the bridge's handshake file
+  (`BRIDGE_HANDSHAKE`). Reasons per line in `.devcontainer/linux-freecad/docker-compose.yml`.
+  FreeCAD itself stays native, and so does linking the addon: once, on the host,
+  `bash scripts/link-addon.sh`, then start the bridge in FreeCAD as usual.
+  Requirements: FreeCAD has run at least once (otherwise its user directory is
+  missing and the container does not start), and ports 8000/5173 are free on the
+  host. The bridge tests still need FreeCAD's own Python on the host
+  (`tests/bridge/run.py`). Open `http://127.0.0.1:5173` / `:8000` directly: a VS Code
+  port forward would land on another port (5174, ...), whose Origin the backend rejects
+  -- the WebSocket gets 403 and the UI shows "backend disconnected".
+- **Flexo:** by service name in the default configuration
+  (`SYSML_API_URL=http://sysmlv2-service:8080`), on `127.0.0.1:8083` in the Linux variant.
+  Its database is in memory, as natively: after each start run
+  `cd backend && uv run python -m app.sysml setup-org` (and `seed-demo`).
+- **The .sysml import's kernel** is not started with the container (a JVM of its own). On
+  the host, into the same Compose project:
+  `docker compose -f .devcontainer/docker-compose.yml --profile import up -d sysml-kernel`.
+  `SYSML_KERNEL_URL` is set for both variants (`sysml-kernel:8888` / `127.0.0.1:8888`).
+- **BDS** needs nothing extra: it runs inside the backend's venv, its data is
+  `data/bds/` on the bind mount, and it reaches FreeCAD through the bridge -- i.e. only
+  in the Linux variant.
+- **The two `devcontainer.json` files are copies** apart from the Compose files and the
+  ports -- devcontainer.json has no `extends`. Change both.
+- Do not run Flexo natively (`docker compose -f flexo/...`) at the same time: same
+  container names. And keep one checkout per environment -- the container's
+  `backend/.venv` and `node_modules` are Linux builds.
+
 ### Editing in the browser
 
 - Input is applied when you **leave the field or press Enter**; **Esc** discards it.
@@ -192,6 +238,7 @@ returns exit code 0. A CI based on it would be permanently green.
 | `backend/app/sysml/` | SysML adapter: SysML v2 API client, parser, common engineering model, `/api/sysml/*`. |
 | `backend/app/ai/` | AI adapter: Ollama Cloud, model per project, LangGraph agent and tools, `/api/ai/*`. |
 | `flexo/` | Docker setup of the SysML v2 repository (Flexo MMS). |
+| `.devcontainer/` | Devcontainer: `dev` + Flexo as one Compose project. `linux-freecad/`: the same on the host's network, with the native FreeCAD bridge. |
 | `data/examples/sysml/` | SysML v2 test models (e-bike demo, Flexo's own test model; `bds/`: the BDS example models). |
 | `data/bds/` | BDS workspaces: mapping, proposals, sync log per SysML model. |
 | `frontend/` | React + shadcn/ui, built into `backend/app/static/`. |
