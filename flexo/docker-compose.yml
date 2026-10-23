@@ -3,6 +3,10 @@
 #   docker compose -f flexo/docker-compose.yml up -d
 #   cd backend && uv run python -m app.sysml setup-org      # once per fresh database
 #
+# The database is PERSISTENT (docker volume flexo-quad-store): projects survive
+# `docker compose down`, Docker Desktop restarts and reboots. Start from scratch:
+#   docker compose -f flexo/docker-compose.yml down -v      # -v deletes the volume
+#
 # SysML v2 API  http://127.0.0.1:8083   <- SYSML_API_URL (backend/app/sysml/config.py)
 # layer1        http://127.0.0.1:8080   (versioned RDF storage; only setup-org talks to it)
 # Fuseki        http://127.0.0.1:3030   (triple store)
@@ -22,12 +26,27 @@ services:
       - ./env/flexo-mms-quad-store.env
     environment:
       JAVA_TOOL_OPTIONS: "-XX:-UseContainerSupport"
-    # In memory: `docker compose down` empties the database (run setup-org again).
-    command: --file=/tmp/mount/cluster.trig --update /ds
+    # On disk (TDB2) instead of in memory (upstream: --file=cluster.trig): the data
+    # stays in the volume. quad-store-init loads cluster.trig once, into an empty volume.
+    command: --tdb2 --loc=/fuseki-data --update /ds
+    # root inside the container, so Fuseki can always write to the fresh volume
+    user: "0:0"
     volumes:
-      - ./mount:/tmp/mount
+      - quad-store:/fuseki-data
     ports:
       - 127.0.0.1:3030:3030
+
+  # One-shot: loads Flexo's starting graphs (mount/cluster.trig) into an EMPTY
+  # database, then exits; with data already there it changes nothing.
+  quad-store-init:
+    image: curlimages/curl:8.10.1
+    container_name: quad-store-init
+    entrypoint: ["/bin/sh", "/init/init-quad-store.sh"]
+    volumes:
+      - ./mount/cluster.trig:/init/cluster.trig:ro
+      - ./init-quad-store.sh:/init/init-quad-store.sh:ro
+    depends_on:
+      - quad-store-server
 
   layer1-service:
     image: openmbee/flexo-mms-layer1-service:v0.3.0
@@ -39,7 +58,8 @@ services:
     environment:
       JAVA_TOOL_OPTIONS: "-Xmx768m"
     depends_on:
-      - quad-store-server
+      quad-store-init:
+        condition: service_completed_successfully
     ports:
       - 127.0.0.1:8080:8080
 
@@ -56,7 +76,31 @@ services:
     ports:
       - 127.0.0.1:8083:8080
 
+  # SysML v2 Pilot kernel: parses .sysml files for `python -m app.sysml import-sysml`
+  # and the import button. Only with the profile, it is a JVM of its own:
+  #   docker compose -f flexo/docker-compose.yml --profile import up -d
+  sysml-kernel:
+    profiles: ["import"]
+    build:
+      context: .
+      dockerfile: jupyter.Dockerfile
+    image: sysml-cad-platform/sysml-kernel:0.60.1
+    container_name: sysml-kernel
+    environment:
+      # Target of %publish, as the kernel sees it -> SYSML_KERNEL_TARGET in the backend.
+      ISYSML_API_BASE_PATH: ${SYSML_KERNEL_TARGET:-http://flexo-sysmlv2:8080}
+      JUPYTER_TOKEN: ${SYSML_KERNEL_TOKEN:-sysmlcad}
+      JAVA_TOOL_OPTIONS: "-Xmx1g"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - 127.0.0.1:8888:8888
+
 networks:
   default:
     name: flexo-network
     driver: bridge
+
+volumes:
+  quad-store:
+    name: flexo-quad-store
