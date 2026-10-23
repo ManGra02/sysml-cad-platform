@@ -745,5 +745,22 @@
     "bds_mapping_write_failed": "mapping.yaml ließ sich nicht wie gewollt schreiben – das Original wurde wiederhergestellt.",
     "bds_no_gold": "Dieser Workspace hat kein Gold-Set.",
     "bds_no_run": "Noch nicht geprüft."
+  },
+  "cra": {
+    "title": "Wiederverwendbares Teil finden",
+    "hint": "Das benötigte Teil beschreiben, ein Attribut pro Zeile (Name = Wert), wie in SysML modelliert. Die Suche vergleicht Funktion und Maße, nicht Namen.",
+    "attributes": "Benötigtes Teil",
+    "tolerance": "Maßtoleranz (%)",
+    "search": "Teilebibliothek durchsuchen",
+    "searching": "Suche läuft ...",
+    "example": "partType = Pulley\nfunction = drives a belt\nteeth = 18\nboreDiameterMm = 12\nmaterial = steel",
+    "best": "Bester Treffer",
+    "none": "Kein passendes Teil in der Bibliothek.",
+    "score": "Wertung",
+    "nearMisses": "Nächstliegende Teile, die nicht passen",
+    "needs": "passt mit {{pct}} % Toleranz",
+    "cannotFix": "keine Toleranz behebt das",
+    "stats": "{{checked}} Teile geprüft, {{same}} gleicher Art, {{passed}} passen",
+    "retry": "Erneut suchen mit {{pct}} %"
   }
 }
