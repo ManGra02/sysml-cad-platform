@@ -15,6 +15,8 @@ import { Route as CadIndexRouteImport } from './routes/cad.index'
 import { Route as CadDocRouteImport } from './routes/cad.$doc'
 import { Route as ProjectsBdsRouteImport } from './routes/projects.bds'
 import { Route as ProjectsCraRouteImport } from './routes/projects.cra'
+import { Route as ProjectsBdsIndexRouteImport } from './routes/projects.bds.index'
+import { Route as ProjectsBdsWsRouteImport } from './routes/projects.bds.$ws'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,38 +48,67 @@ const ProjectsCraRoute = ProjectsCraRouteImport.update({
   path: '/projects/cra',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectsBdsIndexRoute = ProjectsBdsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectsBdsRoute,
+} as any)
+const ProjectsBdsWsRoute = ProjectsBdsWsRouteImport.update({
+  id: '/$ws',
+  path: '/$ws',
+  getParentRoute: () => ProjectsBdsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sysml': typeof SysmlRoute
   '/cad/$doc': typeof CadDocRoute
-  '/projects/bds': typeof ProjectsBdsRoute
+  '/projects/bds': typeof ProjectsBdsRouteWithChildren
   '/projects/cra': typeof ProjectsCraRoute
   '/cad/': typeof CadIndexRoute
+  '/projects/bds/$ws': typeof ProjectsBdsWsRoute
+  '/projects/bds/': typeof ProjectsBdsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sysml': typeof SysmlRoute
   '/cad/$doc': typeof CadDocRoute
-  '/projects/bds': typeof ProjectsBdsRoute
   '/projects/cra': typeof ProjectsCraRoute
   '/cad': typeof CadIndexRoute
+  '/projects/bds/$ws': typeof ProjectsBdsWsRoute
+  '/projects/bds': typeof ProjectsBdsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/sysml': typeof SysmlRoute
   '/cad/$doc': typeof CadDocRoute
-  '/projects/bds': typeof ProjectsBdsRoute
+  '/projects/bds': typeof ProjectsBdsRouteWithChildren
   '/projects/cra': typeof ProjectsCraRoute
   '/cad/': typeof CadIndexRoute
+  '/projects/bds/$ws': typeof ProjectsBdsWsRoute
+  '/projects/bds/': typeof ProjectsBdsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/sysml' | '/cad/$doc' | '/projects/bds' | '/projects/cra' | '/cad/'
+    | '/'
+    | '/sysml'
+    | '/cad/$doc'
+    | '/projects/bds'
+    | '/projects/cra'
+    | '/cad/'
+    | '/projects/bds/$ws'
+    | '/projects/bds/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sysml' | '/cad/$doc' | '/projects/bds' | '/projects/cra' | '/cad'
+  to:
+    | '/'
+    | '/sysml'
+    | '/cad/$doc'
+    | '/projects/cra'
+    | '/cad'
+    | '/projects/bds/$ws'
+    | '/projects/bds'
   id:
     | '__root__'
     | '/'
@@ -86,13 +117,15 @@ export interface FileRouteTypes {
     | '/projects/bds'
     | '/projects/cra'
     | '/cad/'
+    | '/projects/bds/$ws'
+    | '/projects/bds/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SysmlRoute: typeof SysmlRoute
   CadDocRoute: typeof CadDocRoute
-  ProjectsBdsRoute: typeof ProjectsBdsRoute
+  ProjectsBdsRoute: typeof ProjectsBdsRouteWithChildren
   ProjectsCraRoute: typeof ProjectsCraRoute
   CadIndexRoute: typeof CadIndexRoute
 }
@@ -141,14 +174,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsCraRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/bds/': {
+      id: '/projects/bds/'
+      path: '/'
+      fullPath: '/projects/bds/'
+      preLoaderRoute: typeof ProjectsBdsIndexRouteImport
+      parentRoute: typeof ProjectsBdsRoute
+    }
+    '/projects/bds/$ws': {
+      id: '/projects/bds/$ws'
+      path: '/$ws'
+      fullPath: '/projects/bds/$ws'
+      preLoaderRoute: typeof ProjectsBdsWsRouteImport
+      parentRoute: typeof ProjectsBdsRoute
+    }
   }
 }
+
+interface ProjectsBdsRouteChildren {
+  ProjectsBdsWsRoute: typeof ProjectsBdsWsRoute
+  ProjectsBdsIndexRoute: typeof ProjectsBdsIndexRoute
+}
+
+const ProjectsBdsRouteChildren: ProjectsBdsRouteChildren = {
+  ProjectsBdsWsRoute: ProjectsBdsWsRoute,
+  ProjectsBdsIndexRoute: ProjectsBdsIndexRoute,
+}
+
+const ProjectsBdsRouteWithChildren = ProjectsBdsRoute._addFileChildren(
+  ProjectsBdsRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SysmlRoute: SysmlRoute,
   CadDocRoute: CadDocRoute,
-  ProjectsBdsRoute: ProjectsBdsRoute,
+  ProjectsBdsRoute: ProjectsBdsRouteWithChildren,
   ProjectsCraRoute: ProjectsCraRoute,
   CadIndexRoute: CadIndexRoute,
 }

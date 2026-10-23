@@ -15,6 +15,12 @@ Overrides via environment variables:
   FLEXO_LAYER1_URL    Flexo layer1, only for the one-time `setup-org`
                       (default http://127.0.0.1:8080)
   FLEXO_SYSMLV2_ORG   the org the SysML v2 service writes into (default sysmlv2)
+  SYSML_KERNEL_URL    Jupyter with the SysML v2 Pilot kernel, parses .sysml files for the
+                      import (default http://127.0.0.1:8888, the `import` profile of
+                      flexo/docker-compose.yml)
+  SYSML_KERNEL_TOKEN  its Jupyter token (default sysmlcad, as in the compose file)
+  SYSML_KERNEL_TARGET where the kernel's %publish posts to, as the KERNEL names it
+                      (default http://flexo-sysmlv2:8080 -- Flexo inside the compose network)
 """
 
 import os
@@ -34,6 +40,9 @@ class SysmlConfig:
     timeout_s: float = 60.0
     layer1_url: str = "http://127.0.0.1:8080"
     org: str = "sysmlv2"
+    kernel_url: str = "http://127.0.0.1:8888"
+    kernel_token: str = "sysmlcad"
+    kernel_target: str = "http://flexo-sysmlv2:8080"
 
     @classmethod
     def from_env(cls):
@@ -43,5 +52,8 @@ class SysmlConfig:
             timeout_s=float(os.environ.get("SYSML_TIMEOUT_S", cls.timeout_s)),
             layer1_url=os.environ.get("FLEXO_LAYER1_URL", cls.layer1_url).rstrip("/"),
             org=os.environ.get("FLEXO_SYSMLV2_ORG", cls.org),
+            kernel_url=os.environ.get("SYSML_KERNEL_URL", cls.kernel_url).rstrip("/"),
+            kernel_token=os.environ.get("SYSML_KERNEL_TOKEN", cls.kernel_token),
+            kernel_target=os.environ.get("SYSML_KERNEL_TARGET", cls.kernel_target).rstrip("/"),
         )
 

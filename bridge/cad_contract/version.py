@@ -8,4 +8,4 @@ RULE: Every change to types.py or events.py bumps this version AND
 adds a line to CHANGELOG.md, which the mismatch message refers to.
 """
 
-CONTRACT_VERSION = "0.6.0"
+CONTRACT_VERSION = "0.7.0"

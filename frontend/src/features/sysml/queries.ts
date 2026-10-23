@@ -12,6 +12,8 @@ export type SysmlStatus = {
   projects?: number
   code?: string
   message?: string
+  /** Is the SysML kernel there that parses .sysml files for the import? */
+  importAvailable?: boolean
 }
 
 export type SysmlProject = {
@@ -107,6 +109,19 @@ export const sysmlCommitsQuery = (project: string) =>
     queryKey: sysmlKeys.commits(project),
     queryFn: ({ signal }) => api<SysmlCommit[]>("/api/sysml/projects/" + seg(project) + "/commits", { signal }),
   })
+
+export type SysmlImportResult = {
+  projectId: string
+  projectName: string
+  commitId: string
+  package: string
+  output: string
+}
+
+/** A .sysml file -> a NEW project (the backend has it parsed by the SysML kernel). */
+export function importSysml(filename: string, text: string) {
+  return api<SysmlImportResult>("/api/sysml/import", { method: "POST", body: { filename, text } })
+}
 
 // -- Helpers on a snapshot (pure, unit-tested) --------------------------------
 

@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { describeError } from "@/features/cad/format"
 import { useDocumentTitle } from "@/lib/useDocumentTitle"
 
+import { ImportSysmlButton } from "./components/ImportSysmlButton"
 import { ModelView } from "./components/ModelView"
 import { ProjectBar } from "./components/ProjectBar"
 import { StatusCard } from "./components/StatusCard"
@@ -25,6 +26,9 @@ export function SysmlPage() {
   const [chosen, setChosen] = useState<string | null>(null)
   const project = chosen ?? projects.data?.[0]?.id ?? null
   const snapshot = useQuery({ ...sysmlSnapshotQuery(project ?? ""), enabled: reachable && project !== null })
+  const importButton = (
+    <ImportSysmlButton available={status.data?.importAvailable === true} onImported={setChosen} />
+  )
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6">
@@ -41,6 +45,8 @@ export function SysmlPage() {
         <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
           <p className="mb-2">{t("sysml.noProjects")}</p>
           <code className="rounded bg-muted px-2 py-1 text-xs">uv run python -m app.sysml seed-demo</code>
+          <p className="mt-4 mb-2">{t("sysml.import.orImport")}</p>
+          {importButton}
         </div>
       )}
 
@@ -52,6 +58,7 @@ export function SysmlPage() {
           version={snapshot.data?.version}
           reloading={snapshot.isFetching}
           onReload={() => void snapshot.refetch()}
+          actions={importButton}
         />
       )}
 

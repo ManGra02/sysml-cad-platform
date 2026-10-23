@@ -36,6 +36,11 @@ READ_TIMEOUT_S = 5.0
 #: chained Cut shape). Synchronous with a timeout, as decided.
 WRITE_TIMEOUT_S = 30.0
 
+#: Reading derived geometry (include=geometry) is not cheap: isValid(), the tight
+#: bounding box and the cylinder scan of a real part take seconds (measured: ~5 s
+#: for a 497-face STEP housing, more for a batch). Same budget as a write.
+GEOMETRY_TIMEOUT_S = 30.0
+
 
 def error_response(code, message, status, detail=None, request_id=None):
     """Uniform error envelope -- never bare HTTP text.
@@ -126,10 +131,14 @@ def _include_flags(request):
     }
 
 
-async def _read(fn, request_id=None):
+async def _read(fn, request_id=None, timeout=READ_TIMEOUT_S):
     return await dispatch.dispatch(
-        fn, kind=dispatch.READ, timeout=READ_TIMEOUT_S, request_id=request_id
+        fn, kind=dispatch.READ, timeout=timeout, request_id=request_id
     )
+
+
+def _read_timeout(flags):
+    return GEOMETRY_TIMEOUT_S if flags["geometry"] else READ_TIMEOUT_S
 
 
 async def handle_documents(request):
@@ -163,7 +172,8 @@ async def handle_object_list(request):
             fields=fields,
             include_geometry=flags["geometry"],
             include_internal=flags["internal"],
-        )
+        ),
+        timeout=_read_timeout(flags),
     )
     return web.json_response(data)
 
@@ -183,7 +193,7 @@ async def handle_object_detail(request):
             include_internal=flags["internal"],
         )
 
-    return web.json_response(await _read(read_object))
+    return web.json_response(await _read(read_object, timeout=_read_timeout(flags)))
 
 
 async def handle_types(request):

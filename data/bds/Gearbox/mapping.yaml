@@ -1,0 +1,163 @@
+# Mapping, schema v2 -- see the BDS section of the README.
+# Entries arrive through POST .../proposals/{id}/confirm; editing by hand is fine.
+version: 2
+
+parts:
+
+  - sysml_part: cover
+    adapter: freecad
+    cad_object: gearbox#Cover
+    status: confirmed
+    author: ai:deepseek-v4.1-flash
+    confirmed_at: '2026-10-22'
+    note: 'p-01: Params.CoverThickness = 6.0 mm states cover thickness with a length unit.'
+
+  - sysml_part: housing
+    adapter: freecad
+    cad_object: gearbox#Housing
+    status: confirmed
+    author: ai:deepseek-v4.1-flash
+    confirmed_at: '2026-10-22'
+    note: 'p-03: Params.HousingLength = 90.0 mm states housing length with a length unit.'
+
+attributes:
+
+  - sysml_part: cover
+    attribute: thickness
+    requirement: MaxCoverThickness
+    method: parameter
+    args:
+      name: Params.CoverThickness
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: ai:deepseek-v4.1-flash
+    confirmed_at: '2026-10-22'
+    note: 'p-01, proposed by ai:deepseek-v4.1-flash (confidence 0.90): Params.CoverThickness =
+      6.0 mm states cover thickness with a length unit.'
+
+  - sysml_part: cover
+    attribute: boreRadius
+    requirement: ''
+    method: parameter
+    args:
+      name: Params.BoreRadius
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: ai:deepseek-v4.1-flash
+    confirmed_at: '2026-10-22'
+    note: 'p-02, proposed by ai:deepseek-v4.1-flash (confidence 0.90): Params.BoreRadius = 8.0
+      mm states cover bore radius with a length unit, and bore indicates a hole.'
+
+  - sysml_part: housing
+    attribute: length
+    requirement: MaxHousingLength
+    method: parameter
+    args:
+      name: Params.HousingLength
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: ai:deepseek-v4.1-flash
+    confirmed_at: '2026-10-22'
+    note: 'p-03, proposed by ai:deepseek-v4.1-flash (confidence 0.90): Params.HousingLength =
+      90.0 mm states housing length with a length unit.'
+
+  - sysml_part: housing
+    attribute: width
+    requirement: ''
+    method: parameter
+    args:
+      name: Params.HousingWidth
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: ai:deepseek-v4.1-flash
+    confirmed_at: '2026-10-22'
+    note: 'p-04, proposed by ai:deepseek-v4.1-flash (confidence 0.90): Params.HousingWidth = 60.0
+      mm states housing width with a length unit.'
+
+  - sysml_part: housing
+    attribute: height
+    requirement: ''
+    method: parameter
+    args:
+      name: Params.HousingHeight
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: ai:deepseek-v4.1-flash
+    confirmed_at: '2026-10-22'
+    note: 'p-05, proposed by ai:deepseek-v4.1-flash (confidence 0.90): Params.HousingHeight =
+      40.0 mm states housing height with a length unit.'
+
+  - sysml_part: housing
+    attribute: boreRadius
+    requirement: MinBoreRadius
+    method: parameter
+    args:
+      name: Params.BoreRadius
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: ai:deepseek-v4.1-flash
+    confirmed_at: '2026-10-22'
+    note: 'p-06, proposed by ai:deepseek-v4.1-flash (confidence 0.90): Params.BoreRadius = 8.0
+      mm states housing bore radius with a length unit, and bore indicates a hole.'
+
+  - sysml_part: cover
+    attribute: length
+    requirement: ''
+    method: bbox_size
+    args:
+      axis: X
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: ai:deepseek-v4.1-flash
+    confirmed_at: '2026-10-22'
+    note: 'p-07, proposed by ai:deepseek-v4.1-flash (confidence 0.70): Cover matches gearbox#Cover;
+      no parameter names cover length, so this is the bounding-box X extent rather than a named
+      feature dimension.'
+
+  - sysml_part: cover
+    attribute: width
+    requirement: ''
+    method: bbox_size
+    args:
+      axis: Y
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: ai:deepseek-v4.1-flash
+    confirmed_at: '2026-10-22'
+    note: 'p-08, proposed by ai:deepseek-v4.1-flash (confidence 0.70): Cover matches gearbox#Cover;
+      no parameter names cover width, so this is the bounding-box Y extent rather than a named
+      feature dimension.'
+
+  - sysml_part: cover
+    attribute: mass
+    requirement: ''
+    method: mass
+    args: {}
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: ai:deepseek-v4.1-flash
+    confirmed_at: '2026-10-22'
+    note: 'p-09, proposed by ai:deepseek-v4.1-flash (confidence 0.70): Cover material Aluminum-Generic
+      is known and mass is measurable on gearbox#Cover.'
+
+  - sysml_part: housing
+    attribute: mass
+    requirement: ''
+    method: mass
+    args: {}
+    direction: cad_owns
+    tolerance: null
+    status: confirmed
+    author: ai:deepseek-v4.1-flash
+    confirmed_at: '2026-10-22'
+    note: 'p-10, proposed by ai:deepseek-v4.1-flash (confidence 0.70): Housing material Aluminum-Generic
+      is known and mass is measurable on gearbox#Housing.'

@@ -230,8 +230,9 @@ class CadClient:
 
     # -- Convenience forms ------------------------------------------------
 
-    async def get(self, path, **query):
-        return await self._call("GET", path, query={k: v for k, v in query.items() if v is not None} or None)
+    async def get(self, path, *, timeout=None, **query):
+        return await self._call("GET", path, query={k: v for k, v in query.items() if v is not None} or None,
+                                timeout=timeout)
 
     async def documents(self):
         return await self.get("/documents")

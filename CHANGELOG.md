@@ -3,6 +3,17 @@
 Every change to `cad_contract` bumps `CONTRACT_VERSION` and gets a line here.
 The backend's mismatch message points to this file.
 
+## cad_contract 0.7.0 -- 2026-10-22
+
+- `include=geometry` carries three more fields (for the BDS module's verification):
+  `tightBoundBox` (`optimalBoundingBox`, tight on curved faces: `min`, `max`, `lengths`),
+  `cylinders` (one entry per cylindrical face: `radius`, `kind` = `hole`|`boss`, `center`,
+  `axis`; at most 500, then `cylindersTruncated: true`) and `material` (`null` or
+  `{name, uuid, density, default}`; `density` is a quantity or `null`, `default` marks
+  FreeCAD's placeholder material).
+- `include=geometry` on `App::Part`, `App::Link` and assemblies: they have no `Shape` property;
+  their geometry now comes from `Part.getShape()` instead of being `null`.
+
 ## cad_contract 0.6.0 -- 2026-09-29
 
 - Plain-text messages (`error.message`) from bridge and backend are now in **English** (the

@@ -182,6 +182,64 @@ class GeometryTest(unittest.TestCase):
         geometry = objects.describe_geometry(self.doc.getObject("Sheet"))
         self.assertIsNone(geometry)
 
+    def test_enge_bounding_box(self):
+        geometry = objects.describe_geometry(self.doc.getObject("Box"))
+        for got, expected in zip(geometry["tightBoundBox"]["lengths"], [30.0, 20.0, 10.0]):
+            self.assertAlmostEqual(got, expected, places=6)
+
+    def test_zylinder_mantel_ist_boss(self):
+        """Part::Cylinder: material inside the surface."""
+        cylinders = objects.describe_geometry(self.doc.getObject("Zylinder"))["cylinders"]
+        self.assertEqual(len(cylinders), 1)
+        self.assertAlmostEqual(cylinders[0]["radius"], 2.0, places=6)
+        self.assertEqual(cylinders[0]["kind"], "boss")
+        self.assertEqual([abs(c) for c in cylinders[0]["axis"]], [0.0, 0.0, 1.0])
+
+    def test_ausgeschnittener_zylinder_ist_hole(self):
+        """The cylinder cut out of the box leaves a face with the material outside."""
+        cylinders = objects.describe_geometry(self.doc.getObject("Schnitt"))["cylinders"]
+        self.assertTrue(cylinders)
+        for cylinder in cylinders:
+            self.assertAlmostEqual(cylinder["radius"], 2.0, places=6)
+            self.assertEqual(cylinder["kind"], "hole")
+
+    def test_link_hat_geometrie_ueber_getshape(self):
+        """App::Link has no Shape property; Part.getShape resolves the linked box."""
+        geometry = objects.describe_geometry(self.doc.getObject("Verweis"))
+        self.assertIsNotNone(geometry)
+        self.assertAlmostEqual(geometry["volume"], 6000.0, places=6)
+
+    def test_quader_ohne_zylinder(self):
+        self.assertEqual(objects.describe_geometry(self.doc.getObject("Box"))["cylinders"], [])
+
+    def test_material_feld_vorhanden(self):
+        """None, or the assigned material with a flag for FreeCAD's placeholder."""
+        material = objects.describe_geometry(self.doc.getObject("Box"))["material"]
+        if material is not None:
+            self.assertIn("default", material)
+            self.assertIn("density", material)
+
+    def test_material_lesen_beruehrt_objekt_nicht(self):
+        """getPhysicalValue() would mark the object Touched -- a read must not."""
+        try:
+            import Materials
+        except ImportError:
+            self.skipTest("no Materials module")
+        alu = next((m for m in Materials.MaterialManager().Materials.values()
+                    if m.Name == "Aluminum-Generic"), None)
+        if alu is None:
+            self.skipTest("Aluminum-Generic not in the material library")
+        box = self.doc.addObject("Part::Box", "Alu")
+        box.ShapeMaterial = alu
+        self.doc.recompute()
+        try:
+            material = objects.describe_geometry(box)["material"]
+            self.assertEqual(material["name"], "Aluminum-Generic")
+            self.assertAlmostEqual(material["density"]["value"], 2.7e-06, places=12)
+            self.assertNotIn("Touched", box.State)
+        finally:
+            self.doc.removeObject("Alu")
+
 
 class TreeTest(unittest.TestCase):
     @classmethod
