@@ -1,0 +1,44 @@
+# The platform's devcontainer as ONE Compose project: `dev` plus Flexo MMS,
+# exactly the services the native setup runs (flexo/docker-compose.yml),
+# including the SysML kernel behind its `import` profile (started on demand,
+# see README "Devcontainer").
+#
+# `include`, not a second -f file: with -f, every relative path is resolved
+# against the FIRST file's directory, which would break flexo/'s ./env and
+# ./mount. An included file keeps its paths relative to itself.
+name: sysml-cad-platform
+
+include:
+  - path: ../flexo/docker-compose.yml
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/sysml-cad-platform:cached
+      - uv-cache:/home/vscode/.cache/uv
+      - pnpm-store:/home/vscode/.local/share/pnpm
+    command: sleep infinity
+    environment:
+      # Service names, NOT 127.0.0.1: inside the Compose network Flexo is a
+      # different host. The container port is 8080 (8083 is only the host side).
+      SYSML_API_URL: "http://sysmlv2-service:8080"
+      FLEXO_LAYER1_URL: "http://layer1-service:8080"
+      # The .sysml import's kernel (profile `import`). Its publish target,
+      # SYSML_KERNEL_TARGET, keeps the backend's default: the kernel names
+      # Flexo by its own container name on the Compose network either way.
+      SYSML_KERNEL_URL: "http://sysml-kernel:8888"
+      # The store on the volume above, stated explicitly. Left to itself, pnpm
+      # sees that the volume is a different filesystem than the bind mount and
+      # puts a second store into the workspace root (.pnpm-store/). Explicit,
+      # it keeps the volume and copies instead of hardlinking.
+      npm_config_store_dir: "/home/vscode/.local/share/pnpm/store"
+    depends_on:
+      sysmlv2-service:
+        condition: service_started
+
+volumes:
+  uv-cache:
+  pnpm-store:
