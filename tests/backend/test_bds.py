@@ -266,6 +266,35 @@ async def test_gates_pruefen_die_zuordnung():
     assert checks[("cover", "thickness")].verdict == "invalid"
 
 
+def _uniqueness(attributes):
+    from app.projects.bds.gates import gate_uniqueness
+
+    mapping = parse_mapping("version: 2\nparts:\n  - {sysml_part: shaft, adapter: freecad, "
+                            "cad_object: Doc#Shaft, status: confirmed}\nattributes:\n" + attributes)
+    return [gate_uniqueness(e, mapping).verdict for e in mapping.attributes]
+
+
+def test_a_tolerance_band_is_not_a_conflict():
+    """A lower and an upper bound on the same attribute, measured the same way."""
+    entry = ("  - {sysml_part: shaft, attribute: radius, requirement: %s, method: cylinder_radius,"
+             " args: {kind: boss, axis: X}, status: confirmed}\n")
+    assert _uniqueness(entry % "MinRadius" + entry % "MaxRadius") == ["valid", "valid"]
+
+
+def test_two_measurements_for_one_attribute_are_a_conflict():
+    assert _uniqueness(
+        "  - {sysml_part: shaft, attribute: radius, requirement: MinRadius, method: cylinder_radius,"
+        " args: {kind: boss, axis: X}, status: confirmed}\n"
+        "  - {sysml_part: shaft, attribute: radius, requirement: MaxRadius, method: cylinder_radius,"
+        " args: {kind: boss, axis: Z}, status: confirmed}\n") == ["invalid", "invalid"]
+
+
+def test_two_entries_for_one_requirement_stay_a_conflict():
+    entry = ("  - {sysml_part: shaft, attribute: radius, requirement: MinRadius, method: cylinder_radius,"
+             " args: {kind: boss}, status: confirmed}\n")
+    assert _uniqueness(entry + entry) == ["invalid", "invalid"]
+
+
 async def test_verify_urteile_und_luecken():
     s = await gearbox_session()
     run = verify.run(s["requirements"], s["skipped"], s["mapping"], s["pool"]).to_dict()

@@ -131,14 +131,19 @@ def gate_dimension(entry, catalog, requirement, measured):
 
 def gate_uniqueness(entry, mapping):
     """Nothing may win a tie silently -- ``for_requirement`` returns the first match, so
-    a second entry for the same requirement on the same part would never be used."""
+    a second entry for the same requirement on the same part would never be used.
+
+    Several entries for one attribute are a conflict only when they MEASURE it
+    differently (two values for one attribute). The same measurement against two
+    requirements is how a tolerance band is written -- a lower and an upper bound,
+    one comparison each (extract.py)."""
     confirmed = [e for e in mapping.attributes if e.usable]
 
-    by_attribute = Counter((e.sysml_part, e.attribute) for e in confirmed)
-    if by_attribute[(entry.sysml_part, entry.attribute)] > 1:
-        return GateResult("uniqueness", "invalid", "%d confirmed entries for %s.%s"
-                          % (by_attribute[(entry.sysml_part, entry.attribute)],
-                             entry.sysml_part, entry.attribute))
+    measured_as = {(e.method, repr(sorted((e.args or {}).items()))) for e in confirmed
+                   if (e.sysml_part, e.attribute) == (entry.sysml_part, entry.attribute)}
+    if len(measured_as) > 1:
+        return GateResult("uniqueness", "invalid", "%s.%s is measured %d different ways"
+                          % (entry.sysml_part, entry.attribute, len(measured_as)))
     if entry.requirement:
         by_requirement = Counter((e.requirement, e.sysml_part) for e in confirmed if e.requirement)
         count = by_requirement[(entry.requirement, entry.sysml_part)]

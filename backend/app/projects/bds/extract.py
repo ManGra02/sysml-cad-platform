@@ -94,6 +94,14 @@ def of_type(type_name):
     return lambda e: e.get("@type") == type_name
 
 
+def _model_part(element):
+    """A PartUsage of the model itself. A publish with derived properties (``%publish -d``,
+    what ``app.sysml import-sysml`` sends) gives the satisfy's subject ``member``,
+    ``feature``, ``usage`` ... links to the standard library's anonymous PartUsages --
+    one hop away, so nearest-match search found those before the part the model names."""
+    return element.get("@type") == "PartUsage" and not element.get("isLibraryElement")
+
+
 def _chained_subject(branch, by_id):
     """The part named by a dotted path, e.g. ``satisfy c by gearbox.housing``.
 
@@ -145,7 +153,7 @@ def resolve_satisfies(elements, by_id=None):
             elif branch["@type"] == "SubjectMembership":
                 part, part_path = _chained_subject(branch, by_id)
                 if part is None:
-                    part, part_path = find_first(branch, by_id, of_type("PartUsage"))
+                    part, part_path = find_first(branch, by_id, _model_part)
         if definition is None or part is None:
             continue
         links = out.setdefault(definition["@id"], [])

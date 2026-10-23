@@ -125,7 +125,7 @@ class FakeCad:
         claimed = {c for obj in document.objects.values() for c in obj["children"]}
         return {"doc": doc, "roots": sorted(n for n in nodes if n not in claimed), "nodes": nodes}
 
-    async def get(self, path, **query):
+    async def get(self, path, *, timeout=None, **query):
         self.reads.append(("get", path, query))
         match = re.fullmatch(r"/documents/([^/]+)/objects", path)
         if not match:
