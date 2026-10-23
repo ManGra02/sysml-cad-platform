@@ -426,5 +426,22 @@
     "sysml_upstream_error": "Flexo MMS reported an error.",
     "sysml_element_not_found": "This element does not exist in the model.",
     "sysml_attribute_not_found": "This attribute does not exist in the model."
+  },
+  "cra": {
+    "title": "Find a part to reuse",
+    "hint": "Describe the part you need, one attribute per line (name = value), as modelled in SysML. The search compares function and dimensions, not names.",
+    "attributes": "Required part",
+    "tolerance": "Size tolerance (%)",
+    "search": "Search the part library",
+    "searching": "Searching ...",
+    "example": "partType = Pulley\nfunction = drives a belt\nteeth = 18\nboreDiameterMm = 12\nmaterial = steel",
+    "best": "Best match",
+    "none": "No suitable part in the library.",
+    "score": "score",
+    "nearMisses": "Closest parts that do not fit",
+    "needs": "fits with {{pct}} % tolerance",
+    "cannotFix": "no tolerance fixes this",
+    "stats": "{{checked}} parts checked, {{same}} of the same kind, {{passed}} fit",
+    "retry": "Search again with {{pct}} %"
   }
 }
