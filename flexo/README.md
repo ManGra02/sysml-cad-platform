@@ -23,8 +23,17 @@ uv run python -m app.sysml tree "EBike Demo"
 Then the model is available in the running platform under `http://127.0.0.1:8000/api/sysml/...`
 (see `/api/docs`) and to project modules as `self.ctx.sysml`.
 
-**The database lives in memory.** `docker compose down` (or a reboot) empties it; run
-`setup-org` and `seed-demo` again. `docker compose stop` keeps it.
+**The database is persistent.** Fuseki stores it on disk (TDB2) in the docker volume
+`flexo-quad-store`, so projects and commits survive `docker compose down`, a Docker Desktop
+restart and a reboot -- `setup-org` and loading the models are needed only once.
+On the first start the one-shot service `quad-store-init` (`init-quad-store.sh`) loads
+Flexo's starting graphs (`mount/cluster.trig`) into the empty volume; on every later start
+it sees data and changes nothing (`docker logs quad-store-init`).
+
+```bash
+docker volume inspect flexo-quad-store                    # where the data lives
+docker compose -f flexo/docker-compose.yml down -v        # start from scratch: -v deletes it
+```
 
 **Without Docker:** `uv run python ../tests/backend/fake_flexo.py --port 8083` (from `backend/`)
 serves the same API in memory -- enough for development, not a replacement for real Flexo.
@@ -65,6 +74,7 @@ fresh kernel: `%repo <target>`, the file, `%publish -d --project="<name>" <Packa
 | Fuseki reserves 8 GB heap (`env/flexo-mms-quad-store.env`) | reads take 3-6 s, creating a project hangs 13-37 min, then HTTP 500 | `-Xmx1g -Xms256m` |
 | three JVMs share the Docker VM | same starvation in layer1 / sysmlv2 | `-Xmx768m` (layer1), `-Xmx384m` (sysmlv2) |
 | ports bound to all interfaces | reachable from the network | `127.0.0.1:` only, like the rest of the platform |
+| Fuseki in memory (`--file=cluster.trig`) | every `docker compose down` or reboot loses all projects | TDB2 on the volume `flexo-quad-store` (`--tdb2 --loc`), `cluster.trig` loaded once by `quad-store-init` |
 
 Docker's memory on Windows is set in `%USERPROFILE%\.wslconfig`: `[wsl2]` / `memory=4GB`
 (about half of the RAM). Check with `docker info` -> "Total Memory".
