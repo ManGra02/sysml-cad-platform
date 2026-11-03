@@ -4,6 +4,7 @@
     tools = sysml_tools(self.ctx, write=True)                    # + attribute values (new commit)
     tools = cad_tools(self.ctx, write=True)                      # + property writes, recompute
     tools += calc_tools() + [progress_tool(self.ctx)]            # exact arithmetic, live progress
+    tools += python_tools(inputs={...})                          # own Python code, in a subprocess
 
 Each tool returns compact JSON (the model's context is small and costs time).
 Errors are returned as ``{"error": ...}`` instead of raised, so the model can
@@ -23,6 +24,7 @@ from dataclasses import asdict
 
 from langchain_core.tools import StructuredTool
 
+from app.ai import code_runner
 from app.sysml import units
 
 #: Cut-off for a single tool result (characters)
@@ -240,6 +242,27 @@ def calc_tools():
         return {"value": units.convert(value, from_unit, to_unit), "unit": to_unit}
 
     return [_tool(fn) for fn in (calculate, convert_units)]
+
+
+# -- Own code ----------------------------------------------------------------
+
+
+def python_tools(inputs=None):
+    """The model writes Python and runs it in a subprocess (code_runner.py) -- not a sandbox.
+
+    ``inputs``: data the code gets as ``inputs`` -- a dict, or an async function
+    returning one (read anew on every call)."""
+
+    async def run_python(code: str, data: dict | None = None) -> dict:
+        """Run Python code you write, in a new process, to compute or check things over many
+        values. The dict `inputs` holds the provided data merged with `data`. Set `result`
+        (JSON-serialisable) or define `main(inputs)` returning it; print() output comes back
+        as stdout. The standard library and pint are available. Only compute with `inputs`:
+        do not write files and do not use the network. Nothing persists between calls."""
+        base = await inputs() if callable(inputs) else (inputs or {})
+        return await code_runner.run_python(code, {**base, **(data or {})})
+
+    return [_tool(run_python)]
 
 
 # -- Progress ----------------------------------------------------------------
