@@ -201,12 +201,38 @@ def _to_requirements(definition, by_id, satisfied_by=None):
                       if e.get("@type") == "ReferenceUsage" and e.get("declaredName")]
         subjects = [(parameters[0] if parameters else "", "")]
 
+    prop = constrained_attribute(found["comparison"][0], found["limit"][0], by_id)
     return [
         Requirement(requirement_id=requirement_id, element_id=definition["@id"], subject=subject,
-                    subject_id=subject_id, prop="", operator=found["comparison"][0]["operator"],
+                    subject_id=subject_id, prop=prop, operator=found["comparison"][0]["operator"],
                     limit=limit, text=name)
         for subject, subject_id in subjects
     ], None
+
+
+def _model_attribute(element):
+    return (element.get("@type") == "AttributeUsage" and not element.get("isLibraryElement")
+            and bool(element.get("declaredName")))
+
+
+def constrained_attribute(comparison, literal, by_id):
+    """The attribute a comparison constrains, best effort: ``housing.length <= maxLength``
+    -> ``length``. Each operand's nearest model attribute is a candidate; the one whose
+    value is the limit literal (``maxLength = 95 [mm]``) is the limit, not the subject.
+    Exactly one name left is the answer; anything else is "" -- the user then says
+    which attribute it is (a guess here would be a plausible-looking wrong mapping)."""
+    names = set()
+    for ref in comparison.get("ownedRelationship") or []:
+        operand = by_id.get(ref.get("@id", ""))
+        if operand is None or operand.get("@type") != "ParameterMembership":
+            continue
+        attribute, _path = find_first(operand, by_id, _model_attribute)
+        if attribute is None:
+            continue
+        if any(e["@id"] == literal["@id"] for e in reachable(attribute, by_id)):
+            continue
+        names.add(attribute["declaredName"])
+    return names.pop() if len(names) == 1 else ""
 
 
 def extract(elements):

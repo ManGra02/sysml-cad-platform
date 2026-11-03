@@ -85,7 +85,6 @@ export function BdsPage() {
 function WorkspaceCard({ workspace: w, documentOpen }: { workspace: Workspace; documentOpen?: boolean }) {
   const { t, i18n } = useTranslation()
   const run = w.last_run
-  const ran = run ? run.summary.compliant + run.summary.within_tolerance + run.summary.violated + run.summary.not_checked : 0
 
   return (
     <Link
@@ -99,15 +98,23 @@ function WorkspaceCard({ workspace: w, documentOpen }: { workspace: Workspace; d
           className={cn(
             "ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
             !run && "bg-muted text-muted-foreground",
-            run && run.violated && "bg-destructive/15 text-destructive",
-            run && !run.violated && "bg-success/15 text-success",
+            run && run.summary.violated > 0 && "bg-destructive/15 text-foreground",
+            run && !run.summary.violated && run.summary.within_tolerance > 0 && "bg-warning/15 text-foreground",
+            run && !run.summary.violated && !run.summary.within_tolerance && "bg-success/15 text-foreground",
           )}
         >
-          {!run
-            ? t("bds.list.notVerified")
-            : run.violated
-              ? t("bds.list.violated", { count: run.summary.violated })
-              : t("bds.list.satisfied", { ok: run.summary.compliant + run.summary.within_tolerance, total: ran })}
+          {/* The same three numbers as on the workspace page. */}
+          {w.counts.attributes_confirmed === null
+            ? t("bds.list.mappingBroken")
+            : !run
+              ? w.counts.attributes_confirmed
+                ? t("bds.list.notVerified")
+                : t("bds.list.mappingEmpty")
+              : t("bds.list.summary", {
+                  passed: run.summary.compliant,
+                  tolerance: run.summary.within_tolerance,
+                  violated: run.summary.violated,
+                })}
         </span>
       </div>
       <dl className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-sm">
@@ -118,14 +125,6 @@ function WorkspaceCard({ workspace: w, documentOpen }: { workspace: Workspace; d
           {w.cad_document || "—"}
           {documentOpen === true && <span className="text-success"> · {t("bds.list.open")}</span>}
           {documentOpen === false && <span className="text-warning"> · {t("bds.list.notOpen")}</span>}
-        </dd>
-        <dt className="text-muted-foreground">{t("bds.list.mapping")}</dt>
-        <dd>
-          {w.counts.attributes_confirmed === null
-            ? t("bds.list.mappingBroken")
-            : w.counts.attributes_confirmed
-              ? t("bds.list.mappingCounts", { parts: w.counts.parts_confirmed, attributes: w.counts.attributes_confirmed })
-              : t("bds.list.mappingEmpty")}
         </dd>
       </dl>
       <div className="mt-auto flex flex-wrap items-center gap-2 text-xs">

@@ -9,7 +9,7 @@ the UI can show as a table.
 
 from pydantic import BaseModel, Field
 
-from app.ai.tools import cad_tools, calc_tools, progress_tool, sysml_tools
+from app.ai.tools import cad_tools, calc_tools, progress_tool, python_tools, sysml_tools
 from app.projects.cra.tools import cra_tools
 
 PROMPT = """You are the CAD reuse assistant. The SysML v2 system model defines the parts a product \
@@ -33,5 +33,5 @@ class MissingParts(BaseModel):
 
 
 def build_agent(ctx):
-    tools = sysml_tools(ctx) + cad_tools(ctx) + calc_tools() + cra_tools(ctx) + [progress_tool(ctx)]
+    tools = sysml_tools(ctx) + cad_tools(ctx) + calc_tools() + cra_tools(ctx) + [progress_tool(ctx)] + python_tools(ctx)
     return ctx.ai.agent(tools, prompt=PROMPT, response_format=MissingParts)

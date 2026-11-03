@@ -56,8 +56,9 @@ def _today():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
-def write_entries(proposal, path):
-    """Append what this proposal becomes -> a note per section written."""
+def write_entries(proposal, path, tolerance=None, note=None):
+    """Append what this proposal becomes -> a note per section written. ``note`` replaces
+    the proposer's account (an entry chosen by hand has no proposer to quote)."""
     if not path.is_file():
         path.write_text(EMPTY, encoding="utf-8")
     original = path.read_text(encoding="utf-8")
@@ -73,7 +74,7 @@ def write_entries(proposal, path):
             "status": "confirmed",
             "author": proposal.proposed_by,
             "confirmed_at": _today(),
-            "note": ("%s: %s" % (proposal.id, proposal.rationale)).strip(": "),
+            "note": note or ("%s: %s" % (proposal.id, proposal.rationale)).strip(": "),
         }))
         written.append("parts: %s -> %s" % (proposal.sysml_part, proposal.cad_object))
 
@@ -84,11 +85,11 @@ def write_entries(proposal, path):
         "method": proposal.method,
         "args": dict(proposal.args),
         "direction": proposal.direction,
-        "tolerance": None,
+        "tolerance": tolerance,
         "status": "confirmed",
         "author": proposal.proposed_by,
         "confirmed_at": _today(),
-        "note": "%s, proposed by %s (confidence %.2f): %s" % (
+        "note": note or "%s, proposed by %s (confidence %.2f): %s" % (
             proposal.id, proposal.proposed_by, proposal.confidence, proposal.rationale),
     }))
     written.append("attributes: %s.%s" % (proposal.sysml_part, proposal.attribute))

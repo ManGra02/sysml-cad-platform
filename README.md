@@ -240,7 +240,7 @@ returns exit code 0. A CI based on it would be permanently green.
 | `flexo/` | Docker setup of the SysML v2 repository (Flexo MMS). |
 | `.devcontainer/` | Devcontainer: `dev` + Flexo as one Compose project. `linux-freecad/`: the same on the host's network, with the native FreeCAD bridge. |
 | `data/examples/sysml/` | SysML v2 test models (e-bike demo, Flexo's own test model; `bds/`: the BDS example models). |
-| `data/bds/` | BDS workspaces: mapping, proposals, sync log per SysML model. |
+| `data/bds/` | BDS workspaces: mapping, proposals, sync log per SysML model (local only, git-ignored). |
 | `frontend/` | React + shadcn/ui, built into `backend/app/static/`. |
 | `scripts/` | Linking, diagnostics, dev startup. |
 | `tests/` | `bridge/` (FreeCAD's Python), `backend/` (against a mock), `contract/`. |
@@ -379,10 +379,16 @@ environment variable wins. The key never reaches the browser.
 `backend/app/projects/bds/` holds the SysML ↔ CAD verification of the former
 bidirectional-sync PoC, ported onto the platform. SysML comes from Flexo (`ctx.sysml`), CAD
 from the open FreeCAD documents through the bridge (`ctx.cad`), proposals from `ctx.ai`. UI under
-`/projects/bds` (`frontend/src/features/bds/`): workspace list, then per workspace the tabs Overview,
-Catalogue, Proposals (generate, review, confirm with a requirement, reject), Mapping (gates per entry),
-Verification (last run stored as `last_run.json`, marked outdated after a FreeCAD change or a new
-commit) and Sync (dry run, then apply).
+`/projects/bds` (`frontend/src/features/bds/`): the workspace list, then per workspace five areas,
+each with its own URL and one question: **overview** (`/projects/bds/<ws>`: the next step and
+where each area stands), **assign** (`…/assign`, SysML ↔ CAD: which measurement belongs to which
+requirement), **check** (`…/check`, CAD → SysML: measured value against limit), **limits**
+(`…/limits`, SysML → CAD, optional: limits as reference values in a FreeCAD sheet) and **models**
+(`…/models`, both models for reference). Suggestions appear in their requirement's row under
+"assign" with the value they would read, the verdict they would give and a cross-check against the
+object's dimensions; a measurement can also be chosen by hand (object, then kind of measurement,
+then a dry run of the checks). Every change re-runs the check; a FreeCAD change, a new commit or an
+assignment newer than the result only marks the result outdated.
 
 A **workspace** is one SysML project, one FreeCAD document and the mapping between them, as
 files under `data/bds/<name>/` (`BDS_DATA_DIR` overrides): `workspace.yaml`, `mapping.yaml`
@@ -400,9 +406,11 @@ mapping + requirements ─► sync (limits into the FreeCAD sheet "SysML")
 | `GET /workspaces`, `GET/PUT /workspaces/{ws}` | list / read / create (`{sysml_project, cad_document, axes?, limits_sheet?}`) |
 | `GET /workspaces/{ws}/catalog` | both sides: SysML parts + attributes + requirements, CAD objects + measurable methods + parameters |
 | `GET /workspaces/{ws}/mapping`, `GET .../gates` | the mapping; is it sound (existence, dimension, uniqueness, plausibility)? |
-| `GET/POST /workspaces/{ws}/proposals` | list (`?check=true` gates the pending ones); propose (`{proposer: difflib\|ai, top, dry_run}`) — gated, stored as `proposed` |
+| `GET/POST /workspaces/{ws}/proposals` | list (`?check=true` gates the pending ones and adds `previews`: the verdict per requirement constraining the attribute); propose (`{proposer: difflib\|ai, top, dry_run}`) — gated, stored as `proposed` |
 | `POST .../proposals/{id}/confirm` | re-gate, then write into `mapping.yaml`; `{requirement}` links the requirement it is checked through — without one a run never uses the entry |
 | `POST .../proposals/{id}/reject` | `{reason}`; kept, so it is not proposed again |
+| `POST /workspaces/{ws}/mapping/entries` | a measurement chosen by hand (`{sysml_part, attribute, cad_object, method, args, requirement, tolerance, dry_run, replaces?}`) — gated like a proposal; the answer carries the would-be verdict |
+| `PATCH/DELETE .../mapping/entries/{part}/{attribute}?requirement=` | relink the requirement / change the tolerance; release the entry (its part entry goes when unused) — rewrites only that entry's text, restores the file if it does not read back |
 | `POST /workspaces/{ws}/verify` | verdicts (compliant / within_tolerance / violated) and gaps; WS frame `bds.verify.done` |
 | `GET /workspaces/{ws}/verify/last` | the most recent result (only that one is kept) |
 | `POST /workspaces/{ws}/sync` | requirement limits into the sheet `SysML` — dry run unless `{apply: true}` (one undo step) |
@@ -419,7 +427,10 @@ unambiguous), or `<Doc>` for a document's single root object. Measurements: `bbo
 `cylinder_radius(kind=hole|boss, axis)`, `parameter(name)` (`Params.Length`, `Pad.Length`).
 
 Requirements are read from the **full** SysML v2 metamodel as the Pilot publishes it — the
-simplified demo models (`seed-demo`) contain none. Example models: `data/examples/sysml/bds/`.
+simplified demo models (`seed-demo`) contain none. The constrained attribute is read from the
+comparison (`housing.length <= maxLength` → `length`, best effort; else the UI asks). Example
+models: `data/examples/sysml/bds/`; a matching FreeCAD file: `data/examples/freecad/gearbox.FCStd`
+(rebuilt by `freecadcmd data/examples/freecad/make_gearbox.py`).
 Whether a model survives Flexo's RDF round trip unchanged: `cd backend && uv run python
 ../scripts/bds_flexo_check.py gearbox` (needs a running Flexo).
 

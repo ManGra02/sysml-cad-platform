@@ -457,16 +457,23 @@ class FreeCADSnapshot:
                 if len(labels[obj.label]) > 1:
                     notes.append("label shared by %d objects" % len(labels[obj.label]))
                 parent = document.objects.get(obj.parent) if obj.parent else None
+                parameters = document.parameters_of(obj)
                 out.append(CadTarget(
                     adapter=self.name,
                     reference=document.reference(obj),
                     kind="assembly" if obj.children else "part",
                     name=obj.label,
                     methods=methods,
-                    parameters=document.parameters_of(obj),
+                    parameters=parameters,
                     note=", ".join(notes),
                     depth=obj.depth,
                     container=document.reference(parent) if parent is not None else "",
+                    size=_size_of(obj),
+                    mass=_mass_or_none(document, obj),
+                    material=material.name if material is not None else "",
+                    cylinders=_cylinder_summary(obj),
+                    sheet_parameters=tuple(n for n in parameters if n.split(".", 1)[0] in document.sheets),
+                    error=obj.error or "",
                 ))
         return out
 
@@ -507,11 +514,50 @@ def _mass_of(document, obj):
 
 
 def _has_mass(document, obj):
+    return _mass_or_none(document, obj) is not None
+
+
+def _mass_or_none(document, obj):
     try:
-        _mass_of(document, obj)
+        return _mass_of(document, obj)
     except Unsupported:
-        return False
-    return True
+        return None
+
+
+def _size_of(obj):
+    """Bounding-box extents X, Y, Z in mm -- what a person checks a length against."""
+    if obj.error or not obj.has_shape:
+        return None
+    box = obj.geometry.get("tightBoundBox") or obj.geometry.get("boundBox")
+    return tuple(round(v, 6) for v in box["lengths"]) if box else None
+
+
+def _cylinder_features(geometry, kind=None, direction=None):
+    """Cylindrical faces grouped into features (a bore split by a seam is one)."""
+    features = []
+    for face in geometry.get("cylinders") or []:
+        along = _unit(face["axis"])
+        if kind is not None and face["kind"] != kind:
+            continue
+        if direction is not None and abs(abs(_dot(along, direction)) - 1) > 1e-9:
+            continue
+        feature = {"radius": face["radius"], "origin": face["center"], "along": along, "kind": face["kind"]}
+        if not any(_same_cylinder(feature, known) for known in features):
+            features.append(feature)
+    return features
+
+
+def _cylinder_summary(obj):
+    """One entry per cylindrical feature: kind, radius, and the axis letter when it is
+    parallel to one. For display; measuring stays with _cylinder_radius_of."""
+    if obj.error or not obj.has_shape or obj.geometry.get("cylindersTruncated"):
+        return ()
+    out = []
+    for feature in _cylinder_features(obj.geometry):
+        axis = next((letter for letter, d in _AXES.items()
+                     if abs(abs(_dot(feature["along"], d)) - 1) <= 1e-9), None)
+        out.append({"kind": feature["kind"], "radius": round(feature["radius"], 6), "axis": axis})
+    return tuple(out)
 
 
 def _cylinder_radius_of(geometry, kind=None, axis=None):
@@ -531,16 +577,7 @@ def _cylinder_radius_of(geometry, kind=None, axis=None):
     if "cylinders" not in geometry:
         raise Unsupported("cylinder_radius: this FreeCAD bridge reports no cylinders (contract < 0.7.0)")
 
-    features = []
-    for face in geometry.get("cylinders") or []:
-        along = _unit(face["axis"])
-        if kind is not None and face["kind"] != kind:
-            continue
-        if direction is not None and abs(abs(_dot(along, direction)) - 1) > 1e-9:
-            continue
-        feature = {"radius": face["radius"], "origin": face["center"], "along": along, "kind": face["kind"]}
-        if not any(_same_cylinder(feature, known) for known in features):
-            features.append(feature)
+    features = _cylinder_features(geometry, kind, direction)
 
     narrowed = ", ".join("%s=%s" % (k, v) for k, v in (("kind", kind), ("axis", axis)) if v)
     if not features:
