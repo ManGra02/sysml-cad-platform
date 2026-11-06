@@ -137,20 +137,25 @@ async def test_api_status_und_ctx_ai(handshake, ollama):
 
 
 async def test_agent_ruft_tools_mit_eigenem_modell(bridge, ollama):
-    missing = {"parts": [{"sysml_id": "p1", "name": "motor", "reason": "no CAD object"}]}
-    ollama.replies = [tool_call("cad_documents"), answer("Ein Dokument: Doc"), answer(json.dumps(missing))]
+    from app.projects.cra.agent import CraResult
+
+    result = CraResult(mission="other", outcome="answer", understanding="one document is open").model_dump()
+    ollama.replies = [tool_call("cad_documents"), answer("Ein Dokument: Doc"),
+                      answer(json.dumps({"approved": True, "issues": []})), answer(json.dumps(result))]
     async with running_backend(ai_service=AiService(config_for(ollama))) as backend:
         await wait_for(lambda: backend.state.bridge.state == "ok")
         code, body = await backend.post("/api/projects/cra/agent", json={"message": "Welche Dokumente?"})
     assert code == 200, body
     assert body["model"] == "gpt-oss:20b" and body["answer"] == "Ein Dokument: Doc"
     assert body["steps"][0]["tool"] == "cad_documents" and '"Doc"' in body["steps"][0]["result"]
-    assert body["result"] == missing                       # CRA's structured MissingParts
-    assert [c["model"] for c in ollama.chats] == ["gpt-oss:20b"] * 3
+    assert body["result"] == result                        # CRA's structured CraResult
+    assert [c["model"] for c in ollama.chats] == ["gpt-oss:20b"] * 4
     assert ollama.chats[0]["messages"][0]["role"] == "system"
     assert {t["function"]["name"] for t in ollama.chats[0]["tools"]} >= {
-        "sysml_parts", "sysml_find", "sysml_diff", "cad_tree", "calculate", "report_progress"}
-    assert "format" in ollama.chats[2]                     # the structured step asks for a JSON schema
+        "sysml_parts", "sysml_find", "sysml_diff", "cad_tree", "calculate", "report_progress",
+        "understand_part", "search_parts", "verify_part"}
+    assert "sysml_neighbours" not in {t["function"]["name"] for t in ollama.chats[0]["tools"]}
+    assert "format" in ollama.chats[2] and "format" in ollama.chats[3]   # review and result are structured
 
 
 async def test_agent_ohne_key(handshake):

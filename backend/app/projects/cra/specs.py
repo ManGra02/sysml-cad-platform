@@ -10,10 +10,17 @@ import asyncio
 import hashlib
 import json
 
-from app.projects.cra.matching import empty_spec, norm_val, snake
+from app.projects.cra.guardrails import norm_val, snake
 
 BATCH = 20     # parts read per LLM call
 WORKERS = 4    # LLM calls running at the same time
+
+#: Preferred property names -- shared by the reader (here) and the agent's rules (profile.py),
+#: so both speak the same language. Anything else: snake_case with a unit suffix.
+ATTRIBUTE_NAMES = ("length_mm, width_mm, height_mm, thickness_mm, diameter_mm, bore_diameter_mm, outer_diameter_mm, "
+                   "inner_diameter_mm, shaft_diameter_mm, thread_size (like \"M6\", no pitch), teeth, module_mm, "
+                   "pitch_mm, pressure_angle_deg, load_rating_kn, torque_rating_nm, voltage_v, current_a, power_w, "
+                   "capacity_ah, mass_kg, head_type, standard")
 
 EXTRACT_PROMPT = """You read engineering part descriptions and turn them into specs.
 For every part below return one JSON object. Reply with ONLY a JSON list, nothing else.
@@ -22,13 +29,13 @@ Keys:
 - "category": ONE lowercase singular noun for what the part is (screw, nut, washer, key, gear, shaft, bearing, seal, housing, bracket, motor, tire ...)
 - "type": short full type, e.g. "socket head cap screw"
 - "function": 3 to 6 words on what it does, e.g. "fastens parts together"
-- "material": lowercase, "" if unknown. A2 or A4 mean "stainless steel". Use "aluminum" for aluminium.
+- "material": the base material, lowercase, "" if unknown. A coating (zinc plated) is not the material.
+  A2 or A4 mean "stainless steel". Use "aluminum" for aluminium.
 - "attrs": object with the part's properties. Use these names when they apply:
-  length_mm, width_mm, height_mm, thickness_mm, diameter_mm, bore_diameter_mm, outer_diameter_mm,
-  shaft_diameter_mm, thread_size (like "M6", no pitch), teeth, module_mm, pressure_angle_deg,
-  load_rating_kn, mass_kg, head_type. Numbers are plain numbers in mm, kg, kN or degrees.
-  Any other property: snake_case name with a unit suffix. Only include what the text states
-  or what the named standard fixes for certain. Never guess.
+  """ + ATTRIBUTE_NAMES + """.
+  Numbers are plain numbers in mm, kg, kN, V, A, W or degrees. Any other property: snake_case name
+  with a unit suffix. Only include what the text states or what the named standard fixes for certain.
+  Never guess.
 Parts:
 """
 
@@ -67,6 +74,10 @@ def clean_spec(o):
             "function": str(o.get("function", "")).strip().lower(),
             "material": str(o.get("material", "")).strip().lower(),
             "attrs": attrs}
+
+
+def empty_spec():
+    return {"category": "", "type": "", "function": "", "material": "", "attrs": {}}
 
 
 def _text(reply):

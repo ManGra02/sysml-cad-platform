@@ -1,13 +1,15 @@
-"""CAD Reuse Assistant -- detect missing components and suggest existing parts to reuse.
+"""CAD Reuse Assistant -- an engineering agent that reuses existing parts and finds CAD models.
 
-Status: placeholder. This is where the CRA group's logic starts:
-  * routes for the UI in register_routes()
-  * reacting to changes in FreeCAD in on_cad_event()
-  * read/write CAD via self.ctx.cad
-  * LLM agents via self.ctx.ai (model: OLLAMA_MODEL_CRA) -- agent.py,
-    reachable as POST /api/projects/cra/agent {"message": "..."}
-  * part library search by function and dimensions (matching.py, specs.py, plm.py, finder.py),
-    reachable as POST /api/projects/cra/search {"attributes": {...}, "tolerance_pct": 10}
+  * agent.py      the agent (LangGraph): plans, uses tools, a reviewer checks its answer
+  * tools.py      its own tools: PLM, understand a part, search, verify, relax a rule, envelope
+  * profile.py    understanding a part: what it is and the rules a replacement must meet (LLM)
+  * guardrails.py the fixed safety limits around those rules (plain Python)
+  * specs.py      reading part names/descriptions into specs (LLM, cached)
+  * plm.py        the PLM (Cascadia, read-only), with the attached CAD files
+  * session.py    one agent run
+
+Routes: POST /agent {"message"} (any question), POST /find-cad {"item_number"} (mission B),
+GET /plm/missing-cad, POST /envelope (create an approved placeholder in FreeCAD).
 UI: frontend/src/features/cra/
 """
 
@@ -15,15 +17,24 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.ai.routes import AgentRequest
-from app.projects.cra.matching import DEFAULT_TOL_PCT, MAX_TOL_PCT
 from app.projects.cra.plm import PlmError
 from app.projects.stub import StubModule
 
 
-class SearchRequest(BaseModel):
-    """A required part: its SysML attributes as modelled (partType, function, material, sizes ...)."""
-    attributes: dict
-    tolerance_pct: float = Field(DEFAULT_TOL_PCT, ge=0, le=MAX_TOL_PCT)
+class FindCadRequest(BaseModel):
+    item_number: str
+
+
+class EnvelopeRequest(BaseModel):
+    """An envelope proposal (from propose_envelope_model) the engineer approved."""
+    type: str = Field(pattern=r"^Part::(Box|Cylinder)$")
+    props: dict
+    label: str = "CRA envelope"
+    doc: str | None = None
+
+
+def _plm_error(exc):
+    return JSONResponse({"error": {"code": exc.code, "message": exc.message}}, status_code=503)
 
 
 class CraModule(StubModule):
@@ -37,20 +48,41 @@ class CraModule(StubModule):
 
         @router.post("/agent")
         async def agent(body: AgentRequest):
-            """Ask the example agent (agent.py) -> {model, answer, steps}."""
-            # Imported on first use: LangChain/LangGraph take seconds to import.
-            from app.ai.agents import run
-            from app.projects.cra.agent import build_agent
+            """Ask the CRA agent anything -> {model, answer, steps, result}."""
+            return await self._run(body.message)
 
-            return await run(build_agent(self.ctx), body.message, model=self.ctx.ai.model)
+        @router.post("/find-cad")
+        async def find_cad(body: FindCadRequest):
+            """Mission B for one PLM part without CAD -> {model, answer, steps, result}."""
+            return await self._run("PLM part %s has no CAD model attached. Find a CAD model for it."
+                                   % body.item_number)
 
-        @router.post("/search")
-        async def search(body: SearchRequest):
-            """Best existing PLM part for a required part, by function and dimensions
-            -> {best, near_misses, checked, same_function, passed, tolerance_pct}."""
-            from app.projects.cra.finder import Finder
+        @router.get("/plm/missing-cad")
+        async def missing_cad(limit: int = 200):
+            """PLM parts without an attached CAD model."""
+            from app.projects.cra.session import CraSession
 
             try:
-                return await Finder(self.ctx).find(body.attributes, body.tolerance_pct)
+                return await CraSession(self.ctx).without_cad(limit)
             except PlmError as exc:
-                return JSONResponse({"error": {"code": exc.code, "message": exc.message}}, status_code=503)
+                return _plm_error(exc)
+
+        @router.post("/envelope")
+        async def envelope(body: EnvelopeRequest):
+            """Create an approved placeholder in FreeCAD (active document unless ``doc``)."""
+            doc = body.doc or (await self.ctx.cad.documents()).get("active")
+            if not doc:
+                return JSONResponse({"error": {"code": "no_document", "message": "No FreeCAD document is open"}},
+                                    status_code=409)
+            name = await self.ctx.cad.create(doc, body.type, "CraEnvelope", label=body.label, props=body.props)
+            return {"doc": doc, "name": name}
+
+    async def _run(self, message):
+        # Imported on first use: LangChain/LangGraph take seconds to import.
+        from app.ai.agents import run
+        from app.projects.cra.agent import STEP_LIMIT, build_agent
+
+        try:
+            return await run(build_agent(self.ctx), message, model=self.ctx.ai.model, recursion_limit=STEP_LIMIT)
+        except PlmError as exc:
+            return _plm_error(exc)

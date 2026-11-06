@@ -63,12 +63,12 @@ def react_agent(model, tools, prompt=None, response_format=None):
     return graph.compile()
 
 
-async def run(agent, message, model=None):
+async def run(agent, message, model=None, recursion_limit=RECURSION_LIMIT):
     """One question -> ``{"model", "answer", "steps"}`` (+ ``result`` with a response_format);
     Ollama errors become AiError."""
     try:
         state = await agent.ainvoke({"messages": [("user", message)]},
-                                    {"recursion_limit": RECURSION_LIMIT})
+                                    {"recursion_limit": recursion_limit})
     except AiError:
         raise
     except Exception as exc:   # ollama.ResponseError, httpx errors, GraphRecursionError ...
