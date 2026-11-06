@@ -17,6 +17,11 @@ import { Route as ProjectsBdsRouteImport } from './routes/projects.bds'
 import { Route as ProjectsCraRouteImport } from './routes/projects.cra'
 import { Route as ProjectsBdsIndexRouteImport } from './routes/projects.bds.index'
 import { Route as ProjectsBdsWsRouteImport } from './routes/projects.bds.$ws'
+import { Route as ProjectsBdsWsIndexRouteImport } from './routes/projects.bds.$ws.index'
+import { Route as ProjectsBdsWsAssignRouteImport } from './routes/projects.bds.$ws.assign'
+import { Route as ProjectsBdsWsCheckRouteImport } from './routes/projects.bds.$ws.check'
+import { Route as ProjectsBdsWsLimitsRouteImport } from './routes/projects.bds.$ws.limits'
+import { Route as ProjectsBdsWsModelsRouteImport } from './routes/projects.bds.$ws.models'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -58,6 +63,31 @@ const ProjectsBdsWsRoute = ProjectsBdsWsRouteImport.update({
   path: '/$ws',
   getParentRoute: () => ProjectsBdsRoute,
 } as any)
+const ProjectsBdsWsIndexRoute = ProjectsBdsWsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectsBdsWsRoute,
+} as any)
+const ProjectsBdsWsAssignRoute = ProjectsBdsWsAssignRouteImport.update({
+  id: '/assign',
+  path: '/assign',
+  getParentRoute: () => ProjectsBdsWsRoute,
+} as any)
+const ProjectsBdsWsCheckRoute = ProjectsBdsWsCheckRouteImport.update({
+  id: '/check',
+  path: '/check',
+  getParentRoute: () => ProjectsBdsWsRoute,
+} as any)
+const ProjectsBdsWsLimitsRoute = ProjectsBdsWsLimitsRouteImport.update({
+  id: '/limits',
+  path: '/limits',
+  getParentRoute: () => ProjectsBdsWsRoute,
+} as any)
+const ProjectsBdsWsModelsRoute = ProjectsBdsWsModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
+  getParentRoute: () => ProjectsBdsWsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -66,8 +96,13 @@ export interface FileRoutesByFullPath {
   '/projects/bds': typeof ProjectsBdsRouteWithChildren
   '/projects/cra': typeof ProjectsCraRoute
   '/cad/': typeof CadIndexRoute
-  '/projects/bds/$ws': typeof ProjectsBdsWsRoute
+  '/projects/bds/$ws': typeof ProjectsBdsWsRouteWithChildren
   '/projects/bds/': typeof ProjectsBdsIndexRoute
+  '/projects/bds/$ws/assign': typeof ProjectsBdsWsAssignRoute
+  '/projects/bds/$ws/check': typeof ProjectsBdsWsCheckRoute
+  '/projects/bds/$ws/limits': typeof ProjectsBdsWsLimitsRoute
+  '/projects/bds/$ws/models': typeof ProjectsBdsWsModelsRoute
+  '/projects/bds/$ws/': typeof ProjectsBdsWsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -75,8 +110,12 @@ export interface FileRoutesByTo {
   '/cad/$doc': typeof CadDocRoute
   '/projects/cra': typeof ProjectsCraRoute
   '/cad': typeof CadIndexRoute
-  '/projects/bds/$ws': typeof ProjectsBdsWsRoute
   '/projects/bds': typeof ProjectsBdsIndexRoute
+  '/projects/bds/$ws/assign': typeof ProjectsBdsWsAssignRoute
+  '/projects/bds/$ws/check': typeof ProjectsBdsWsCheckRoute
+  '/projects/bds/$ws/limits': typeof ProjectsBdsWsLimitsRoute
+  '/projects/bds/$ws/models': typeof ProjectsBdsWsModelsRoute
+  '/projects/bds/$ws': typeof ProjectsBdsWsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -86,8 +125,13 @@ export interface FileRoutesById {
   '/projects/bds': typeof ProjectsBdsRouteWithChildren
   '/projects/cra': typeof ProjectsCraRoute
   '/cad/': typeof CadIndexRoute
-  '/projects/bds/$ws': typeof ProjectsBdsWsRoute
+  '/projects/bds/$ws': typeof ProjectsBdsWsRouteWithChildren
   '/projects/bds/': typeof ProjectsBdsIndexRoute
+  '/projects/bds/$ws/assign': typeof ProjectsBdsWsAssignRoute
+  '/projects/bds/$ws/check': typeof ProjectsBdsWsCheckRoute
+  '/projects/bds/$ws/limits': typeof ProjectsBdsWsLimitsRoute
+  '/projects/bds/$ws/models': typeof ProjectsBdsWsModelsRoute
+  '/projects/bds/$ws/': typeof ProjectsBdsWsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -100,6 +144,11 @@ export interface FileRouteTypes {
     | '/cad/'
     | '/projects/bds/$ws'
     | '/projects/bds/'
+    | '/projects/bds/$ws/assign'
+    | '/projects/bds/$ws/check'
+    | '/projects/bds/$ws/limits'
+    | '/projects/bds/$ws/models'
+    | '/projects/bds/$ws/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -107,8 +156,12 @@ export interface FileRouteTypes {
     | '/cad/$doc'
     | '/projects/cra'
     | '/cad'
-    | '/projects/bds/$ws'
     | '/projects/bds'
+    | '/projects/bds/$ws/assign'
+    | '/projects/bds/$ws/check'
+    | '/projects/bds/$ws/limits'
+    | '/projects/bds/$ws/models'
+    | '/projects/bds/$ws'
   id:
     | '__root__'
     | '/'
@@ -119,6 +172,11 @@ export interface FileRouteTypes {
     | '/cad/'
     | '/projects/bds/$ws'
     | '/projects/bds/'
+    | '/projects/bds/$ws/assign'
+    | '/projects/bds/$ws/check'
+    | '/projects/bds/$ws/limits'
+    | '/projects/bds/$ws/models'
+    | '/projects/bds/$ws/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -188,16 +246,71 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsBdsWsRouteImport
       parentRoute: typeof ProjectsBdsRoute
     }
+    '/projects/bds/$ws/': {
+      id: '/projects/bds/$ws/'
+      path: '/'
+      fullPath: '/projects/bds/$ws/'
+      preLoaderRoute: typeof ProjectsBdsWsIndexRouteImport
+      parentRoute: typeof ProjectsBdsWsRoute
+    }
+    '/projects/bds/$ws/assign': {
+      id: '/projects/bds/$ws/assign'
+      path: '/assign'
+      fullPath: '/projects/bds/$ws/assign'
+      preLoaderRoute: typeof ProjectsBdsWsAssignRouteImport
+      parentRoute: typeof ProjectsBdsWsRoute
+    }
+    '/projects/bds/$ws/check': {
+      id: '/projects/bds/$ws/check'
+      path: '/check'
+      fullPath: '/projects/bds/$ws/check'
+      preLoaderRoute: typeof ProjectsBdsWsCheckRouteImport
+      parentRoute: typeof ProjectsBdsWsRoute
+    }
+    '/projects/bds/$ws/limits': {
+      id: '/projects/bds/$ws/limits'
+      path: '/limits'
+      fullPath: '/projects/bds/$ws/limits'
+      preLoaderRoute: typeof ProjectsBdsWsLimitsRouteImport
+      parentRoute: typeof ProjectsBdsWsRoute
+    }
+    '/projects/bds/$ws/models': {
+      id: '/projects/bds/$ws/models'
+      path: '/models'
+      fullPath: '/projects/bds/$ws/models'
+      preLoaderRoute: typeof ProjectsBdsWsModelsRouteImport
+      parentRoute: typeof ProjectsBdsWsRoute
+    }
   }
 }
 
+interface ProjectsBdsWsRouteChildren {
+  ProjectsBdsWsAssignRoute: typeof ProjectsBdsWsAssignRoute
+  ProjectsBdsWsCheckRoute: typeof ProjectsBdsWsCheckRoute
+  ProjectsBdsWsLimitsRoute: typeof ProjectsBdsWsLimitsRoute
+  ProjectsBdsWsModelsRoute: typeof ProjectsBdsWsModelsRoute
+  ProjectsBdsWsIndexRoute: typeof ProjectsBdsWsIndexRoute
+}
+
+const ProjectsBdsWsRouteChildren: ProjectsBdsWsRouteChildren = {
+  ProjectsBdsWsAssignRoute: ProjectsBdsWsAssignRoute,
+  ProjectsBdsWsCheckRoute: ProjectsBdsWsCheckRoute,
+  ProjectsBdsWsLimitsRoute: ProjectsBdsWsLimitsRoute,
+  ProjectsBdsWsModelsRoute: ProjectsBdsWsModelsRoute,
+  ProjectsBdsWsIndexRoute: ProjectsBdsWsIndexRoute,
+}
+
+const ProjectsBdsWsRouteWithChildren = ProjectsBdsWsRoute._addFileChildren(
+  ProjectsBdsWsRouteChildren,
+)
+
 interface ProjectsBdsRouteChildren {
-  ProjectsBdsWsRoute: typeof ProjectsBdsWsRoute
+  ProjectsBdsWsRoute: typeof ProjectsBdsWsRouteWithChildren
   ProjectsBdsIndexRoute: typeof ProjectsBdsIndexRoute
 }
 
 const ProjectsBdsRouteChildren: ProjectsBdsRouteChildren = {
-  ProjectsBdsWsRoute: ProjectsBdsWsRoute,
+  ProjectsBdsWsRoute: ProjectsBdsWsRouteWithChildren,
   ProjectsBdsIndexRoute: ProjectsBdsIndexRoute,
 }
 

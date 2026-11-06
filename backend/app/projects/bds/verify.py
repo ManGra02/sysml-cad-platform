@@ -18,6 +18,7 @@ from app.projects.bds.model import (
     Verdict,
     parse_tolerance,
 )
+from app.projects.bds.units import as_json
 
 
 def _evaluate(req, entry, mapping, pool):
@@ -74,6 +75,32 @@ def run(requirements, skipped, mapping, pool, context=None):
         except BadTolerance as exc:
             gaps.append("%s: %s -- a mapping fault, see GET .../gates" % (req.requirement_id, exc))
 
+    # An entry whose requirement the model no longer states checks nothing -- renamed or
+    # deleted in SysML. Said out loud, or "0 not checked" would hide a dead rule.
+    known = {(r.requirement_id, leaf(r.subject)) for r in requirements}
+    unreadable = {reason.split(":", 1)[0] for reason in skipped}
+    for entry in mapping.attributes:
+        if (entry.usable and entry.requirement and (entry.requirement, entry.sysml_part) not in known
+                and entry.requirement not in unreadable):
+            gaps.append("%s: no longer in the model, but the mapping entry %s.%s still names it -- "
+                        "release or relink that entry" % (entry.requirement, entry.sysml_part, entry.attribute))
+
     context = replace(context or RunContext(), cad_adapter=pool.names, cad_state_id=pool.state_id,
                       mapping_digest=mapping.digest)
     return Run(context=context, verdicts=verdicts, gaps=gaps)
+
+
+def preview(requirement, measured, tolerance=None):
+    """What a run would say if this measurement were assigned -> {status, deviation,
+    tolerance} or None. Shown before a human decides; never stored as a verdict."""
+    if requirement is None or measured is None:
+        return None
+    try:
+        parsed = parse_tolerance(tolerance, requirement.limit)
+        status, deviation = requirement.evaluate(measured, parsed)
+    except (DimensionMismatch, BadTolerance):
+        return None
+    return {"requirement": requirement.requirement_id, "status": status,
+            "measured": as_json(measured), "limit": as_json(requirement.limit),
+            "operator": requirement.operator, "deviation": as_json(deviation),
+            "tolerance": as_json(parsed)}

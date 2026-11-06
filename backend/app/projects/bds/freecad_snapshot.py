@@ -1,8 +1,8 @@
-"""The CAD side through the platform's FreeCAD bridge (``ctx.cad``).
+"""A snapshot of the FreeCAD documents, read through the platform's bridge (``ctx.cad``).
 
 Replaces the PoC's own headless FreeCAD worker: the documents are the ones open in
 the user's FreeCAD, read over the bridge's HTTP API. Everything is read ONCE per run
-(``BridgeAdapter.load``) -- tree, properties, geometry of the listed objects, spreadsheet
+(``FreeCADSnapshot.load``) -- tree, properties, geometry of the listed objects, spreadsheet
 aliases -- so every measurement afterwards is a lookup in one consistent snapshot, and
 the verification logic above stays synchronous.
 
@@ -20,13 +20,14 @@ App::Part / assembly containers, and any other shape that no other feature consu
 WHAT IS REFUSED: an object FreeCAD marks invalid or touched (a stale shape is never
 measured -- recompute in FreeCAD first), a document that is not open, and a bridge
 that is not running. Every one of them is ``Unsupported``, i.e. a gap in the run.
+
+Writing (the requirement limits) is not a snapshot's job: see freecad_limits.
 """
 
 from __future__ import annotations
 
 import hashlib
 import math
-import re
 
 from app import config
 from app.projects.base import CadError, seg
@@ -34,7 +35,6 @@ from app.projects.bds.adapters import (
     METHODS,
     NEEDS_PARAMETERS,
     CadTarget,
-    LimitChange,
     Material,
     Unsupported,
     check_args,
@@ -49,14 +49,8 @@ NON_CONSUMING_TYPES = CONTAINER_TYPES | {"App::DocumentObjectGroup", "App::Link"
 SHEET_TYPE = "Spreadsheet::Sheet"
 SKIPPED_TYPE_PREFIXES = ("Sketcher::", "Spreadsheet::", "App::VarSet", "App::MaterialObject")
 
-#: Cell A1 of a sheet the sync owns. A sheet of that name without it is a designer's
-#: and is never written.
-MARKER = "managed by sysml-cad-platform BDS -- do not edit"
-OWNER = "bds"
-
 _SAME_CYLINDER_MM = 1e-4
 _AXES = {"X": (1.0, 0.0, 0.0), "Y": (0.0, 1.0, 0.0), "Z": (0.0, 0.0, 1.0)}
-_CELL = re.compile(r"([A-Z]+)(\d+)")
 
 
 # --------------------------------------------------------------------------
@@ -88,41 +82,6 @@ def decode_quantity(data):
         return Q(float(value), ureg.parse_units(symbol))
     except Exception as exc:
         raise Unsupported("FreeCAD unit %r is not understood (%s)" % (data.get("unit"), exc)) from None
-
-
-_FREECAD_BASE = (("[length]", "mm"), ("[mass]", "kg"), ("[time]", "s"), ("[current]", "A"),
-                 ("[temperature]", "K"), ("[substance]", "mol"), ("[luminosity]", "cd"))
-_ANGLE_UNITS = {"degree", "radian", "arcminute", "arcsecond", "turn"}
-
-
-def freecad_text(quantity):
-    """A quantity as FreeCAD expression text in its internal units: ``100 mm``,
-    ``2.7e-06 kg/mm^3``, ``45 deg``."""
-    if str(quantity.units) in _ANGLE_UNITS:
-        return "%r deg" % float(quantity.to(ureg.degree).magnitude)
-    dims = quantity.dimensionality
-    unknown = set(dims) - {key for key, _ in _FREECAD_BASE}
-    if unknown:
-        raise Unsupported("%s: dimension %s has no FreeCAD unit" % (format(quantity, "~P"), sorted(unknown)))
-    base = ureg.dimensionless
-    numerator, denominator = [], []
-    for key, symbol in _FREECAD_BASE:
-        exponent = dims.get(key, 0)
-        if not exponent:
-            continue
-        if exponent != int(exponent):
-            raise Unsupported("%s: fractional dimension" % format(quantity, "~P"))
-        exponent = int(exponent)
-        base = base * ureg.parse_units(symbol) ** exponent
-        text = symbol if abs(exponent) == 1 else "%s^%d" % (symbol, abs(exponent))
-        (numerator if exponent > 0 else denominator).append(text)
-    value = float(quantity.to(base).magnitude)
-    if not numerator and not denominator:
-        return repr(value)
-    unit = "*".join(numerator) or "1"
-    if denominator:
-        unit += "/" + ("/".join(denominator))
-    return "%r %s" % (value, unit)
 
 
 # --------------------------------------------------------------------------
@@ -354,7 +313,7 @@ _SIGNATURES = {"bbox_size": _bbox_size, "volume": _volume, "face_count": _face_c
                "cylinder_radius": _cylinder_radius, "mass": _mass, "parameter": _parameter}
 
 
-class BridgeAdapter:
+class FreeCADSnapshot:
     name = "freecad"
 
     def __init__(self, cad, limits_sheet=DEFAULT_LIMITS_SHEET):
@@ -498,93 +457,34 @@ class BridgeAdapter:
                 if len(labels[obj.label]) > 1:
                     notes.append("label shared by %d objects" % len(labels[obj.label]))
                 parent = document.objects.get(obj.parent) if obj.parent else None
+                parameters = document.parameters_of(obj)
                 out.append(CadTarget(
                     adapter=self.name,
                     reference=document.reference(obj),
                     kind="assembly" if obj.children else "part",
                     name=obj.label,
                     methods=methods,
-                    parameters=document.parameters_of(obj),
+                    parameters=parameters,
                     note=", ".join(notes),
                     depth=obj.depth,
                     container=document.reference(parent) if parent is not None else "",
+                    size=_size_of(obj),
+                    mass=_mass_or_none(document, obj),
+                    material=material.name if material is not None else "",
+                    cylinders=_cylinder_summary(obj),
+                    sheet_parameters=tuple(n for n in parameters if n.split(".", 1)[0] in document.sheets),
+                    error=obj.error or "",
                 ))
         return out
 
-    # -- writing ------------------------------------------------------------
-
     async def write_limits(self, document, sheet, values, apply=False):
-        """Write requirement limits into the sheet the sync owns.
+        """Written by freecad_limits; here so the adapter pool reaches it. What this run
+        read of a document it changed is stale afterwards."""
+        from app.projects.bds.freecad_limits import write_limits   # it imports this module
 
-        Layout from row 2 down: A the alias as text, B the value (aliased), C "bds".
-        A sheet with that label but without the marker in A1 is a designer's and is
-        refused. Only cells in rows whose C reads "bds" are ever changed. With
-        ``apply=False`` nothing is written and the result is the diff. All changes go
-        in ONE bridge transaction -- one undo step in FreeCAD.
-        """
-        if "#" in document:
-            raise Unsupported("limits are written into a document, not into %r" % document)
-        try:
-            tree = await self._cad.tree(document)
-        except CadError as exc:
-            raise Unsupported("FreeCAD document %r cannot be written: %s" % (document, exc.message or exc.code)) from None
-        sheets = [name for name, node in (tree.get("nodes") or {}).items()
-                  if node.get("typeId") == SHEET_TYPE and (node.get("label") or name) == sheet]
-        if len(sheets) > 1:
-            raise Unsupported("%s has %d spreadsheets labelled %r" % (document, len(sheets), sheet))
-
-        rows, used = {}, 1
-        sheet_name = sheets[0] if sheets else None
-        if sheet_name is not None:
-            cells = (await self._cad.cells(document, sheet_name)).get("cells") or {}
-            if (cells.get("A1") or {}).get("content") != MARKER:
-                raise Unsupported("spreadsheet %r in %s is not the sync's (no marker in A1) -- rename it, "
-                                  "or set another limits_sheet for this workspace" % (sheet, document))
-            for cell in cells:
-                match = _CELL.fullmatch(cell)
-                if match:
-                    used = max(used, int(match.group(2)))
-            for cell, data in cells.items():
-                match = _CELL.fullmatch(cell)
-                if not match or match.group(1) != "B" or not data.get("alias"):
-                    continue
-                row = int(match.group(2))
-                if (cells.get("C%d" % row) or {}).get("content") != OWNER:
-                    continue
-                try:
-                    old = decode_quantity(data.get("value"))
-                except Unsupported:
-                    old = None
-                rows[data["alias"]] = (row, old)
-
-        changes, cell_updates, alias_updates = [], {}, {}
-        next_row = max(used, 1) + 1
-        for alias, new in sorted(values.items()):
-            text = freecad_text(new)
-            if alias in rows:
-                row, old = rows[alias]
-                if old is not None and _same(old, new):
-                    continue
-            else:
-                row, old = next_row, None
-                next_row += 1
-                cell_updates["A%d" % row] = alias
-                cell_updates["C%d" % row] = OWNER
-                alias_updates["B%d" % row] = alias
-            cell_updates["B%d" % row] = "=" + text
-            changes.append(LimitChange(alias=alias, old=old, new=new))
-
+        changes = await write_limits(self._cad, document, sheet, values, apply=apply)
         if apply and changes:
-            try:
-                async with self._cad.transaction(document, "BDS: SysML limits") as tx:
-                    target = sheet_name
-                    if target is None:
-                        target = tx.create(SHEET_TYPE, name=sheet, label=sheet)
-                        cell_updates["A1"] = MARKER
-                    tx.set_cells(target, cells=cell_updates, aliases=alias_updates or None)
-            except CadError as exc:
-                raise Unsupported("FreeCAD refused the limits: %s (%s)" % (exc.message or exc.code, exc.code)) from None
-            self._documents.pop(document, None)     # what this run read of it is stale
+            self._documents.pop(document, None)
         return changes
 
 
@@ -614,18 +514,50 @@ def _mass_of(document, obj):
 
 
 def _has_mass(document, obj):
+    return _mass_or_none(document, obj) is not None
+
+
+def _mass_or_none(document, obj):
     try:
-        _mass_of(document, obj)
+        return _mass_of(document, obj)
     except Unsupported:
-        return False
-    return True
+        return None
 
 
-def _same(old, new):
-    if old.dimensionality != new.dimensionality:
-        return False
-    a, b = float(old.to(new.units).magnitude), float(new.magnitude)
-    return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-12)
+def _size_of(obj):
+    """Bounding-box extents X, Y, Z in mm -- what a person checks a length against."""
+    if obj.error or not obj.has_shape:
+        return None
+    box = obj.geometry.get("tightBoundBox") or obj.geometry.get("boundBox")
+    return tuple(round(v, 6) for v in box["lengths"]) if box else None
+
+
+def _cylinder_features(geometry, kind=None, direction=None):
+    """Cylindrical faces grouped into features (a bore split by a seam is one)."""
+    features = []
+    for face in geometry.get("cylinders") or []:
+        along = _unit(face["axis"])
+        if kind is not None and face["kind"] != kind:
+            continue
+        if direction is not None and abs(abs(_dot(along, direction)) - 1) > 1e-9:
+            continue
+        feature = {"radius": face["radius"], "origin": face["center"], "along": along, "kind": face["kind"]}
+        if not any(_same_cylinder(feature, known) for known in features):
+            features.append(feature)
+    return features
+
+
+def _cylinder_summary(obj):
+    """One entry per cylindrical feature: kind, radius, and the axis letter when it is
+    parallel to one. For display; measuring stays with _cylinder_radius_of."""
+    if obj.error or not obj.has_shape or obj.geometry.get("cylindersTruncated"):
+        return ()
+    out = []
+    for feature in _cylinder_features(obj.geometry):
+        axis = next((letter for letter, d in _AXES.items()
+                     if abs(abs(_dot(feature["along"], d)) - 1) <= 1e-9), None)
+        out.append({"kind": feature["kind"], "radius": round(feature["radius"], 6), "axis": axis})
+    return tuple(out)
 
 
 def _cylinder_radius_of(geometry, kind=None, axis=None):
@@ -645,16 +577,7 @@ def _cylinder_radius_of(geometry, kind=None, axis=None):
     if "cylinders" not in geometry:
         raise Unsupported("cylinder_radius: this FreeCAD bridge reports no cylinders (contract < 0.7.0)")
 
-    features = []
-    for face in geometry.get("cylinders") or []:
-        along = _unit(face["axis"])
-        if kind is not None and face["kind"] != kind:
-            continue
-        if direction is not None and abs(abs(_dot(along, direction)) - 1) > 1e-9:
-            continue
-        feature = {"radius": face["radius"], "origin": face["center"], "along": along, "kind": face["kind"]}
-        if not any(_same_cylinder(feature, known) for known in features):
-            features.append(feature)
+    features = _cylinder_features(geometry, kind, direction)
 
     narrowed = ", ".join("%s=%s" % (k, v) for k, v in (("kind", kind), ("axis", axis)) if v)
     if not features:

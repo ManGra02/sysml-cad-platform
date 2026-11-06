@@ -1,7 +1,7 @@
 """The CAD side, behind one seam: what an adapter offers and what it may answer.
 
 Everything above this module speaks adapters and pint quantities -- never the bridge
-directly. Today there is one adapter (bridge_adapter.BridgeAdapter, FreeCAD through
+directly. Today there is one adapter (freecad_snapshot.FreeCADSnapshot, FreeCAD through
 the platform's bridge); the seam is what lets another CAD source join later without
 touching gates, verification or proposers.
 
@@ -28,7 +28,7 @@ from __future__ import annotations
 import inspect
 from dataclasses import dataclass, field
 
-from app.projects.bds.units import Q
+from app.projects.bds.units import Q, as_json
 
 METHODS = ("bbox_size", "volume", "mass", "face_count", "cylinder_radius", "parameter")
 
@@ -87,6 +87,13 @@ class CadTarget:
     note: str = ""
     depth: int = 0
     container: str = ""                        # reference of the enclosing assembly
+    #: What a person checks a proposal against -- shown, never used to decide.
+    size: tuple | None = None                  # bounding-box extents X, Y, Z in mm
+    mass: Q | None = None
+    material: str = ""
+    cylinders: tuple = ()                      # ({kind, radius, axis}, ...), one per feature
+    sheet_parameters: tuple = ()               # names in ``parameters`` that are spreadsheet values
+    error: str = ""                            # why it cannot be measured right now
 
     @property
     def addressable(self):
@@ -96,7 +103,11 @@ class CadTarget:
         return {"adapter": self.adapter, "reference": self.reference, "kind": self.kind,
                 "name": self.name, "methods": list(self.methods), "note": self.note,
                 "depth": self.depth, "container": self.container or None,
-                "parameters": {k: format(v, "~P") for k, v in sorted(self.parameters.items())}}
+                "parameters": {k: format(v, "~P") for k, v in sorted(self.parameters.items())},
+                "sheet_parameters": sorted(self.sheet_parameters),
+                "size": list(self.size) if self.size else None,
+                "mass": as_json(self.mass), "material": self.material or None,
+                "cylinders": [dict(c) for c in self.cylinders], "error": self.error or None}
 
 
 @dataclass(frozen=True)

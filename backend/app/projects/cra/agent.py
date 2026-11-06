@@ -21,6 +21,7 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 from pydantic import BaseModel, Field
 
+from app.ai.agents import structured_result
 from app.ai.tools import cad_tools, calc_tools, progress_tool, sysml_tools
 from app.projects.cra.session import CraSession
 from app.projects.cra.tools import cra_tools
@@ -65,8 +66,6 @@ tool results in the conversation only:
 - If nothing fits, does it say so clearly instead of forcing a match?
 Approve if all hold. Otherwise list concrete issues the agent can fix with its tools."""
 
-RESPOND = "Now give the final result in the requested structure, based only on the conversation above."
-
 
 class Review(BaseModel):
     approved: bool
@@ -93,6 +92,7 @@ class CraState(MessagesState):
     reviews: int
     review_notes: list
     structured_response: Any
+    structured_error: str | None
 
 
 def build_graph(model, tools, prompt=PROMPT):
@@ -104,10 +104,9 @@ def build_graph(model, tools, prompt=PROMPT):
         return {"messages": [await llm.ainvoke(system + state["messages"])]}
 
     async def review(state):
-        verdict = await model.with_structured_output(Review).ainvoke(
-            [SystemMessage(REVIEW)] + _transcript(state["messages"]))
-        if isinstance(verdict, dict):
-            verdict = Review(**verdict)
+        verdict, error = await structured_result(model, Review, [SystemMessage(REVIEW)] + _transcript(state["messages"]))
+        if verdict is None:     # the reviewer gave no usable verdict: do not block the answer, but say so
+            verdict = Review(approved=True, issues=["review not available: %s" % error])
         n = state.get("reviews", 0) + 1
         notes = list(state.get("review_notes") or []) + [verdict.model_dump()]
         if verdict.approved or n > MAX_REVIEWS:
@@ -122,9 +121,8 @@ def build_graph(model, tools, prompt=PROMPT):
         return "respond" if last["approved"] or state.get("reviews", 0) > MAX_REVIEWS else "agent"
 
     async def respond(state):
-        structured = model.with_structured_output(CraResult)
-        result = await structured.ainvoke(system + state["messages"] + [HumanMessage(RESPOND)])
-        return {"structured_response": result}
+        result, error = await structured_result(model, CraResult, system + _transcript(state["messages"]))
+        return {"structured_response": result, "structured_error": error}
 
     graph = StateGraph(CraState)
     graph.add_node("agent", agent)

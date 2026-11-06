@@ -55,6 +55,15 @@ export type CadTarget = {
   depth: number
   container: string | null
   parameters: Record<string, string>
+  /** names in `parameters` that are spreadsheet values (design intent), not feature dimensions */
+  sheet_parameters: string[]
+  /** bounding-box extents X, Y, Z in mm */
+  size: [number, number, number] | null
+  mass: Quantity | null
+  material: string | null
+  cylinders: Array<{ kind: "hole" | "boss"; radius: number; axis: "X" | "Y" | "Z" | null }>
+  /** why it cannot be measured right now (not recomputed, invalid) */
+  error: string | null
 }
 export type Requirement = {
   requirement: string
@@ -142,6 +151,18 @@ export type Proposal = {
   reason: string
   /** only with ?check=true, for pending proposals */
   check?: GateCheck
+  /** only with ?check=true: what a run would say, per requirement constraining the attribute */
+  previews?: ProposalPreview[]
+}
+/** What a run would say if a measurement were assigned (verify.preview). */
+export type ProposalPreview = {
+  requirement: string
+  status: VerdictStatus
+  measured: Quantity
+  limit: Quantity
+  operator: string
+  deviation: Quantity
+  tolerance: Quantity | null
 }
 export type GateRejection = {
   sysml_part: string
@@ -294,6 +315,48 @@ export function runVerify(ws: string, version: Version) {
 
 export function applySync(ws: string, version: Version) {
   return api<SyncResult>(base(ws) + "/sync", { method: "POST", body: { ...version, apply: true } })
+}
+
+export type EntryFields = {
+  sysml_part: string
+  attribute: string
+  cad_object: string
+  method: string
+  args?: Record<string, unknown> | null
+  requirement?: string
+  tolerance?: string | number | null
+}
+export type EntryCheck = { check: GateCheck; preview: ProposalPreview | null; written: string[] }
+
+/**
+ * Assign a measurement by hand; `dry_run` only answers what the checks would say.
+ * `replaces`: the requirement of the entry (same part and attribute) this one takes the
+ * place of -- checked as if it were gone, swapped in one step.
+ */
+export function createEntry(ws: string, fields: EntryFields & { dry_run?: boolean; replaces?: string } & Version,
+  signal?: AbortSignal) {
+  return api<EntryCheck>(base(ws) + "/mapping/entries", { method: "POST", body: fields, signal })
+}
+
+const entryPath = (ws: string, part: string, attribute: string) =>
+  base(ws) + "/mapping/entries/" + seg(part) + "/" + seg(attribute)
+
+/** Relink the requirement ("" unlinks) or change the tolerance (null removes it). */
+export function updateEntry(ws: string, entry: Pick<AttributeMapping, "sysml_part" | "attribute" | "requirement">,
+  changes: { requirement?: string; tolerance?: string | number | null }) {
+  return api<{ entry: AttributeMapping }>(entryPath(ws, entry.sysml_part, entry.attribute), {
+    method: "PATCH",
+    body: changes,
+    query: { requirement: entry.requirement || undefined },
+  })
+}
+
+/** Release one entry -> what it was, so it can be put back. */
+export function deleteEntry(ws: string, entry: Pick<AttributeMapping, "sysml_part" | "attribute" | "requirement">) {
+  return api<{ removed: AttributeMapping; part: PartMapping | null }>(entryPath(ws, entry.sysml_part, entry.attribute), {
+    method: "DELETE",
+    query: { requirement: entry.requirement || undefined },
+  })
 }
 
 /** Everything a decision about the mapping changes. */

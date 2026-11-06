@@ -20,12 +20,8 @@ from app.ai import AiConfig, AiService
 from app.projects.bds import confirm as confirm_mod
 from app.projects.bds import limits, verify
 from app.projects.bds.adapters import AdapterPool, Unsupported
-from app.projects.bds.bridge_adapter import (
-    MARKER,
-    BridgeAdapter,
-    decode_quantity,
-    freecad_text,
-)
+from app.projects.bds.freecad_limits import MARKER, freecad_text
+from app.projects.bds.freecad_snapshot import FreeCADSnapshot, decode_quantity
 from app.projects.bds.catalog import build_catalog
 from app.projects.bds.extract import by_key, extract
 from app.projects.bds.gates import check_mapping, check_proposal
@@ -108,7 +104,7 @@ def workspace_dir(tmp_path, monkeypatch):
 
 async def gearbox_session(cad=None, mapping_text=GEARBOX_MAPPING):
     cad = cad or FakeCad(gearbox())
-    adapter = await BridgeAdapter.load(cad, ["Gearbox"])
+    adapter = await FreeCADSnapshot.load(cad, ["Gearbox"])
     model = elements("gearbox")
     requirements, skipped = extract(model)
     return {
@@ -182,7 +178,7 @@ def test_falsche_dimension_ist_kein_urteil():
 # -- CAD through the bridge ----------------------------------------------------
 
 async def test_katalog_der_cad_seite():
-    adapter = await BridgeAdapter.load(FakeCad(gearbox()), ["Gearbox"])
+    adapter = await FreeCADSnapshot.load(FakeCad(gearbox()), ["Gearbox"])
     targets = {t.reference: t for t in adapter.catalog()}
     # One root (the App::Part) -> addressed by the document name; features and
     # sketches are consumed by their bodies and not listed.
@@ -199,7 +195,7 @@ async def test_katalog_der_cad_seite():
 
 
 async def test_messungen():
-    adapter = await BridgeAdapter.load(FakeCad(gearbox()), ["Gearbox"])
+    adapter = await FreeCADSnapshot.load(FakeCad(gearbox()), ["Gearbox"])
     assert adapter.measure("Gearbox#Body", "bbox_size", {"axis": "X"}) == 90 * ureg.mm   # tight box
     assert adapter.measure("Gearbox#Housing", "bbox_size", {"axis": "z"}) == 40 * ureg.mm  # by label
     assert adapter.measure("Gearbox#Body", "face_count") == 11 * ureg.dimensionless
@@ -213,7 +209,7 @@ async def test_messungen():
 
 
 async def test_mehrdeutiges_und_unmessbares_wird_zur_luecke():
-    adapter = await BridgeAdapter.load(FakeCad(gearbox(), cube()), ["Gearbox", "Cube", "Closed"])
+    adapter = await FreeCADSnapshot.load(FakeCad(gearbox(), cube()), ["Gearbox", "Cube", "Closed"])
     with pytest.raises(Unsupported, match="2 cylindrical features"):
         adapter.measure("Gearbox#Body", "cylinder_radius")          # the bore and a fillet
     with pytest.raises(Unsupported, match="no material"):
@@ -234,7 +230,7 @@ async def test_body_ohne_form_faellt_aus_der_baugruppe():
     doc.add("Body002", "PartDesign::Body", "Empty", properties=[prop("Shape", None, status="derived")],
             geometry={"null": True, "shapeType": None})
     doc.objects["Part"]["children"].append("Body002")
-    adapter = await BridgeAdapter.load(FakeCad(doc), ["Gearbox"])
+    adapter = await FreeCADSnapshot.load(FakeCad(doc), ["Gearbox"])
     assert "Gearbox#Body002" not in {t.reference for t in adapter.catalog()}
     assert adapter.measure("Gearbox", "mass").magnitude > 0
 
@@ -242,7 +238,7 @@ async def test_body_ohne_form_faellt_aus_der_baugruppe():
 async def test_veraltete_form_wird_nicht_gemessen():
     doc = gearbox()
     doc.objects["Body"]["state"] = ["Touched"]
-    adapter = await BridgeAdapter.load(FakeCad(doc), ["Gearbox"])
+    adapter = await FreeCADSnapshot.load(FakeCad(doc), ["Gearbox"])
     with pytest.raises(Unsupported, match="recompute"):
         adapter.measure("Gearbox#Body", "volume")
 
@@ -506,7 +502,7 @@ def test_workspaces(workspace_dir):
 
 
 async def test_material_mit_dichte_macht_masse_messbar():
-    adapter = await BridgeAdapter.load(FakeCad(cube(material=ALUMINIUM)), ["Cube"])
+    adapter = await FreeCADSnapshot.load(FakeCad(cube(material=ALUMINIUM)), ["Cube"])
     assert "mass" in adapter.catalog()[0].methods
     assert math.isclose(adapter.measure("Cube", "mass").to("kg").magnitude, 100 * 200 * 300 * 2.7e-6)
 
@@ -616,3 +612,164 @@ async def test_fehler_im_plattform_format(platform):
     assert status == 404 and body["error"]["code"] == "bds_no_run"
     status, body = await platform.get(BASE + "/gearbox/score")
     assert status == 404 and body["error"]["code"] == "bds_no_gold"
+
+
+# -- Requirement -> attribute, manual assignment, editing the mapping ---------
+
+def test_anforderung_kennt_ihr_attribut():
+    """housing.length <= maxLength -> length; the limit's own attribute is not it."""
+    found = {m: {(r.requirement_id, r.prop) for r in extract(elements(m))[0]}
+             for m in ("gearbox", "motor_housing", "cube")}
+    assert found["gearbox"] == {("MaxAssemblyMass", "mass"), ("MinBoreRadius", "boreRadius"),
+                                ("MaxHousingLength", "length"), ("MaxCoverThickness", "thickness")}
+    assert found["motor_housing"] == {("MaxLength", "length"), ("MaxMass", "mass")}
+    assert found["cube"] == {("MaxLength", "length"), ("MaxWidth", "width"), ("MaxHeight", "height")}
+
+
+async def test_katalog_zeigt_abmessungen_masse_und_bohrungen():
+    adapter = await FreeCADSnapshot.load(FakeCad(gearbox()), ["Gearbox"])
+    targets = {t.reference: t.to_dict() for t in adapter.catalog()}
+    housing = targets["Gearbox#Body"]
+    assert housing["size"] == [90.0, 60.0, 40.0]
+    assert housing["sheet_parameters"] == ["Params.CoverCount", "Params.HousingLength"]
+    assert sorted(c["kind"] for c in housing["cylinders"]) == ["boss", "hole"]      # bore + fillet
+    assert housing["error"] is None
+
+
+async def _manual_workspace(mapping_text="version: 2\n\nparts:\n\nattributes:\n"):
+    workspace = save_workspace("gearbox", "Gearbox", "Gearbox")
+    workspace.mapping_path.write_text("# keep me\n" + mapping_text, encoding="utf-8")
+    s = await gearbox_session(mapping_text=mapping_text)
+    return workspace, s
+
+
+async def test_messung_von_hand_zuordnen(workspace_dir):
+    from app.projects.bds import mapping_edit
+
+    workspace, s = await _manual_workspace()
+    entry = {"sysml_part": "housing", "attribute": "length", "cad_object": "Gearbox#Body",
+             "method": "bbox_size", "args": {"axis": "X"}, "requirement": "MaxHousingLength",
+             "tolerance": "0.5 mm"}
+    dry = mapping_edit.create(workspace, s["catalog"], s["by_key"], s["pool"], entry, dry_run=True)
+    assert dry["written"] == [] and dry["check"]["verdict"] == "valid"
+    assert dry["preview"]["status"] == "compliant" and dry["preview"]["measured"]["value"] == 90.0
+    assert workspace.mapping_path.read_text(encoding="utf-8").count("sysml_part") == 0
+
+    mapping_edit.create(workspace, s["catalog"], s["by_key"], s["pool"], entry)
+    mapping = load_mapping(workspace.mapping_path)
+    [written] = mapping.attributes
+    assert (written.requirement, written.tolerance, written.author) == ("MaxHousingLength", "0.5 mm", "manual")
+    assert mapping.parts["housing"].cad_object == "Gearbox#Body"
+    assert workspace.mapping_path.read_text(encoding="utf-8").startswith("# keep me\n")
+
+    # A different object for an already mapped part is refused, nothing written.
+    before = workspace.mapping_path.read_text(encoding="utf-8")
+    other = {**entry, "attribute": "width", "cad_object": "Gearbox#Body001", "args": {"axis": "Y"},
+             "requirement": "", "tolerance": None}
+    with pytest.raises(BdsError) as exc:
+        mapping_edit.create(workspace, s["catalog"], s["by_key"], s["pool"], other)
+    assert exc.value.code == "bds_gate_failed"
+    assert workspace.mapping_path.read_text(encoding="utf-8") == before
+    # A tolerance in the wrong unit is invalid.
+    bad = mapping_edit.create(workspace, s["catalog"], s["by_key"], s["pool"],
+                              {**entry, "tolerance": "1 kg"}, dry_run=True)
+    assert bad["check"]["verdict"] == "invalid"
+
+
+async def test_eintrag_verknuepfen_toleranz_und_loesen(workspace_dir):
+    from app.projects.bds import mapping_edit
+
+    text = GEARBOX_MAPPING.replace("    requirement: MaxHousingLength\n", "")
+    workspace, s = await _manual_workspace(text)
+    with pytest.raises(BdsError) as exc:
+        mapping_edit.update(workspace, s["by_key"], "housing", "length", "", {"requirement": "Nope"})
+    assert exc.value.code == "bds_unknown_requirement"
+
+    mapping_edit.update(workspace, s["by_key"], "housing", "length", "", {"requirement": "MaxHousingLength"})
+    mapping_edit.update(workspace, s["by_key"], "housing", "length", "MaxHousingLength", {"tolerance": "1 mm"})
+    mapping = load_mapping(workspace.mapping_path)
+    entry = next(e for e in mapping.attributes if e.attribute == "length")
+    assert (entry.requirement, entry.tolerance, entry.args) == ("MaxHousingLength", "1 mm", {"axis": "X"})
+    assert len(mapping.attributes) == 4
+    assert workspace.mapping_path.read_text(encoding="utf-8").startswith("# keep me")
+
+    # Releasing the last entry of a part removes the part entry too; the answer is
+    # enough to put both back.
+    released = mapping_edit.delete(workspace, "cover", "thickness", "MaxCoverThickness")
+    assert released["removed"]["method"] == "bbox_size" and released["part"]["sysml_part"] == "cover"
+    mapping = load_mapping(workspace.mapping_path)
+    assert "cover" not in mapping.parts and len(mapping.attributes) == 3
+    # ... while a part still in use keeps its entry.
+    mapping_edit.delete(workspace, "housing", "length", "MaxHousingLength")
+    assert "housing" in load_mapping(workspace.mapping_path).parts
+
+    with pytest.raises(BdsError) as exc:
+        mapping_edit.delete(workspace, "housing", "length", "MaxHousingLength")
+    assert exc.value.code == "bds_entry_not_found"
+
+
+async def test_misslungenes_schreiben_stellt_das_original_wieder_her(workspace_dir, monkeypatch):
+    from app.projects.bds import mapping_edit
+
+    workspace, s = await _manual_workspace(GEARBOX_MAPPING)
+    before = workspace.mapping_path.read_text(encoding="utf-8")
+    monkeypatch.setattr(mapping_edit, "render_entry", lambda fields, indent="  ": indent + "- [broken\n")
+    with pytest.raises(BdsError) as exc:
+        mapping_edit.update(workspace, s["by_key"], "housing", "length", "MaxHousingLength", {"tolerance": "1 mm"})
+    assert exc.value.code == "bds_mapping_write_failed"
+    assert workspace.mapping_path.read_text(encoding="utf-8") == before
+
+
+async def test_verwaiste_zuordnung_ist_eine_luecke():
+    s = await gearbox_session(mapping_text=GEARBOX_MAPPING.replace("MaxAssemblyMass", "RenamedMass"))
+    run = verify.run(s["requirements"], s["skipped"], s["mapping"], s["pool"])
+    assert any(g.startswith("RenamedMass: no longer in the model") for g in run.gaps)
+
+
+async def test_vorschau_urteil():
+    s = await gearbox_session()
+    req = s["by_key"][("MaxHousingLength", "housing")]
+    assert verify.preview(req, 100 * ureg.mm)["status"] == "violated"
+    assert verify.preview(req, 95.3 * ureg.mm, "0.5 mm")["status"] == "within_tolerance"
+    assert verify.preview(req, 1 * ureg.kg) is None
+
+
+async def test_zuordnung_ueber_http(platform):
+    await platform.put(BASE + "/gearbox", {"sysml_project": "Gearbox", "cad_document": "Gearbox"})
+    entry = {"sysml_part": "cover", "attribute": "thickness", "cad_object": "Gearbox#Body001",
+             "method": "bbox_size", "args": {"axis": "Z"}, "requirement": "MaxCoverThickness"}
+    status, dry = await platform.post(BASE + "/gearbox/mapping/entries", json={**entry, "dry_run": True})
+    assert status == 200 and dry["preview"]["status"] == "compliant"
+    status, created = await platform.post(BASE + "/gearbox/mapping/entries", json=entry)
+    assert status == 200 and created["written"]
+
+    url = platform.url + BASE + "/gearbox/mapping/entries/cover/thickness?requirement=MaxCoverThickness"
+    async with platform.http.patch(url, json={"tolerance": "0.2 mm"}) as response:
+        assert response.status == 200
+        assert (await response.json())["entry"]["tolerance"] == "0.2 mm"
+    async with platform.http.delete(url) as response:
+        assert response.status == 200
+    status, mapping = await platform.get(BASE + "/gearbox/mapping")
+    assert mapping["attributes"] == [] and mapping["parts"] == []
+
+    # Proposals listed with check=true carry the requirement the model names for them.
+    await platform.post(BASE + "/gearbox/proposals", json={"proposer": "difflib"})
+    status, listed = await platform.get(BASE + "/gearbox/proposals?status=proposed&check=true")
+    length = next(p for p in listed["proposals"] if (p["sysml_part"], p["attribute"]) == ("housing", "length"))
+    assert [v["requirement"] for v in length["previews"]] == ["MaxHousingLength"]
+
+
+async def test_messung_ersetzen_in_einem_schritt(workspace_dir):
+    from app.projects.bds import mapping_edit
+
+    workspace, s = await _manual_workspace(GEARBOX_MAPPING)
+    entry = {"sysml_part": "housing", "attribute": "length", "cad_object": "Gearbox#Body",
+             "method": "parameter", "args": {"name": "Params.HousingLength"}, "requirement": "MaxHousingLength"}
+    # Against the current mapping this is "measured two ways"; as a replacement it is fine.
+    plain = mapping_edit.create(workspace, s["catalog"], s["by_key"], s["pool"], entry, dry_run=True)
+    assert plain["check"]["verdict"] == "invalid"
+    swapped = mapping_edit.create(workspace, s["catalog"], s["by_key"], s["pool"], entry, replaces="MaxHousingLength")
+    assert swapped["written"]
+    mapping = load_mapping(workspace.mapping_path)
+    length = [e for e in mapping.attributes if (e.sysml_part, e.attribute) == ("housing", "length")]
+    assert [e.method for e in length] == ["parameter"]

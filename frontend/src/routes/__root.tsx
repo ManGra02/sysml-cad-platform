@@ -4,6 +4,7 @@ import { Languages, Monitor, Moon, Sun } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import logo from "@/assets/logo.svg"
+import { SystemStatus } from "@/components/SystemStatus"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,8 +15,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { AiStatus } from "@/features/ai/components/AiStatus"
-import { ConnectionStatus } from "@/features/cad/components/ConnectionStatus"
 import { describeError } from "@/features/cad/format"
 import { ProjectIcon } from "@/features/projects/ProjectIcon"
 import { PROJECT_ROUTES, projectsQuery } from "@/features/projects/queries"
@@ -57,12 +56,13 @@ function RootLayout() {
   const { t } = useTranslation()
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-4 border-b px-4">
-        <Link to="/" className="flex items-center gap-2 font-semibold">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-2 sm:gap-4 sm:px-4">
+        <Link to="/" className="flex shrink-0 items-center gap-2 font-semibold" aria-label={t("app.name")}>
           <img src={logo} alt="" className="size-5" />
-          {t("app.name")}
+          <span className="hidden lg:inline">{t("app.name")}</span>
         </Link>
-        <nav className="flex items-center gap-1 text-sm">
+        {/* Narrow windows scroll the nav, never the page. */}
+        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <ActiveProjectLink />
           <Link
             to="/cad"
@@ -79,9 +79,8 @@ function RootLayout() {
             {t("nav.sysmlModel")}
           </Link>
         </nav>
-        <div className="ml-auto flex items-center gap-1">
-          <AiStatus />
-          <ConnectionStatus />
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          <SystemStatus />
           <LanguageSwitcher />
           <ThemeToggle />
         </div>
@@ -115,8 +114,13 @@ function ActiveProjectLink() {
       activeProps={{ className: "bg-accent text-foreground" }}
       title={t("nav.activeProject", { title: active.title })}
     >
-      <ProjectIcon name={active.icon} className="size-3.5" />
-      {active.id.toUpperCase()}
+      <ProjectIcon name={active.icon} className="size-3.5 shrink-0" />
+      {/* The full name where there is room, the short one where there is not. */}
+      <span className="hidden max-w-[16rem] truncate lg:inline">{active.title}</span>
+      <span className="lg:hidden" aria-hidden="true">
+        {active.id.toUpperCase()}
+      </span>
+      <span className="sr-only lg:hidden">{active.title}</span>
     </Link>
   )
 }

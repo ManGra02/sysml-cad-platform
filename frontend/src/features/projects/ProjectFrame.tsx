@@ -1,21 +1,21 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { describeError } from "@/features/cad/format"
-import { useDocumentTitle } from "@/lib/useDocumentTitle"
+import { TitleScope, useDocumentTitle } from "@/lib/useDocumentTitle"
 import { PROJECT_ROUTES, activateProject, projectsQuery } from "./queries"
 
 /**
  * Frame of every project page.
  *
- * The page does NOT activate its project on its own -- not even when opened
- * directly or via the back button. If it is not active (never selected or
- * switched in another tab), this module receives no FreeCAD events; this is
- * made visible here, with a button to activate it.
+ * When NO project is active, opening a project page activates it -- there is nothing to
+ * take over from. When ANOTHER project is active (switched in another tab), the page never
+ * takes over on its own: it says calmly that FreeCAD changes reach it only on demand, and
+ * offers to switch.
  */
 export function ProjectFrame({ id, children }: { id: string; children: ReactNode }) {
   const { t } = useTranslation()
@@ -26,7 +26,16 @@ export function ProjectFrame({ id, children }: { id: string; children: ReactNode
   const self = data?.projects.find((project) => project.id === id)
   const inactive = data !== undefined && data.active !== id
   const activeRoute = active ? PROJECT_ROUTES[active.id] : undefined
-  useDocumentTitle(self?.title ?? id.toUpperCase())
+  useDocumentTitle(self?.title ?? id)
+
+  const autoActivated = useRef(false)
+  useEffect(() => {
+    if (!data || data.active || !self || autoActivated.current) return
+    autoActivated.current = true
+    activateProject(queryClient, id).catch(() => {
+      autoActivated.current = false
+    })
+  }, [data, self, id, queryClient])
 
   const activate = async () => {
     setPending(true)
@@ -42,31 +51,24 @@ export function ProjectFrame({ id, children }: { id: string; children: ReactNode
 
   return (
     <div className="h-full overflow-y-auto">
-      {inactive && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center gap-3 border-b border-warning/40 bg-warning/10 px-6 py-2 text-sm"
-        >
-          <span>
-            {active ? (
-              <Trans i18nKey="projects.currentlyActive" values={{ title: active.title }} components={{ strong: <strong /> }} />
-            ) : (
-              <Trans i18nKey="projects.notActive" values={{ title: self?.title ?? id }} components={{ strong: <strong /> }} />
-            )}
+      {inactive && active && (
+        <div role="status" className="flex flex-wrap items-center gap-3 border-b bg-muted/40 px-6 py-2 text-sm text-muted-foreground">
+          <span className="flex-1">
+            <Trans i18nKey="projects.otherActive" values={{ title: active.title }} components={{ strong: <strong className="text-foreground" /> }} />
           </span>
-          <span className="ml-auto flex gap-2">
+          <span className="flex gap-2">
             {activeRoute && (
-              <Button asChild variant="outline" size="sm">
-                <Link to={activeRoute}>{t("projects.goTo", { id: active?.id.toUpperCase() })}</Link>
+              <Button asChild variant="ghost" size="sm">
+                <Link to={activeRoute}>{t("projects.goTo", { title: active.title })}</Link>
               </Button>
             )}
-            <Button size="sm" disabled={pending} onClick={() => void activate()}>
-              {t("projects.activate", { id: (self?.id ?? id).toUpperCase() })}
+            <Button variant="outline" size="sm" disabled={pending} onClick={() => void activate()}>
+              {t("projects.switchHere")}
             </Button>
           </span>
         </div>
       )}
-      {children}
+      <TitleScope>{children}</TitleScope>
     </div>
   )
 }

@@ -13,20 +13,19 @@ Rules that hold everywhere: the AI only proposes, it never evaluates; only confi
 mapping entries take part in a run; SysML owns limits, CAD owns actual values; a gap
 is never a pass.
 
-Routes under /api/projects/bds (no UI yet). The example agent (agent.py) stays at
-POST /api/projects/bds/agent.
+Routes under /api/projects/bds.
 """
 
 import functools
+from dataclasses import replace
 
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app.ai.routes import AgentRequest
 from app.projects.bds import confirm as confirm_mod
-from app.projects.bds import limits, verify
+from app.projects.bds import limits, mapping_edit, verify
 from app.projects.bds.adapters import AdapterPool
-from app.projects.bds.bridge_adapter import BridgeAdapter
+from app.projects.bds.freecad_snapshot import FreeCADSnapshot
 from app.projects.bds.catalog import build_catalog
 from app.projects.bds.extract import by_key, extract
 from app.projects.bds.gates import check_mapping, check_proposal, unused_parts
@@ -68,6 +67,27 @@ class ConfirmRequest(ModelVersion):
     requirement: str | None = None
 
 
+class EntryRequest(ModelVersion):
+    """A measurement chosen by hand."""
+    sysml_part: str
+    attribute: str
+    cad_object: str
+    method: str
+    args: dict | None = None
+    requirement: str = ""
+    tolerance: str | float | None = None
+    dry_run: bool = False
+    #: The requirement of the entry (same part and attribute) this one replaces.
+    replaces: str | None = None
+
+
+class EntryChange(BaseModel):
+    """Only the fields sent are changed: ``requirement`` ("" unlinks), ``tolerance``
+    (null removes it)."""
+    requirement: str | None = None
+    tolerance: str | float | None = None
+
+
 class RejectRequest(BaseModel):
     reason: str = ""
 
@@ -105,9 +125,9 @@ class Session:
         self.by_key = by_key(self.requirements)
         self.mapping = load_mapping(self.workspace.mapping_path)
         documents = [self.workspace.cad_document] + [
-            p.cad_object.split("#", 1)[0] for p in self.mapping.parts.values() if p.adapter == BridgeAdapter.name]
-        self.adapter = await BridgeAdapter.load(ctx.cad, documents, self.workspace.limits_sheet)
-        self.pool = AdapterPool({BridgeAdapter.name: self.adapter})
+            p.cad_object.split("#", 1)[0] for p in self.mapping.parts.values() if p.adapter == FreeCADSnapshot.name]
+        self.adapter = await FreeCADSnapshot.load(ctx.cad, documents, self.workspace.limits_sheet)
+        self.pool = AdapterPool({FreeCADSnapshot.name: self.adapter})
         self.catalog = build_catalog(self.elements, self.adapter, self.workspace.axes,
                                      source="flexo:%s@%s" % (pid, cid))
         return self
@@ -131,15 +151,6 @@ class BdsModule(StubModule):
 
     def register_routes(self, router):
         super().register_routes(router)
-
-        @router.post("/agent")
-        async def agent(body: AgentRequest):
-            """Ask the example agent (agent.py) -> {model, answer, steps}."""
-            # Imported on first use: LangChain/LangGraph take seconds to import.
-            from app.ai.agents import run
-            from app.projects.bds.agent import build_agent
-
-            return await run(build_agent(self.ctx), body.message, model=self.ctx.ai.model)
 
         # -- Workspaces ---------------------------------------------------
 
@@ -201,9 +212,19 @@ class BdsModule(StubModule):
             if check and any(p.pending for p in stored):
                 session = await Session.open(self.ctx, name, branch, commit)
                 for entry, proposal in zip(out, stored):
-                    if proposal.pending:
-                        entry["check"] = check_proposal(proposal, session.mapping, session.catalog,
-                                                        session.by_key, session.pool).to_dict()
+                    if not proposal.pending:
+                        continue
+                    # The requirements this attribute is constrained by: a proposer does not
+                    # know them, the model does (extract.constrained_attribute).
+                    about = [r for (rid, part), r in sorted(session.by_key.items())
+                             if part == proposal.sysml_part and r.prop == proposal.attribute]
+                    gated = proposal
+                    if not proposal.requirement and len(about) == 1:
+                        gated = replace(proposal, requirement=about[0].requirement_id)
+                    result = check_proposal(gated, session.mapping, session.catalog,
+                                            session.by_key, session.pool)
+                    entry["check"] = result.to_dict()
+                    entry["previews"] = [p for p in (verify.preview(r, result.measured) for r in about) if p]
             return {"proposals": out}
 
         @router.post("/workspaces/{name}/proposals")
@@ -234,6 +255,35 @@ class BdsModule(StubModule):
             session = await Session.open(self.ctx, name, body.branch, body.commit)
             return confirm_mod.confirm(session.workspace, proposal_id, session.catalog, session.by_key,
                                        session.pool, requirement=body.requirement)
+
+        # -- Changing the mapping by hand ------------------------------------
+
+        @router.post("/workspaces/{name}/mapping/entries")
+        @_bds_errors
+        async def create_entry(name: str, body: EntryRequest):
+            """Assign a measurement by hand. Gated like a proposal; ``dry_run`` only
+            answers what the checks and the verdict would be."""
+            session = await Session.open(self.ctx, name, body.branch, body.commit)
+            return mapping_edit.create(session.workspace, session.catalog, session.by_key, session.pool,
+                                       body.model_dump(), dry_run=body.dry_run, replaces=body.replaces)
+
+        @router.patch("/workspaces/{name}/mapping/entries/{part}/{attribute}")
+        @_bds_errors
+        async def update_entry(name: str, part: str, attribute: str, body: EntryChange,
+                               requirement: str = "", branch: str | None = None, commit: str | None = None):
+            """Relink the requirement or change the tolerance of the entry
+            (part, attribute, ``requirement`` = its current requirement)."""
+            session = await Session.open(self.ctx, name, branch, commit)
+            changes = body.model_dump(include=body.model_fields_set)
+            if changes.get("requirement") is None:
+                changes.pop("requirement", None)
+            return mapping_edit.update(session.workspace, session.by_key, part, attribute, requirement, changes)
+
+        @router.delete("/workspaces/{name}/mapping/entries/{part}/{attribute}")
+        @_bds_errors
+        async def delete_entry(name: str, part: str, attribute: str, requirement: str = ""):
+            """Release one entry (and its part entry when nothing else uses it)."""
+            return mapping_edit.delete(load_workspace(name), part, attribute, requirement)
 
         @router.post("/workspaces/{name}/proposals/{proposal_id}/reject")
         @_bds_errors

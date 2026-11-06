@@ -141,7 +141,9 @@ async def test_agent_ruft_tools_mit_eigenem_modell(bridge, ollama):
 
     result = CraResult(mission="other", outcome="answer", understanding="one document is open").model_dump()
     ollama.replies = [tool_call("cad_documents"), answer("Ein Dokument: Doc"),
-                      answer(json.dumps({"approved": True, "issues": []})), answer(json.dumps(result))]
+                      tool_call("Review", approved=True, issues=[]),
+                      {"role": "assistant", "content": "",      # CraResult has a field "name"
+                       "tool_calls": [{"function": {"name": "CraResult", "arguments": result}}]}]
     async with running_backend(ai_service=AiService(config_for(ollama))) as backend:
         await wait_for(lambda: backend.state.bridge.state == "ok")
         code, body = await backend.post("/api/projects/cra/agent", json={"message": "Welche Dokumente?"})
@@ -151,23 +153,25 @@ async def test_agent_ruft_tools_mit_eigenem_modell(bridge, ollama):
     assert body["result"] == result                        # CRA's structured CraResult
     assert [c["model"] for c in ollama.chats] == ["gpt-oss:20b"] * 4
     assert ollama.chats[0]["messages"][0]["role"] == "system"
-    assert {t["function"]["name"] for t in ollama.chats[0]["tools"]} >= {
-        "sysml_parts", "sysml_find", "sysml_diff", "cad_tree", "calculate", "report_progress",
-        "understand_part", "search_parts", "verify_part"}
-    assert "sysml_neighbours" not in {t["function"]["name"] for t in ollama.chats[0]["tools"]}
-    assert "format" in ollama.chats[2] and "format" in ollama.chats[3]   # review and result are structured
+    tools = {t["function"]["name"] for t in ollama.chats[0]["tools"]}
+    assert tools >= {"sysml_parts", "sysml_find", "sysml_diff", "cad_tree", "calculate", "report_progress",
+                     "understand_part", "search_parts", "verify_part"}
+    assert "sysml_neighbours" not in tools
+    # review and result offer their schema as a tool (Ollama Cloud ignores "format")
+    assert [t["function"]["name"] for t in ollama.chats[2]["tools"]] == ["Review"]
+    assert [t["function"]["name"] for t in ollama.chats[3]["tools"]] == ["CraResult"]
 
 
 async def test_agent_ohne_key(handshake):
     async with running_backend(ai_service=AiService(AiConfig(default_model="m"))) as backend:
-        code, body = await backend.post("/api/projects/bds/agent", json={"message": "hi"})
+        code, body = await backend.post("/api/projects/cra/agent", json={"message": "hi"})
     assert code == 503 and body["error"]["code"] == "ai_not_configured"
 
 
 async def test_agent_unbekanntes_modell(handshake, ollama):
-    service = AiService(config_for(ollama, default_model="gone:1b"))
+    service = AiService(config_for(ollama, models={"cra": "gone:1b"}))
     async with running_backend(ai_service=service) as backend:
-        code, body = await backend.post("/api/projects/bds/agent", json={"message": "hi"})
+        code, body = await backend.post("/api/projects/cra/agent", json={"message": "hi"})
     assert code == 502 and body["error"]["code"] == "ai_model_not_found"
 
 
@@ -296,16 +300,35 @@ async def test_sysml_history_und_diff(ebike):
     assert diff["elements_added"] == [] and diff["elements_removed"] == []
 
 
-async def test_strukturiertes_ergebnis(ollama):
-    class Verdict(BaseModel):
-        ok: bool
-        count: int
+class Verdict(BaseModel):
+    ok: bool
+    count: int
 
-    ollama.replies = [answer("Alles gut."), answer('{"ok": true, "count": 3}')]
+
+async def structured_run(ollama, *replies):
+    ollama.replies = [answer("Alles gut."), *replies]
     agent = AiService(config_for(ollama)).for_project("bds").agent([], response_format=Verdict)
-    result = await run(agent, "Prüfe")
+    return await run(agent, "Prüfe")
+
+
+async def test_strukturiertes_ergebnis_per_tool_call(ollama):
+    result = await structured_run(ollama, tool_call("Verdict", ok=True, count=3))
     assert result["answer"] == "Alles gut." and result["result"] == {"ok": True, "count": 3}
-    assert ollama.chats[1]["format"]["properties"].keys() >= {"ok", "count"}
+    assert "resultError" not in result and len(ollama.chats) == 2
+
+
+async def test_strukturiertes_ergebnis_prosa_dann_json(ollama):
+    """What deepseek/gpt-oss on Ollama Cloud do: ignore the tool, answer in prose -> second try."""
+    result = await structured_run(ollama, answer("**Zusammenfassung**: 3 Teile, alles ok"),
+                                  answer('Hier:\n```json\n{"ok": true, "count": 3}\n```'))
+    assert result["result"] == {"ok": True, "count": 3} and len(ollama.chats) == 3
+    assert '"count"' in ollama.chats[2]["messages"][-1]["content"]   # the schema is in the prompt
+
+
+async def test_strukturiertes_ergebnis_scheitert_ohne_abbruch(ollama):
+    result = await structured_run(ollama, answer("Prosa"), answer("immer noch Prosa"))
+    assert result["answer"] == "Alles gut."                           # the run itself stays usable
+    assert result["result"] is None and "Verdict" in result["resultError"]
 
 
 async def test_ohne_response_format_kein_result(ollama):
